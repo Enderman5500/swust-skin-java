@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#182a3d" />
+    <title>西南科技大学 Minecraft 星空社 · 皮肤站</title>
+    <meta
+      name="description"
+      content="西南科技大学 Minecraft 星空社皮肤站：上传与管理你的 Minecraft 皮肤和披风，通过 authlib-injector 在离线服务器中展示专属外观。"
+    />
+    <link rel="icon" type="image/png" href="/assets/brand/badge.png" />
+    <link rel="apple-touch-icon" href="/assets/brand/badge.png" />
+    <link rel="stylesheet" href="/assets/css/app.css" />
+  </head>
+  <body>
+    <div id="boot" class="boot-screen">
+      <img src="/assets/brand/badge.png" alt="" class="boot-badge" />
+      <p>星空社皮肤站正在点亮星图…</p>
+    </div>
+    <div id="app" hidden>
+      <header id="site-header" class="site-header"></header>
+      <div id="announcement-root"></div>
+      <main id="main" class="site-main" tabindex="-1"></main>
+      <footer id="site-footer" class="site-footer"></footer>
+    </div>
+    <div id="toast-root" class="toast-root" aria-live="polite" aria-atomic="true"></div>
+    <div id="modal-root"></div>
+    <noscript>
+      <div class="noscript">星图需要 JavaScript 才能展开。请在浏览器中启用 JavaScript 后再访问。</div>
+    </noscript>
+    <script src="/assets/vendor/skinview3d.bundle.js"></script>
+    <script type="module" src="/assets/js/app.js"></script>
+  </body>
+</html>

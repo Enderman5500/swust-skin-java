@@ -1,0 +1,14 @@
+{
+  "id": "random-skin",
+  "name": "随机皮肤",
+  "version": "1.0.0",
+  "description": "从公开皮肤库随机抽取一组作品，给选择困难症一点星空的灵感。",
+  "author": "星空社技术组",
+  "client": "client.mjs",
+  "enabledByDefault": true,
+  "nav": {
+    "title": "随机皮肤",
+    "icon": "sparkles",
+    "order": 30
+  }
+}

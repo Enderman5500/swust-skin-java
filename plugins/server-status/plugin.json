@@ -1,0 +1,37 @@
+{
+  "id": "server-status",
+  "name": "服务器状态",
+  "version": "1.0.0",
+  "description": "展示社团 Minecraft 服务器的在线状态、连接延迟与地址，管理员可以直接在页面内维护服务器列表。",
+  "author": "星空社技术组",
+  "mainClass": "cn.edu.swust.mc.skin.plugins.serverstatus.ServerStatusPlugin",
+  "client": "client.mjs",
+  "enabledByDefault": true,
+  "nav": {
+    "title": "服务器",
+    "icon": "server",
+    "order": 20
+  },
+  "config": {
+    "servers": [
+      {
+        "name": "星空社生存服",
+        "host": "play.example.com",
+        "port": 25565
+      },
+      {
+        "name": "星空社创造服",
+        "host": "build.example.com",
+        "port": 25565
+      }
+    ]
+  },
+  "adminNav": [
+    {
+      "title": "服务器管理",
+      "category": "社团服务",
+      "icon": "server",
+      "order": 10
+    }
+  ]
+}

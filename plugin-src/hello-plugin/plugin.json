@@ -1,0 +1,8 @@
+{
+  "id": "hello-plugin",
+  "name": "Java 示例插件",
+  "version": "1.0.0",
+  "description": "演示以 JAR 形式安装的 Java 服务端插件。",
+  "author": "星空社技术组",
+  "mainClass": "example.hello.HelloPlugin"
+}

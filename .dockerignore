@@ -1,0 +1,7 @@
+target
+.git
+.idea
+*.iml
+plugin-src/**/build
+data/swustmc.db-shm
+data/swustmc.db-wal

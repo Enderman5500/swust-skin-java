@@ -1,0 +1,7 @@
+target/
+.idea/
+*.iml
+.env
+data/
+plugin-src/**/build/
+plugin-src/**/*.jar
