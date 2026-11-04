@@ -4629,6 +4629,14 @@ pre {
   color: rgba(255, 255, 255, 0.26);
 }
 
+.footer-copy a {
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.footer-copy a:hover {
+  color: var(--gold);
+}
+
 /* Misc */
 .noscript {
   padding: 20px;

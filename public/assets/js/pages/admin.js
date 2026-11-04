@@ -920,6 +920,15 @@ async function renderSettings(main, ctx) {
         <label class="field"><span>页脚文案</span><input name="footer_text" maxlength="120" value="${ui.escapeHtml(
           settings.footer_text
         )}" /></label>
+        <div class="form-grid two">
+          <label class="field"><span>ICP 备案号</span><input name="icp_number" maxlength="40" value="${ui.escapeHtml(
+            settings.icp_number || ''
+          )}" placeholder="例如 苏ICP备2026085654号" /></label>
+          <label class="field"><span>公安备案号</span><input name="police_number" maxlength="60" value="${ui.escapeHtml(
+            settings.police_number || ''
+          )}" placeholder="例如 川公网安备xxxxxxxx号" /></label>
+        </div>
+        <p class="field-hint">显示在页脚，留空则不显示；ICP 备案号会链接到工信部备案查询。</p>
         <div class="panel-head sub"><div><p class="eyebrow">HERO IMAGE</p><h3>首页主图</h3></div></div>
         <div class="banner-manager">
           <div class="banner-list">
@@ -1068,6 +1077,8 @@ async function renderSettings(main, ctx) {
         tagline: form.elements.tagline.value.trim(),
         announcement: form.elements.announcement.value.trim(),
         footer_text: form.elements.footer_text.value.trim(),
+        icp_number: form.elements.icp_number.value.trim(),
+        police_number: form.elements.police_number.value.trim(),
         registration_open: form.elements.registration_open.checked,
         yggdrasil_enabled: form.elements.yggdrasil_enabled.checked,
       });

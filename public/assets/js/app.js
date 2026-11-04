@@ -22,6 +22,8 @@ const state = {
     tagline: '在方块宇宙里，留下你的名字',
     announcement: '',
     footer_text: '西南科技大学 Minecraft 星空社 · 由社团技术组维护',
+    icp_number: '',
+    police_number: '',
     registrationOpen: true,
     yggdrasilEnabled: true,
   },
@@ -206,6 +208,20 @@ function renderAnnouncement() {
 function renderFooter() {
   const year = new Date().getFullYear();
   const yggdrasil = state.home?.yggdrasilUrl || `${location.origin}/api/yggdrasil`;
+  const beian = [
+    state.settings.icp_number
+      ? `<a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">${ui.escapeHtml(
+          state.settings.icp_number
+        )}</a>`
+      : '',
+    state.settings.police_number
+      ? `<a href="https://beian.mps.gov.cn/" target="_blank" rel="noopener noreferrer">${ui.escapeHtml(
+          state.settings.police_number
+        )}</a>`
+      : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
   footerEl.innerHTML = `
     <div class="footer-inner">
       <div class="footer-brand">
@@ -226,7 +242,7 @@ function renderFooter() {
         <code>${ui.escapeHtml(yggdrasil)}</code>
         <button class="btn btn-ghost btn-sm" data-action="copy-ygg">复制</button>
       </div>
-      <p class="footer-copy">© ${year} SWUST Minecraft 星空社 · 在方块宇宙里相遇</p>
+      <p class="footer-copy">© ${year} SWUST Minecraft 星空社 · 在方块宇宙里相遇${beian ? ` · ${beian}` : ''}</p>
     </div>
   `;
   footerEl.querySelector('[data-action="copy-ygg"]')?.addEventListener('click', () => {
