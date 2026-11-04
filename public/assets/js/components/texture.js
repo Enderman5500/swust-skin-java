@@ -114,7 +114,7 @@ export async function openTextureDetail(ctx, textureId, { onChanged } = {}) {
       </dl>
       <div class="detail-actions">
         <button class="btn btn-primary" data-action="equip">${icon('user')}装备到角色</button>
-        <button class="btn btn-ghost" data-action="closet">${icon('heart')}${
+        <button class="btn btn-ghost" data-action="closet">${icon(texture.inCloset ? 'heartFilled' : 'heart')}${
           texture.inCloset ? '已在衣柜' : '收藏到衣柜'
         }</button>
         <a class="btn btn-ghost" href="${texture.downloadUrl}" download data-action="download">${icon(
@@ -185,7 +185,7 @@ export async function openTextureDetail(ctx, textureId, { onChanged } = {}) {
       } else {
         await api.post(`/closet/${texture.id}`);
         texture.inCloset = true;
-        button.innerHTML = `${icon('heart')}已在衣柜`;
+        button.innerHTML = `${icon('heartFilled')}已在衣柜`;
         ui.toast('已收藏到衣柜', 'success');
       }
     } catch (error) {
