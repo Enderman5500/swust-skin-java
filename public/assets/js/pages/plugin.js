@@ -69,6 +69,7 @@ export async function render(root, ctx) {
       user: ctx.user,
       settings: ctx.settings,
       plugin,
+      query: ctx.query,
       navigate: ctx.navigate,
       toast: ui.toast,
       confirm: ui.confirmDialog,
