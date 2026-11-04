@@ -56,9 +56,13 @@ export function toast(message, type = 'info', timeout = 3600) {
   element.append(badge, text);
   root.append(element);
   requestAnimationFrame(() => element.classList.add('is-visible'));
+  let dismissed = false;
   const dismiss = () => {
+    if (dismissed) return;
+    dismissed = true;
+    element.classList.add('is-leaving');
     element.classList.remove('is-visible');
-    setTimeout(() => element.remove(), 220);
+    setTimeout(() => element.remove(), 260);
   };
   element.addEventListener('click', dismiss);
   setTimeout(dismiss, timeout);
@@ -91,9 +95,10 @@ export function openModal({ title, content, actions = [], size = 'md', onClose }
   const close = () => {
     if (closed) return;
     closed = true;
+    overlay.classList.add('is-closing');
     overlay.classList.remove('is-open');
     document.removeEventListener('keydown', onKeyDown);
-    setTimeout(() => overlay.remove(), 180);
+    setTimeout(() => overlay.remove(), 320);
     const index = modalStack.indexOf(controller);
     if (index !== -1) modalStack.splice(index, 1);
     if (modalStack.length === 0) {

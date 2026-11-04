@@ -3962,12 +3962,18 @@ pre {
   background: rgba(8, 17, 27, 0.6);
   backdrop-filter: blur(6px);
   opacity: 0;
-  transition: opacity 0.18s;
+  transition: opacity 0.24s ease, backdrop-filter 0.24s ease;
   overflow-y: auto;
 }
 
 .modal-overlay.is-open {
   opacity: 1;
+}
+
+.modal-overlay.is-closing {
+  pointer-events: none;
+  opacity: 0;
+  backdrop-filter: blur(0);
 }
 
 .modal {
@@ -3978,13 +3984,18 @@ pre {
   border-radius: var(--radius-lg);
   background: #fff;
   box-shadow: 0 40px 100px rgba(4, 12, 21, 0.4);
-  transform: translateY(12px) scale(0.985);
-  transition: transform 0.22s var(--ease);
+  transform: translateY(24px) scale(0.96);
+  transform-origin: 50% 55%;
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
   overflow: hidden;
 }
 
 .modal-overlay.is-open .modal {
   transform: none;
+}
+
+.modal-overlay.is-closing .modal {
+  transform: translateY(16px) scale(0.97);
 }
 
 .modal-sm { width: min(440px, 100%); }
@@ -4299,16 +4310,29 @@ pre {
   font-size: 12.5px;
   line-height: 1.55;
   opacity: 0;
-  transform: translateY(8px);
-  transition: opacity 0.2s, transform 0.2s;
+  transform: translate3d(14px, 18px, 0) scale(0.94);
+  filter: blur(2px);
+  transition:
+    opacity 0.24s ease,
+    transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
+    filter 0.24s ease;
   pointer-events: auto;
   cursor: pointer;
   backdrop-filter: blur(10px);
+  will-change: opacity, transform;
 }
 
 .toast.is-visible {
   opacity: 1;
   transform: none;
+  filter: none;
+}
+
+.toast.is-leaving {
+  opacity: 0;
+  transform: translate3d(10px, 12px, 0) scale(0.96);
+  filter: blur(1px);
+  transition-duration: 0.2s;
 }
 
 .toast-icon {
