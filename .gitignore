@@ -9,3 +9,5 @@ game-integrations/**/build/
 game-integrations/**/.gradle/
 game-integrations/**/run/
 game-integrations/**/target/
+plugins/mc-wiki/assets/
+plugins/mc-wiki/cn/
