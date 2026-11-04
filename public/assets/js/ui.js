@@ -2,6 +2,8 @@ import { icon } from './icons.js';
 
 const modalStack = [];
 let previousBodyOverflow = null;
+const MAX_TOASTS = 5;
+const activeToasts = [];
 
 export function escapeHtml(value) {
   return String(value ?? '')
@@ -42,6 +44,28 @@ export function debounce(fn, wait = 250) {
   };
 }
 
+function captureToastPositions() {
+  const positions = new Map();
+  for (const record of activeToasts) {
+    if (!record.element.isConnected || record.element.classList.contains('is-leaving')) continue;
+    positions.set(record.element, record.element.getBoundingClientRect().top);
+  }
+  return positions;
+}
+
+function animateToastShift(positions) {
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+  for (const [element, oldTop] of positions) {
+    if (!element.isConnected || element.classList.contains('is-leaving')) continue;
+    const delta = oldTop - element.getBoundingClientRect().top;
+    if (Math.abs(delta) < 1) continue;
+    element.animate(
+      [{ transform: `translateY(${delta}px)` }, { transform: 'translateY(0)' }],
+      { duration: 260, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' }
+    );
+  }
+}
+
 export function toast(message, type = 'info', timeout = 3600) {
   const root = document.getElementById('toast-root');
   if (!root) return;
@@ -54,16 +78,33 @@ export function toast(message, type = 'info', timeout = 3600) {
   text.className = 'toast-text';
   text.textContent = String(message);
   element.append(badge, text);
+
+  while (activeToasts.length >= MAX_TOASTS) {
+    activeToasts.shift()?.dismiss();
+  }
+
+  const previousPositions = captureToastPositions();
+  const record = { element, dismiss: null };
+  activeToasts.push(record);
   root.append(element);
+  animateToastShift(previousPositions);
+
   requestAnimationFrame(() => element.classList.add('is-visible'));
   let dismissed = false;
   const dismiss = () => {
     if (dismissed) return;
     dismissed = true;
+    const index = activeToasts.indexOf(record);
+    if (index !== -1) activeToasts.splice(index, 1);
     element.classList.add('is-leaving');
     element.classList.remove('is-visible');
-    setTimeout(() => element.remove(), 260);
+    setTimeout(() => {
+      const positions = captureToastPositions();
+      element.remove();
+      animateToastShift(positions);
+    }, 260);
   };
+  record.dismiss = dismiss;
   element.addEventListener('click', dismiss);
   setTimeout(dismiss, timeout);
 }
