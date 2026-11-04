@@ -7,6 +7,14 @@ import {
 import { icon } from '../icons.js';
 import * as ui from '../ui.js';
 
+function displayName(texture) {
+  const raw = String(texture.closetName || texture.name || '').trim();
+  if (!raw || /^[0-9a-f]{24,}$/i.test(raw)) {
+    return `未命名${texture.type === 'cape' ? '披风' : '皮肤'} #${texture.id}`;
+  }
+  return raw;
+}
+
 export async function render(root, ctx) {
   const state = {
     type: ['skin', 'cape'].includes(ctx.query.type) ? ctx.query.type : 'all',
@@ -27,6 +35,7 @@ export async function render(root, ctx) {
         <a class="btn btn-primary" href="#/library">${icon('library')}去皮肤库逛逛</a>
       </div>
     </section>
+    <div class="closet-content">
     <div class="toolbar closet-toolbar">
       <div class="filter-chips" data-type-filter>
         <button class="chip ${state.type === 'all' ? 'is-active' : ''}" data-type="all">全部</button>
@@ -41,6 +50,7 @@ export async function render(root, ctx) {
     <div class="list-meta"><span data-count>正在打开衣柜…</span></div>
     <section class="skin-grid closet-grid" data-grid>${ui.loadingBlock('正在打开衣柜…')}</section>
     <nav class="pagination" data-pager></nav>
+    </div>
   `;
 
   const grid = root.querySelector('[data-grid]');
@@ -73,11 +83,15 @@ export async function render(root, ctx) {
         </button>
         <div class="skin-card-body">
           <div class="skin-card-title">
-            <h3>${ui.escapeHtml(texture.closetName || texture.name)}</h3>
+            <h3 title="${ui.escapeHtml(texture.closetName || texture.name)}">${ui.escapeHtml(displayName(texture))}</h3>
             <span class="type-tag">${ui.typeLabel(texture.type)}</span>
           </div>
           <p>
-            ${texture.closetName ? `原名：${ui.escapeHtml(texture.name)}` : ui.escapeHtml(texture.uploader?.username || '')}
+            ${
+              texture.closetName && !/^[0-9a-f]{24,}$/i.test(String(texture.name || '').trim())
+                ? `原名：${ui.escapeHtml(texture.name)}`
+                : ui.escapeHtml(texture.uploader?.username || '')
+            }
             <span class="dot-sep">·</span>
             ${ui.formatDate(texture.collectedAt || texture.createdAt)}
           </p>
@@ -229,7 +243,7 @@ export async function render(root, ctx) {
       } else if (actionButton.dataset.action === 'remove') {
         const confirmed = await ui.confirmDialog({
           title: '移出衣柜',
-          message: `确定把「${texture.closetName || texture.name}」移出衣柜吗？材质本身不会被删除。`,
+          message: `确定把「${displayName(texture)}」移出衣柜吗？材质本身不会被删除。`,
           confirmText: '移出衣柜',
           danger: true,
         });
