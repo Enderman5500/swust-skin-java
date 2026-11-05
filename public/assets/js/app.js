@@ -130,6 +130,15 @@ function isActive(itemPath, currentPath) {
   return currentPath === itemPath || currentPath.startsWith(`${itemPath}/`);
 }
 
+function updateHeaderActive() {
+  const current = parseHash();
+  headerEl.querySelectorAll('.main-nav .nav-link').forEach((link) => {
+    const href = link.getAttribute('href') || '';
+    const path = href.startsWith('#') ? href.slice(1) : href;
+    link.classList.toggle('is-active', isActive(path, current.path));
+  });
+}
+
 function displayName(user) {
   return user?.nickname || user?.username || '社员';
 }
@@ -383,27 +392,34 @@ async function handleRoute() {
   const reducedMotion = prefersReducedMotion();
   const sequence = ++routeSequence;
   const progress = beginRouteProgress();
-  mainEl.classList.remove('page-enter');
-  routeAnimation?.cancel();
-  routeAnimation = null;
-  if (typeof mainEl.animate === 'function') {
-    const leavingAnimation = mainEl.animate(
-      reducedMotion
-        ? [{ opacity: 1 }, { opacity: 0 }]
-        : [
-            { opacity: 1, transform: 'none' },
-            { opacity: 0, transform: 'translateY(-6px)' },
-          ],
-      {
-        duration: reducedMotion ? 90 : 120,
-        easing: 'ease',
-        fill: 'forwards',
-      }
-    );
-    routeAnimation = leavingAnimation;
-    await leavingAnimation.finished.catch(() => {});
-    leavingAnimation.cancel();
-    if (routeAnimation === leavingAnimation) routeAnimation = null;
+  const reuseAdminShell =
+    routeRequiresAdmin(path) &&
+    routeRequiresAdmin(lastPath || '') &&
+    Boolean(mainEl.querySelector('.yd-admin'));
+
+  if (!reuseAdminShell) {
+    mainEl.classList.remove('page-enter');
+    routeAnimation?.cancel();
+    routeAnimation = null;
+    if (typeof mainEl.animate === 'function') {
+      const leavingAnimation = mainEl.animate(
+        reducedMotion
+          ? [{ opacity: 1 }, { opacity: 0 }]
+          : [
+              { opacity: 1, transform: 'none' },
+              { opacity: 0, transform: 'translateY(-6px)' },
+            ],
+        {
+          duration: reducedMotion ? 90 : 120,
+          easing: 'ease',
+          fill: 'forwards',
+        }
+      );
+      routeAnimation = leavingAnimation;
+      await leavingAnimation.finished.catch(() => {});
+      leavingAnimation.cancel();
+      if (routeAnimation === leavingAnimation) routeAnimation = null;
+    }
   }
   if (sequence !== routeSequence) {
     endRouteProgress(progress);
@@ -412,8 +428,10 @@ async function handleRoute() {
   currentCleanup?.();
   currentCleanup = null;
   if (mainEl.contains(document.activeElement)) document.activeElement.blur();
-  mainEl.innerHTML = '';
-  mainEl.classList.remove('page-enter');
+  if (!reuseAdminShell) {
+    mainEl.innerHTML = '';
+    mainEl.classList.remove('page-enter');
+  }
 
   let render = null;
   if (path === '/') render = renderHome;
@@ -426,7 +444,7 @@ async function handleRoute() {
   else if (path === '/admin' || path.startsWith('/admin/')) render = renderAdmin;
   else if (path.startsWith('/plugin/')) render = renderPlugin;
 
-  renderHeader();
+  updateHeaderActive();
   document.title = `${state.settings.site_name} · 皮肤站`;
   document.body.classList.toggle('is-home', path === '/');
   document.body.classList.toggle('is-admin', routeRequiresAdmin(path));
@@ -472,9 +490,11 @@ async function handleRoute() {
     window.scrollTo({ top: 0, behavior: 'instant' });
     lastPath = path;
   }
-  mainEl.classList.add('page-enter');
-  if (reducedMotion && typeof mainEl.animate === 'function') {
-    mainEl.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 140, easing: 'ease' });
+  if (!reuseAdminShell) {
+    mainEl.classList.add('page-enter');
+    if (reducedMotion && typeof mainEl.animate === 'function') {
+      mainEl.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 140, easing: 'ease' });
+    }
   }
   mainEl.focus({ preventScroll: true });
 }

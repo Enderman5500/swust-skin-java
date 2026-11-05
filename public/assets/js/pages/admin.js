@@ -140,6 +140,34 @@ export async function render(root, ctx) {
   const activeGroup = navGroups.find((group) => group.items.some((item) => item.key === active));
   if (activeGroup) collapsedGroups.delete(activeGroup.category);
 
+  const existingShell = root.querySelector('.yd-admin');
+  if (existingShell) {
+    const main = existingShell.querySelector('[data-admin-main]');
+    const activeHref = `#/admin${active ? `/${active}` : ''}`;
+    existingShell.querySelectorAll('.yd-admin-menu a').forEach((link) => {
+      link.classList.toggle('is-active', link.getAttribute('href') === activeHref);
+    });
+    const breadcrumb = existingShell.querySelector('.yd-admin-breadcrumb strong');
+    if (breadcrumb) breadcrumb.textContent = activeLabel;
+    if (activeGroup) {
+      existingShell.querySelectorAll('[data-group-toggle]').forEach((button) => {
+        if (button.dataset.groupToggle !== activeGroup.category) return;
+        const group = button.closest('.yd-admin-menu-group');
+        if (!group) return;
+        group.classList.remove('is-collapsed');
+        const items = group.querySelector('.yd-admin-menu-items');
+        if (items) items.style.height = '';
+        button.setAttribute('aria-expanded', 'true');
+      });
+    }
+    if (main) {
+      main.classList.remove('admin-section-enter');
+      await renderAdminSection(main, ctx, active, activeSection, allowed);
+      main.classList.add('admin-section-enter');
+    }
+    return;
+  }
+
   root.innerHTML = `
     <section class="yd-admin">
       <aside class="yd-admin-sidebar">
@@ -260,6 +288,10 @@ export async function render(root, ctx) {
   });
 
   const main = root.querySelector('[data-admin-main]');
+  await renderAdminSection(main, ctx, active, activeSection, allowed);
+}
+
+async function renderAdminSection(main, ctx, active, activeSection, allowed) {
   if (!allowed) {
     main.innerHTML = `
       <section class="page-error">
