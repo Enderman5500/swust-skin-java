@@ -164,6 +164,12 @@ export async function render(root, ctx) {
       main.classList.remove('admin-section-enter');
       await renderAdminSection(main, ctx, active, activeSection, allowed);
       main.classList.add('admin-section-enter');
+      if (
+        window.matchMedia?.('(prefers-reduced-motion: reduce)').matches &&
+        typeof main.animate === 'function'
+      ) {
+        main.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 280, easing: 'ease' });
+      }
     }
     return;
   }
