@@ -43,6 +43,7 @@ const progressEl = document.getElementById('route-progress');
 let progressToken = 0;
 let progressTimer = null;
 let routeSequence = 0;
+let routeAnimation = null;
 
 function beginRouteProgress() {
   const token = ++progressToken;
@@ -379,12 +380,30 @@ async function handleRoute() {
     return;
   }
 
+  const reducedMotion = prefersReducedMotion();
   const sequence = ++routeSequence;
   const progress = beginRouteProgress();
   mainEl.classList.remove('page-enter');
-  if (!prefersReducedMotion()) {
-    mainEl.classList.add('page-leaving');
-    await new Promise((resolve) => setTimeout(resolve, 120));
+  routeAnimation?.cancel();
+  routeAnimation = null;
+  if (typeof mainEl.animate === 'function') {
+    const leavingAnimation = mainEl.animate(
+      reducedMotion
+        ? [{ opacity: 1 }, { opacity: 0 }]
+        : [
+            { opacity: 1, transform: 'none' },
+            { opacity: 0, transform: 'translateY(-6px)' },
+          ],
+      {
+        duration: reducedMotion ? 90 : 120,
+        easing: 'ease',
+        fill: 'forwards',
+      }
+    );
+    routeAnimation = leavingAnimation;
+    await leavingAnimation.finished.catch(() => {});
+    leavingAnimation.cancel();
+    if (routeAnimation === leavingAnimation) routeAnimation = null;
   }
   if (sequence !== routeSequence) {
     endRouteProgress(progress);
@@ -393,7 +412,6 @@ async function handleRoute() {
   currentCleanup?.();
   currentCleanup = null;
   if (mainEl.contains(document.activeElement)) document.activeElement.blur();
-  mainEl.classList.remove('page-leaving');
   mainEl.innerHTML = '';
   mainEl.classList.remove('page-enter');
 
@@ -455,6 +473,9 @@ async function handleRoute() {
     lastPath = path;
   }
   mainEl.classList.add('page-enter');
+  if (reducedMotion && typeof mainEl.animate === 'function') {
+    mainEl.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 140, easing: 'ease' });
+  }
   mainEl.focus({ preventScroll: true });
 }
 

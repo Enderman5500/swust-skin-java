@@ -554,12 +554,6 @@ pre {
   animation: page-in 0.38s var(--ease) both;
 }
 
-.page-leaving {
-  opacity: 0;
-  transform: translateY(-6px);
-  transition: opacity 0.12s ease, transform 0.12s ease;
-}
-
 @keyframes page-in {
   from {
     opacity: 0;
