@@ -236,14 +236,19 @@ public final class Yggdrasil {
 
     private Map<String, Object> textureProperty(Map<String, Object> player) {
         Map<String, Object> textures = new LinkedHashMap<>();
-        if (player.get("skin_hash") != null) {
-            Map<String, Object> skin = new LinkedHashMap<>();
-            skin.put("url", config.baseUrl + "/textures/" + player.get("skin_hash") + ".png");
-            if ("slim".equals(Authz.str(player.get("skin_texture_model")))) {
-                skin.put("metadata", Map.of("model", "slim"));
-            }
-            textures.put("SKIN", skin);
+        String skinHash = Authz.str(player.get("skin_hash"));
+        String playerModel = Authz.str(player.get("model"));
+        String skinModel = skinHash.isEmpty()
+                ? playerModel
+                : Authz.str(player.get("skin_texture_model"));
+        Map<String, Object> skin = new LinkedHashMap<>();
+        skin.put("url", skinHash.isEmpty()
+                ? config.baseUrl + "/assets/default/" + Players.defaultSkinFile(playerModel)
+                : config.baseUrl + "/textures/" + skinHash + ".png");
+        if (Players.slimModel(skinModel)) {
+            skin.put("metadata", Map.of("model", "slim"));
         }
+        textures.put("SKIN", skin);
         if (player.get("cape_hash") != null) {
             Map<String, Object> cape = new LinkedHashMap<>();
             cape.put("url", config.baseUrl + "/textures/" + player.get("cape_hash") + ".png");
