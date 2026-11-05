@@ -39,6 +39,49 @@ let currentCleanup = null;
 let headerOutsideHandler = null;
 let lastPath = null;
 
+const progressEl = document.getElementById('route-progress');
+let progressToken = 0;
+let progressTimer = null;
+let routeSequence = 0;
+
+function beginRouteProgress() {
+  const token = ++progressToken;
+  if (!progressEl) return token;
+  clearTimeout(progressTimer);
+  const bar = progressEl.firstElementChild;
+  progressEl.hidden = false;
+  progressEl.classList.add('is-active');
+  progressEl.classList.remove('is-done');
+  if (bar) {
+    bar.style.transition = 'none';
+    bar.style.width = '0%';
+    void bar.offsetWidth;
+    bar.style.transition = '';
+    requestAnimationFrame(() => {
+      if (token === progressToken) bar.style.width = '72%';
+    });
+  }
+  return token;
+}
+
+function endRouteProgress(token) {
+  if (token !== progressToken || !progressEl) return;
+  const bar = progressEl.firstElementChild;
+  progressEl.classList.add('is-done');
+  if (bar) bar.style.width = '100%';
+  clearTimeout(progressTimer);
+  progressTimer = setTimeout(() => {
+    if (token !== progressToken) return;
+    progressEl.classList.remove('is-active', 'is-done');
+    progressEl.hidden = true;
+    if (bar) bar.style.width = '0%';
+  }, 240);
+}
+
+function prefersReducedMotion() {
+  return Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+}
+
 const NAV_ITEMS = [
   { path: '/', label: '首页', icon: 'home' },
   { path: '/library', label: '皮肤库', icon: 'library' },
@@ -108,13 +151,13 @@ function renderHeader() {
     ? `
       <details class="user-menu">
         <summary class="user-summary" aria-label="账号菜单">
-          ${ui.avatarHtml(displayName(state.user), { size: 'sm' })}
+          ${ui.avatarHtml(displayName(state.user), { size: 'sm', avatar: state.user.avatar })}
           <span class="user-name">${ui.escapeHtml(displayName(state.user))}</span>
           ${icon('chevron', 'icon user-chevron')}
         </summary>
         <div class="user-panel">
           <div class="user-panel-head">
-            ${ui.avatarHtml(displayName(state.user), { size: 'md' })}
+            ${ui.avatarHtml(displayName(state.user), { size: 'md', avatar: state.user.avatar })}
             <div>
               <strong>${ui.escapeHtml(displayName(state.user))}</strong>
               <span>${ui.escapeHtml(state.user.email || state.user.username)}</span>
@@ -336,9 +379,21 @@ async function handleRoute() {
     return;
   }
 
+  const sequence = ++routeSequence;
+  const progress = beginRouteProgress();
+  mainEl.classList.remove('page-enter');
+  if (!prefersReducedMotion()) {
+    mainEl.classList.add('page-leaving');
+    await new Promise((resolve) => setTimeout(resolve, 120));
+  }
+  if (sequence !== routeSequence) {
+    endRouteProgress(progress);
+    return;
+  }
   currentCleanup?.();
   currentCleanup = null;
   if (mainEl.contains(document.activeElement)) document.activeElement.blur();
+  mainEl.classList.remove('page-leaving');
   mainEl.innerHTML = '';
   mainEl.classList.remove('page-enter');
 
@@ -367,6 +422,8 @@ async function handleRoute() {
         <a class="btn btn-primary" href="#/">回到首页</a>
       </section>
     `;
+    mainEl.classList.add('page-enter');
+    endRouteProgress(progress);
     return;
   }
 
@@ -389,6 +446,8 @@ async function handleRoute() {
       </section>
     `;
     mainEl.querySelector('[data-action="retry"]')?.addEventListener('click', handleRoute);
+  } finally {
+    endRouteProgress(progress);
   }
 
   if (lastPath !== path) {

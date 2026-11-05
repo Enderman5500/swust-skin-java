@@ -174,15 +174,44 @@ public final class AuthRoutes {
         router.patch("/api/account", ctx -> {
             AuthUser user = Auth.requireUser(ctx);
             Map<String, Object> body = ctx.json();
-            String email = Authz.str(body.get("email")).trim().toLowerCase();
-            if (!Security.validEmail(email)) {
-                throw new Web.HttpError(400, "invalid_email", "请输入有效的邮箱地址");
+            boolean hasEmail = body.containsKey("email");
+            boolean hasNickname = body.containsKey("nickname");
+            if (!hasEmail && !hasNickname) {
+                throw Web.badRequest("没有需要更新的资料");
             }
-            Map<String, Object> duplicate = app.db.one(
-                    "SELECT id FROM users WHERE email = ? COLLATE NOCASE AND id <> ?", email, user.id);
-            if (duplicate != null) throw Web.conflict("该邮箱已被其他账号使用");
-            app.db.update("UPDATE users SET email = ?, update_time = ?, version = version + 1 WHERE id = ?",
-                    email, Security.isoNow(), user.id);
+
+            String email = user.email;
+            if (hasEmail) {
+                email = Authz.str(body.get("email")).trim().toLowerCase();
+                if (!Security.validEmail(email)) {
+                    throw new Web.HttpError(400, "invalid_email", "请输入有效的邮箱地址");
+                }
+                Map<String, Object> duplicate = app.db.one(
+                        "SELECT id FROM users WHERE email = ? COLLATE NOCASE AND id <> ?", email, user.id);
+                if (duplicate != null) throw Web.conflict("该邮箱已被其他账号使用");
+            }
+
+            String nickname = user.nickname;
+            if (hasNickname) {
+                nickname = Security.sanitize(Authz.str(body.get("nickname")), 64);
+                if (nickname.isEmpty()) nickname = user.username;
+            }
+
+            app.db.update("""
+                    UPDATE users SET nickname = ?, email = ?, update_time = ?, version = version + 1
+                    WHERE id = ?
+                    """, nickname, email, Security.isoNow(), user.id);
+            AuthUser updated = Authz.authUser(app.db, app.db.one("SELECT * FROM users WHERE id = ?", user.id));
+            ctx.ok(Map.of("user", updated.toMap()));
+        });
+
+        router.post("/api/account/avatar", ctx -> {
+            AuthUser user = Auth.requireUser(ctx);
+            String filename = Avatars.save(app.config, ctx.body((int) Avatars.MAX_BYTES));
+            app.db.update("""
+                    UPDATE users SET avatar_file_id = ?, update_time = ?, version = version + 1
+                    WHERE id = ?
+                    """, filename, Security.isoNow(), user.id);
             AuthUser updated = Authz.authUser(app.db, app.db.one("SELECT * FROM users WHERE id = ?", user.id));
             ctx.ok(Map.of("user", updated.toMap()));
         });

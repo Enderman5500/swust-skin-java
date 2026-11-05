@@ -175,6 +175,36 @@ pre {
   50% { transform: scale(1.035); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.32), 0 0 90px rgba(156, 195, 230, 0.45); }
 }
 
+/* Route progress */
+.route-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 200;
+  height: 2px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+
+.route-progress.is-active {
+  opacity: 1;
+}
+
+.route-progress span {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold), #b9dcf5);
+  box-shadow: 0 0 12px rgba(232, 201, 122, 0.65);
+  transition: width 0.9s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.route-progress.is-done span {
+  transition-duration: 0.18s;
+}
+
 /* =========================================================
    Header
    ========================================================= */
@@ -461,6 +491,18 @@ pre {
 .avatar-md { width: 42px; height: 42px; font-size: 16px; }
 .avatar-xl { width: 92px; height: 92px; font-size: 34px; }
 
+.avatar-image {
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.avatar-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+
 /* =========================================================
    Announcement
    ========================================================= */
@@ -509,12 +551,26 @@ pre {
 }
 
 .page-enter {
-  animation: page-in 0.5s var(--ease) both;
+  animation: page-in 0.38s var(--ease) both;
+}
+
+.page-leaving {
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 0.12s ease, transform 0.12s ease;
 }
 
 @keyframes page-in {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: none; }
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+    filter: blur(1.5px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
 }
 
 .section,
@@ -2942,6 +2998,26 @@ pre {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.avatar-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.avatar-edit-row .avatar-xl {
+  width: 76px;
+  height: 76px;
+  font-size: 28px;
+}
+
+.avatar-edit-row .upload-button {
+  margin-bottom: 6px;
+}
+
+.avatar-edit-row .field-hint {
+  max-width: 240px;
 }
 
 .profile-hero .btn-ghost {

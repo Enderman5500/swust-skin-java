@@ -34,7 +34,7 @@ export async function render(root, ctx) {
   root.innerHTML = `
     <section class="profile-hero">
       <div class="profile-identity">
-        ${ui.avatarHtml(displayName, { size: 'xl' })}
+        <span data-profile-avatar>${ui.avatarHtml(displayName, { size: 'xl', avatar: user.avatar })}</span>
         <div>
           <p class="eyebrow">MEMBER PROFILE</p>
           <h1>${ui.escapeHtml(displayName)}</h1>
@@ -46,6 +46,7 @@ export async function render(root, ctx) {
         </div>
       </div>
       <div class="profile-actions">
+        <button class="btn btn-ghost" data-action="edit-profile">${icon('user')}编辑资料</button>
         <button class="btn btn-ghost" data-action="edit-email">${icon('edit')}修改邮箱</button>
         <button class="btn btn-ghost danger-text" data-action="logout">${icon('logout')}退出登录</button>
       </div>
@@ -155,6 +156,88 @@ export async function render(root, ctx) {
     ui.toast('已退出登录', 'info');
   });
 
+  root.querySelector('[data-action="edit-profile"]')?.addEventListener('click', () => {
+    const content = document.createElement('div');
+    content.innerHTML = `
+      <form class="form-stack">
+        <div class="avatar-edit-row">
+          <span data-avatar-preview>${ui.avatarHtml(displayName, { size: 'xl', avatar: user.avatar })}</span>
+          <div>
+            <label class="btn btn-ghost btn-sm upload-button">${icon('upload')}更换头像<input type="file" accept="image/png,image/jpeg,image/webp" hidden data-avatar-file /></label>
+            <p class="field-hint">支持 PNG / JPG / WebP，最大 2MB，建议正方形。</p>
+          </div>
+        </div>
+        <label class="field">
+          <span>昵称</span>
+          <input name="nickname" maxlength="64" value="${ui.escapeHtml(user.nickname || '')}" placeholder="展示在站点里的名字" />
+          <small class="field-hint">留空将使用用户名。</small>
+        </label>
+      </form>
+    `;
+
+    const preview = content.querySelector('[data-avatar-preview]');
+    const fileInput = content.querySelector('[data-avatar-file]');
+    fileInput.addEventListener('change', async () => {
+      const file = fileInput.files?.[0];
+      if (!file) return;
+      if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+        ui.toast('仅支持 PNG、JPG 或 WebP 图片', 'error');
+        fileInput.value = '';
+        return;
+      }
+      if (file.size > 2 * 1024 * 1024) {
+        ui.toast('头像不能超过 2MB', 'error');
+        fileInput.value = '';
+        return;
+      }
+      try {
+        const data = await api.upload('/account/avatar', await file.arrayBuffer(), file.type);
+        user.avatar = data.user.avatar;
+        user.avatarFileId = data.user.avatarFileId;
+        const html = ui.avatarHtml(displayName, { size: 'xl', avatar: user.avatar });
+        preview.innerHTML = html;
+        const heroAvatar = root.querySelector('[data-profile-avatar]');
+        if (heroAvatar) heroAvatar.innerHTML = html;
+        await ctx.refreshAuth();
+        ui.toast('头像已更新', 'success');
+      } catch (error) {
+        ui.toast(error.message, 'error');
+      }
+      fileInput.value = '';
+    });
+
+    ui.openModal({
+      title: '编辑个人资料',
+      content,
+      size: 'sm',
+      actions: [
+        { label: '取消', className: 'btn-ghost' },
+        {
+          label: '保存',
+          className: 'btn-primary',
+          onClick: async ({ close, button }) => {
+            const nickname = content.querySelector('input[name="nickname"]').value.trim();
+            ui.setButtonLoading(button, true, '保存中…');
+            try {
+              const data = await api.patch('/account', { nickname });
+              ui.setButtonLoading(button, false);
+              user.nickname = data.user.nickname;
+              await ctx.refreshAuth();
+              close();
+              ui.toast('个人资料已更新', 'success');
+              ctx.navigate('/profile');
+            } catch (error) {
+              ui.setButtonLoading(button, false);
+              ui.toast(error.message, 'error');
+              return false;
+            }
+            return true;
+          },
+        },
+      ],
+    });
+  });
+
   root.querySelector('[data-action="edit-email"]')?.addEventListener('click', () => {
     const content = document.createElement('div');
     content.innerHTML = `
@@ -183,7 +266,7 @@ export async function render(root, ctx) {
               ui.setButtonLoading(button, false);
               ui.toast('邮箱已更新', 'success');
               user.email = data.user.email;
-              root.querySelector('.profile-email').textContent = user.email;
+              root.querySelector('.profile-email').textContent = `@${user.username} · ${user.email}`;
               await ctx.refreshAuth();
               close();
             } catch (error) {

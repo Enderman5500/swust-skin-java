@@ -197,7 +197,7 @@ export async function render(root, ctx) {
           <div class="yd-admin-top-actions">
             <a class="yd-admin-site-link" href="#/">${icon('external')}查看站点</a>
             <span class="yd-admin-user-chip">
-              ${ui.avatarHtml(displayName(ctx.user), { size: 'sm' })}
+              ${ui.avatarHtml(displayName(ctx.user), { size: 'sm', avatar: ctx.user.avatar })}
               <span><strong>${ui.escapeHtml(displayName(ctx.user))}</strong><small>${ui.escapeHtml(
                 roleLabel
               )}</small></span>
@@ -313,7 +313,7 @@ async function renderOverview(main, ctx) {
               .map(
                 (user) => `
                 <div class="mini-row">
-                  ${ui.avatarHtml(displayName(user), { size: 'sm' })}
+                  ${ui.avatarHtml(displayName(user), { size: 'sm', avatar: user.avatar })}
                   <div><strong>${ui.escapeHtml(displayName(user))}</strong><span>${ui.escapeHtml(
                     user.roleNames?.join(' / ') || user.username
                   )}</span></div>

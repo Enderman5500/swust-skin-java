@@ -422,7 +422,9 @@ public final class AdminRoutes {
             item.put("phone", row.get("phone") == null ? null : Authz.str(row.get("phone")));
             item.put("qq", row.get("qq") == null ? null : Authz.str(row.get("qq")));
             item.put("password", Authz.str(row.get("password")));
-            item.put("avatarFileId", row.get("avatar_file_id") == null ? null : Authz.str(row.get("avatar_file_id")));
+            String avatarFileId = row.get("avatar_file_id") == null ? null : Authz.str(row.get("avatar_file_id"));
+            item.put("avatarFileId", avatarFileId);
+            item.put("avatar", Avatars.url(avatarFileId));
             item.put("emailVerified", Authz.bool(row.get("email_verified")));
             item.put("status", Authz.str(row.get("status")));
             item.put("depts", userDepts.getOrDefault(Authz.str(row.get("id")), List.of()));

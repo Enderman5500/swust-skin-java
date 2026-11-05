@@ -134,6 +134,7 @@ export async function renderUsers(main, ctx) {
                   <td data-label="用户">
                     <div class="user-cell">${ui.avatarHtml(displayName(user), {
                       size: 'sm',
+                      avatar: user.avatar,
                     })}<div><strong>${ui.escapeHtml(displayName(user))}</strong><span>@${ui.escapeHtml(
                       user.username
                     )} · ${ui.escapeHtml(user.email || '未设置邮箱')}</span></div></div>
