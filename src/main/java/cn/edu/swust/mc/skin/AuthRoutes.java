@@ -1,5 +1,8 @@
 package cn.edu.swust.mc.skin;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -34,6 +37,13 @@ public final class AuthRoutes {
                 throw new Web.HttpError(429, "too_many_requests",
                         "请 " + retryAfter + " 秒后再发送验证码", Map.of("retryAfter", retryAfter));
             }
+
+            LocalDate today = LocalDate.now(ZoneId.systemDefault());
+            long untilMidnight = Math.max(1000L,
+                    today.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                            - Instant.now().toEpochMilli());
+            app.rateLimiter.hit("email-code-ip-day:" + ip + ":" + today, 5, untilMidnight,
+                    "该 IP 今日验证码发送次数已达上限（5 次），请明天再试");
 
             String code = EmailCodes.generate();
             EmailCodes.store(app.db, email, code, ip);
