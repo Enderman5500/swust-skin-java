@@ -962,6 +962,23 @@ pre {
   padding-right: 46px;
 }
 
+.input-with-button {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.input-with-button input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.input-with-button .btn {
+  flex: 0 0 auto;
+  min-width: 112px;
+  white-space: nowrap;
+}
+
 .field-action {
   position: absolute;
   right: 6px;
@@ -4940,6 +4957,12 @@ pre {
   }
   .form-grid.two {
     grid-template-columns: 1fr;
+  }
+  .input-with-button {
+    flex-direction: column;
+  }
+  .input-with-button .btn {
+    width: 100%;
   }
   .dropzone {
     min-height: 340px;

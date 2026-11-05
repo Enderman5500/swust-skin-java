@@ -27,6 +27,14 @@ public final class Config {
     public final String adminUsername;
     public final String adminEmail;
     public final String adminPassword;
+    public final boolean mailEnabled;
+    public final String mailHost;
+    public final int mailPort;
+    public final boolean mailSsl;
+    public final String mailUsername;
+    public final String mailPassword;
+    public final String mailFrom;
+    public final String mailFromName;
     public final long snowflakeDataCenter;
     public final long snowflakeMachine;
 
@@ -46,6 +54,14 @@ public final class Config {
         this.adminUsername = env("ADMIN_USERNAME", "admin").trim();
         this.adminEmail = env("ADMIN_EMAIL", "admin@example.com").trim().toLowerCase();
         this.adminPassword = env("ADMIN_PASSWORD", "swustmc2026");
+        this.mailEnabled = "1".equals(env("MAIL_ENABLED", "0"));
+        this.mailHost = env("MAIL_HOST", "").trim();
+        this.mailPort = parseInt(env("MAIL_PORT", "465"), 465);
+        this.mailSsl = !"0".equals(env("MAIL_SSL", "1"));
+        this.mailUsername = env("MAIL_USERNAME", "").trim();
+        this.mailPassword = env("MAIL_PASSWORD", "");
+        this.mailFrom = env("MAIL_FROM", this.mailUsername).trim();
+        this.mailFromName = env("MAIL_FROM_NAME", "星空社皮肤站").trim();
         this.snowflakeDataCenter = Math.max(0, Math.min(31, parseInt(env("SNOWFLAKE_DATA_CENTER_ID", "1"), 1)));
         this.snowflakeMachine = Math.max(0, Math.min(31, parseInt(env("SNOWFLAKE_MACHINE_ID", "1"), 1)));
         try {

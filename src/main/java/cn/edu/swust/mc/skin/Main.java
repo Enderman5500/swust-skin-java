@@ -39,6 +39,7 @@ public final class Main {
 
         App app = new App(config, db);
         app.yggdrasil = new Yggdrasil(app);
+        app.mail = new MailService(config);
         app.plugins = new Plugins(app);
         app.plugins.init();
 
