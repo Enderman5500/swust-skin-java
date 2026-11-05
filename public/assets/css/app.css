@@ -551,7 +551,7 @@ pre {
 }
 
 .page-enter {
-  animation: page-in 0.38s var(--ease) both;
+  animation: page-in 0.5s var(--ease) both;
 }
 
 @keyframes page-in {
@@ -3336,7 +3336,7 @@ pre {
 }
 
 .admin-section-enter {
-  animation: admin-section-in 0.26s var(--ease) both;
+  animation: admin-section-in 0.34s var(--ease) both;
 }
 
 @keyframes admin-section-in {

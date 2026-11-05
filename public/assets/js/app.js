@@ -397,12 +397,13 @@ async function handleRoute() {
     routeRequiresAdmin(lastPath || '') &&
     Boolean(mainEl.querySelector('.yd-admin'));
 
+  let leavingAnimation = null;
   if (!reuseAdminShell) {
     mainEl.classList.remove('page-enter');
     routeAnimation?.cancel();
     routeAnimation = null;
     if (typeof mainEl.animate === 'function') {
-      const leavingAnimation = mainEl.animate(
+      leavingAnimation = mainEl.animate(
         reducedMotion
           ? [{ opacity: 1 }, { opacity: 0 }]
           : [
@@ -410,18 +411,18 @@ async function handleRoute() {
               { opacity: 0, transform: 'translateY(-6px)' },
             ],
         {
-          duration: reducedMotion ? 90 : 120,
+          duration: reducedMotion ? 180 : 200,
           easing: 'ease',
           fill: 'forwards',
         }
       );
       routeAnimation = leavingAnimation;
       await leavingAnimation.finished.catch(() => {});
-      leavingAnimation.cancel();
-      if (routeAnimation === leavingAnimation) routeAnimation = null;
     }
   }
   if (sequence !== routeSequence) {
+    leavingAnimation?.cancel();
+    if (routeAnimation === leavingAnimation) routeAnimation = null;
     endRouteProgress(progress);
     return;
   }
@@ -459,6 +460,8 @@ async function handleRoute() {
       </section>
     `;
     mainEl.classList.add('page-enter');
+    leavingAnimation?.cancel();
+    if (routeAnimation === leavingAnimation) routeAnimation = null;
     endRouteProgress(progress);
     return;
   }
@@ -469,6 +472,8 @@ async function handleRoute() {
   } catch (error) {
     console.error(error);
     if (error.status === 401) {
+      leavingAnimation?.cancel();
+      if (routeAnimation === leavingAnimation) routeAnimation = null;
       await refreshAuth();
       navigate(`/login?next=${encodeURIComponent(path)}`);
       return;
@@ -493,9 +498,11 @@ async function handleRoute() {
   if (!reuseAdminShell) {
     mainEl.classList.add('page-enter');
     if (reducedMotion && typeof mainEl.animate === 'function') {
-      mainEl.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 140, easing: 'ease' });
+      mainEl.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 320, easing: 'ease' });
     }
   }
+  leavingAnimation?.cancel();
+  if (routeAnimation === leavingAnimation) routeAnimation = null;
   mainEl.focus({ preventScroll: true });
 }
 
