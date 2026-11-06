@@ -48,7 +48,7 @@ public final class AuthUser {
         map.put("email", email);
         map.put("phone", phone);
         map.put("qq", qq);
-        map.put("avatar", null);
+        map.put("avatar", Avatars.url(avatarFileId));
         map.put("avatarFileId", avatarFileId);
         map.put("emailVerified", emailVerified);
         map.put("status", status);

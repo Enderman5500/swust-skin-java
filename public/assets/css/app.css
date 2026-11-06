@@ -175,6 +175,36 @@ pre {
   50% { transform: scale(1.035); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.32), 0 0 90px rgba(156, 195, 230, 0.45); }
 }
 
+/* Route progress */
+.route-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 200;
+  height: 2px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+
+.route-progress.is-active {
+  opacity: 1;
+}
+
+.route-progress span {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold), #b9dcf5);
+  box-shadow: 0 0 12px rgba(232, 201, 122, 0.65);
+  transition: width 0.9s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.route-progress.is-done span {
+  transition-duration: 0.18s;
+}
+
 /* =========================================================
    Header
    ========================================================= */
@@ -461,6 +491,18 @@ pre {
 .avatar-md { width: 42px; height: 42px; font-size: 16px; }
 .avatar-xl { width: 92px; height: 92px; font-size: 34px; }
 
+.avatar-image {
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.avatar-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+
 /* =========================================================
    Announcement
    ========================================================= */
@@ -513,8 +555,16 @@ pre {
 }
 
 @keyframes page-in {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: none; }
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+    filter: blur(1.5px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
 }
 
 .section,
@@ -948,6 +998,20 @@ pre {
   padding-right: 36px;
 }
 
+.field input[type="checkbox"],
+.field input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  box-shadow: none;
+  flex: 0 0 auto;
+  accent-color: var(--navy);
+}
+
 .field-hint {
   font-size: 11.5px;
   line-height: 1.6;
@@ -960,6 +1024,23 @@ pre {
 
 .input-with-action input {
   padding-right: 46px;
+}
+
+.input-with-button {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.input-with-button input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.input-with-button .btn {
+  flex: 0 0 auto;
+  min-width: 112px;
+  white-space: nowrap;
 }
 
 .field-action {
@@ -2927,6 +3008,26 @@ pre {
   flex-wrap: wrap;
 }
 
+.avatar-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.avatar-edit-row .avatar-xl {
+  width: 76px;
+  height: 76px;
+  font-size: 28px;
+}
+
+.avatar-edit-row .upload-button {
+  margin-bottom: 6px;
+}
+
+.avatar-edit-row .field-hint {
+  max-width: 240px;
+}
+
 .profile-hero .btn-ghost {
   border-color: rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.06);
@@ -3246,6 +3347,21 @@ pre {
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+.admin-section-enter {
+  animation: admin-section-in 0.34s var(--ease) both;
+}
+
+@keyframes admin-section-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .admin-page-head {
@@ -4629,6 +4745,14 @@ pre {
   color: rgba(255, 255, 255, 0.26);
 }
 
+.footer-copy a {
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.footer-copy a:hover {
+  color: var(--gold);
+}
+
 /* Misc */
 .noscript {
   padding: 20px;
@@ -4932,6 +5056,12 @@ pre {
   }
   .form-grid.two {
     grid-template-columns: 1fr;
+  }
+  .input-with-button {
+    flex-direction: column;
+  }
+  .input-with-button .btn {
+    width: 100%;
   }
   .dropzone {
     min-height: 340px;
@@ -6277,6 +6407,32 @@ body.is-admin .site-main {
   overflow: hidden;
 }
 
+.permission-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.permission-picker-head strong {
+  font-size: 12.5px;
+  color: var(--navy);
+}
+
+.permission-picker-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.permission-picker-body {
+  max-height: 320px;
+  overflow: auto;
+  padding: 2px 0 10px;
+}
+
 .permission-picker summary {
   padding: 12px 14px;
   color: var(--navy);
@@ -6303,6 +6459,10 @@ body.is-admin .site-main {
 
 .permission-picker .permission-group {
   margin: 12px 14px;
+}
+
+.permission-picker .permission-grid {
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
 }
 
 .permission-option.is-inherited {

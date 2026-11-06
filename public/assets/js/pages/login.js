@@ -2,6 +2,15 @@ import { api } from '../api.js';
 import { icon } from '../icons.js';
 import * as ui from '../ui.js';
 
+let codeTimer = null;
+let codeCooldownUntil = 0;
+let codeEmail = '';
+
+function clearCodeTimer() {
+  if (codeTimer) clearInterval(codeTimer);
+  codeTimer = null;
+}
+
 function safeNext(value) {
   const next = String(value || '');
   return next.startsWith('/') && !next.startsWith('//') ? next : '/players';
@@ -25,6 +34,7 @@ export async function render(root, ctx) {
     return;
   }
 
+  clearCodeTimer();
   let tab = ctx.query.tab === 'register' ? 'register' : 'login';
   const next = safeNext(ctx.query.next);
   const registrationOpen = ctx.settings.registrationOpen !== false;
@@ -67,6 +77,7 @@ export async function render(root, ctx) {
   const tabButtons = [...root.querySelectorAll('[data-tab]')];
 
   function renderLoginForm() {
+    clearCodeTimer();
     formHost.innerHTML = `
       <div class="auth-heading">
         <p class="eyebrow">WELCOME BACK</p>
@@ -94,6 +105,7 @@ export async function render(root, ctx) {
   }
 
   function renderRegisterForm() {
+    clearCodeTimer();
     if (!registrationOpen) {
       formHost.innerHTML = `
         <div class="auth-heading">
@@ -125,6 +137,14 @@ export async function render(root, ctx) {
             <input type="email" name="email" autocomplete="email" required placeholder="you@example.com" />
           </label>
         </div>
+        <div class="field">
+          <span>邮箱验证码</span>
+          <div class="input-with-button">
+            <input type="text" name="code" aria-label="邮箱验证码" inputmode="numeric" autocomplete="one-time-code" required minlength="6" maxlength="6" pattern="[0-9]{6}" placeholder="6 位数字验证码" />
+            <button type="button" class="btn btn-ghost btn-sm" data-send-code>发送验证码</button>
+          </div>
+          <small class="field-hint">验证码会发送到上面的邮箱，10 分钟内有效，120 秒后可重发。</small>
+        </div>
         <label class="field">
           <span>昵称（可选）</span>
           <input type="text" name="nickname" maxlength="64" placeholder="展示在站点里的名字，默认与用户名相同" />
@@ -140,7 +160,24 @@ export async function render(root, ctx) {
       </form>
       <p class="auth-switch">已经是社员？<button class="link-button" data-tab-link="login">直接登录</button></p>
     `;
-    formHost.querySelector('form').addEventListener('submit', handleRegister);
+    const form = formHost.querySelector('form');
+    form.addEventListener('submit', handleRegister);
+    const sendButton = form.querySelector('[data-send-code]');
+    sendButton?.addEventListener('click', () => sendCode(form, sendButton));
+    form.elements.email?.addEventListener('input', () => {
+      const email = form.elements.email.value.trim().toLowerCase();
+      if (email === codeEmail) return;
+      codeCooldownUntil = 0;
+      clearCodeTimer();
+      if (sendButton) {
+        sendButton.disabled = false;
+        sendButton.textContent = '发送验证码';
+      }
+      form.elements.code.value = '';
+    });
+    if (Date.now() < codeCooldownUntil && sendButton) {
+      startCodeCooldown(sendButton, Math.ceil((codeCooldownUntil - Date.now()) / 1000));
+    }
   }
 
   function showError(message) {
@@ -148,6 +185,57 @@ export async function render(root, ctx) {
     if (!errorBox) return;
     errorBox.textContent = message;
     errorBox.hidden = false;
+  }
+
+  function startCodeCooldown(button, seconds) {
+    if (!button || seconds <= 0) return;
+    clearCodeTimer();
+    codeCooldownUntil = Date.now() + seconds * 1000;
+    const tick = () => {
+      if (!button.isConnected) {
+        clearCodeTimer();
+        return;
+      }
+      const left = Math.ceil((codeCooldownUntil - Date.now()) / 1000);
+      if (left <= 0) {
+        clearCodeTimer();
+        codeCooldownUntil = 0;
+        button.disabled = false;
+        button.textContent = '发送验证码';
+        return;
+      }
+      button.disabled = true;
+      button.textContent = `${left}s 后重发`;
+    };
+    tick();
+    codeTimer = setInterval(tick, 250);
+  }
+
+  async function sendCode(form, button) {
+    const email = form.elements.email.value.trim().toLowerCase();
+    const errorBox = formHost.querySelector('[data-form-error]');
+    errorBox.hidden = true;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+      showError('请先输入有效的邮箱地址');
+      form.elements.email.focus();
+      return;
+    }
+    ui.setButtonLoading(button, true, '发送中…');
+    try {
+      const data = await api.post('/auth/email-code', { email });
+      ui.setButtonLoading(button, false);
+      codeEmail = email;
+      form.elements.code?.focus();
+      startCodeCooldown(button, Number(data?.cooldown) || 120);
+      ui.toast('验证码已发送，请查收邮箱', 'success');
+    } catch (error) {
+      ui.setButtonLoading(button, false);
+      if (error.status === 429 && error.details?.retryAfter) {
+        codeEmail = email;
+        startCodeCooldown(button, Number(error.details.retryAfter) || 120);
+      }
+      showError(error.message);
+    }
   }
 
   function setTab(nextTab) {
@@ -197,6 +285,7 @@ export async function render(root, ctx) {
     const username = form.elements.username.value.trim();
     const nickname = form.elements.nickname?.value.trim() || '';
     const email = form.elements.email.value.trim();
+    const code = form.elements.code.value.trim();
     const password = form.elements.password.value;
     const confirm = form.elements.confirm.value;
     if (!/^[A-Za-z0-9_]{3,16}$/.test(username)) {
@@ -205,6 +294,11 @@ export async function render(root, ctx) {
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
       showError('请输入有效的邮箱地址');
+      return;
+    }
+    if (!/^\d{6}$/.test(code)) {
+      showError('请输入 6 位邮箱验证码');
+      form.elements.code.focus();
       return;
     }
     if (password.length < 6) {
@@ -224,7 +318,7 @@ export async function render(root, ctx) {
     const button = form.querySelector('button[type="submit"]');
     ui.setButtonLoading(button, true, '正在创建角色…');
     try {
-      const data = await api.post('/auth/register', { username, nickname, email, password });
+      const data = await api.post('/auth/register', { username, nickname, email, password, code });
       ctx.setAuth(data.user, data.csrfToken);
       ui.toast('注册成功，欢迎加入星空社！', 'success');
       ctx.navigate(next === '/players' ? '/players' : next);
@@ -260,5 +354,8 @@ export async function render(root, ctx) {
 
   setTab(tab);
 
-  return () => root.removeEventListener('click', handleRootClick);
+  return () => {
+    clearCodeTimer();
+    root.removeEventListener('click', handleRootClick);
+  };
 }

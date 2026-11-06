@@ -8,6 +8,7 @@ public final class App {
     public final long startedAt = System.currentTimeMillis();
     public Yggdrasil yggdrasil;
     public Plugins plugins;
+    public MailService mail;
 
     public App(Config config, Database db) {
         this.config = config;

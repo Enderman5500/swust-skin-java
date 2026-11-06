@@ -16,6 +16,22 @@ public final class ApiKeyRoutes {
             ctx.ok(Map.of("items", Users.options(app.db, "ACTIVE")));
         });
 
+        router.get("/api/admin/api-keys/permissions", ctx -> {
+            Auth.requirePermission(ctx, "system:user:view");
+            String userId = Authz.str(ctx.query.get("userId")).trim();
+            if (userId.isEmpty()) throw Web.badRequest("请选择用户");
+            AuthUser target = Authz.authUser(app.db,
+                    app.db.one("SELECT * FROM users WHERE id = ?", userId));
+            if (target == null) throw Web.notFound("用户不存在");
+            List<Map<String, Object>> items = Roles.permissions(app.db).stream().map(item -> {
+                Map<String, Object> copy = new LinkedHashMap<>(item);
+                String code = Authz.str(item.get("code"));
+                copy.put("granted", target.wildcard || target.permissions.contains(code));
+                return copy;
+            }).toList();
+            ctx.ok(Map.of("items", items, "wildcard", target.wildcard));
+        });
+
         router.get("/api/admin/api-keys", ctx -> {
             Auth.requirePermission(ctx, "system:user:view");
             ctx.ok(Map.of("items", ApiKeys.listAll(app.db)));

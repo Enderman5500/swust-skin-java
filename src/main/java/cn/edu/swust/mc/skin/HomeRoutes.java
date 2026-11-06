@@ -44,6 +44,16 @@ public final class HomeRoutes {
             }
         });
 
+        router.get("/avatars/:file", ctx -> {
+            java.nio.file.Path file = Avatars.file(app.config, ctx.param("file"));
+            if (file == null || !java.nio.file.Files.isRegularFile(file)) {
+                throw Web.notFound("头像不存在");
+            }
+            if (!Web.serveFile(ctx, file, "public, max-age=31536000, immutable")) {
+                throw Web.notFound("头像不存在");
+            }
+        });
+
         router.get("/api/health", ctx -> {
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("status", "ok");

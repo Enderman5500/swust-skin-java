@@ -140,6 +140,40 @@ export async function render(root, ctx) {
   const activeGroup = navGroups.find((group) => group.items.some((item) => item.key === active));
   if (activeGroup) collapsedGroups.delete(activeGroup.category);
 
+  const existingShell = root.querySelector('.yd-admin');
+  if (existingShell) {
+    const main = existingShell.querySelector('[data-admin-main]');
+    const activeHref = `#/admin${active ? `/${active}` : ''}`;
+    existingShell.querySelectorAll('.yd-admin-menu a').forEach((link) => {
+      link.classList.toggle('is-active', link.getAttribute('href') === activeHref);
+    });
+    const breadcrumb = existingShell.querySelector('.yd-admin-breadcrumb strong');
+    if (breadcrumb) breadcrumb.textContent = activeLabel;
+    if (activeGroup) {
+      existingShell.querySelectorAll('[data-group-toggle]').forEach((button) => {
+        if (button.dataset.groupToggle !== activeGroup.category) return;
+        const group = button.closest('.yd-admin-menu-group');
+        if (!group) return;
+        group.classList.remove('is-collapsed');
+        const items = group.querySelector('.yd-admin-menu-items');
+        if (items) items.style.height = '';
+        button.setAttribute('aria-expanded', 'true');
+      });
+    }
+    if (main) {
+      main.classList.remove('admin-section-enter');
+      await renderAdminSection(main, ctx, active, activeSection, allowed);
+      main.classList.add('admin-section-enter');
+      if (
+        window.matchMedia?.('(prefers-reduced-motion: reduce)').matches &&
+        typeof main.animate === 'function'
+      ) {
+        main.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 280, easing: 'ease' });
+      }
+    }
+    return;
+  }
+
   root.innerHTML = `
     <section class="yd-admin">
       <aside class="yd-admin-sidebar">
@@ -197,7 +231,7 @@ export async function render(root, ctx) {
           <div class="yd-admin-top-actions">
             <a class="yd-admin-site-link" href="#/">${icon('external')}查看站点</a>
             <span class="yd-admin-user-chip">
-              ${ui.avatarHtml(displayName(ctx.user), { size: 'sm' })}
+              ${ui.avatarHtml(displayName(ctx.user), { size: 'sm', avatar: ctx.user.avatar })}
               <span><strong>${ui.escapeHtml(displayName(ctx.user))}</strong><small>${ui.escapeHtml(
                 roleLabel
               )}</small></span>
@@ -260,6 +294,10 @@ export async function render(root, ctx) {
   });
 
   const main = root.querySelector('[data-admin-main]');
+  await renderAdminSection(main, ctx, active, activeSection, allowed);
+}
+
+async function renderAdminSection(main, ctx, active, activeSection, allowed) {
   if (!allowed) {
     main.innerHTML = `
       <section class="page-error">
@@ -313,7 +351,7 @@ async function renderOverview(main, ctx) {
               .map(
                 (user) => `
                 <div class="mini-row">
-                  ${ui.avatarHtml(displayName(user), { size: 'sm' })}
+                  ${ui.avatarHtml(displayName(user), { size: 'sm', avatar: user.avatar })}
                   <div><strong>${ui.escapeHtml(displayName(user))}</strong><span>${ui.escapeHtml(
                     user.roleNames?.join(' / ') || user.username
                   )}</span></div>
@@ -920,6 +958,15 @@ async function renderSettings(main, ctx) {
         <label class="field"><span>页脚文案</span><input name="footer_text" maxlength="120" value="${ui.escapeHtml(
           settings.footer_text
         )}" /></label>
+        <div class="form-grid two">
+          <label class="field"><span>ICP 备案号</span><input name="icp_number" maxlength="40" value="${ui.escapeHtml(
+            settings.icp_number || ''
+          )}" placeholder="例如 苏ICP备2026085654号" /></label>
+          <label class="field"><span>公安备案号</span><input name="police_number" maxlength="60" value="${ui.escapeHtml(
+            settings.police_number || ''
+          )}" placeholder="例如 川公网安备xxxxxxxx号" /></label>
+        </div>
+        <p class="field-hint">显示在页脚，留空则不显示；ICP 备案号会链接到工信部备案查询。</p>
         <div class="panel-head sub"><div><p class="eyebrow">HERO IMAGE</p><h3>首页主图</h3></div></div>
         <div class="banner-manager">
           <div class="banner-list">
@@ -1068,6 +1115,8 @@ async function renderSettings(main, ctx) {
         tagline: form.elements.tagline.value.trim(),
         announcement: form.elements.announcement.value.trim(),
         footer_text: form.elements.footer_text.value.trim(),
+        icp_number: form.elements.icp_number.value.trim(),
+        police_number: form.elements.police_number.value.trim(),
         registration_open: form.elements.registration_open.checked,
         yggdrasil_enabled: form.elements.yggdrasil_enabled.checked,
       });

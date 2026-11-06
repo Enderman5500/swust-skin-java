@@ -123,7 +123,9 @@ public final class Textures {
             conditions.add("t.uploaded_by = ?");
             params.add(viewer.id);
         } else if ("admin".equals(scope)) {
-            if (viewer == null || !viewer.admin) throw Web.forbidden("没有权限执行此操作");
+            if (viewer == null || !viewer.can("skin:texture:view")) {
+                throw Web.forbidden("没有权限执行此操作");
+            }
         } else {
             conditions.add("t.is_public = 1");
         }

@@ -24,6 +24,29 @@ public final class Players {
     private Players() {
     }
 
+    public static boolean slimModel(String model) {
+        return "slim".equals(model);
+    }
+
+    public static String defaultSkinFile(String model) {
+        return slimModel(model) ? "alex.png" : "steve.png";
+    }
+
+    public static String defaultSkinName(String model) {
+        return slimModel(model) ? "Alex" : "Steve";
+    }
+
+    public static Map<String, Object> defaultSkinRef(String model) {
+        Map<String, Object> ref = new LinkedHashMap<>();
+        ref.put("id", null);
+        ref.put("hash", null);
+        ref.put("name", defaultSkinName(model));
+        ref.put("model", slimModel(model) ? "slim" : "classic");
+        ref.put("url", "/assets/default/" + defaultSkinFile(model));
+        ref.put("isDefault", true);
+        return ref;
+    }
+
     private static Map<String, Object> textureRef(Object id, Object hash, Object name, Object model) {
         if (id == null || hash == null) return null;
         Map<String, Object> ref = new LinkedHashMap<>();
@@ -55,8 +78,10 @@ public final class Players {
             owner.put("nickname", nickname.isEmpty() ? name : nickname);
             map.put("owner", owner);
         }
-        map.put("skin", textureRef(row.get("skin_texture_id"), row.get("skin_hash"),
-                row.get("skin_name"), row.get("skin_texture_model")));
+        Map<String, Object> skin = textureRef(row.get("skin_texture_id"), row.get("skin_hash"),
+                row.get("skin_name"), row.get("skin_texture_model"));
+        String model = Authz.str(row.get("model"));
+        map.put("skin", skin == null ? defaultSkinRef(model) : skin);
         map.put("cape", textureRef(row.get("cape_texture_id"), row.get("cape_hash"),
                 row.get("cape_name"), null));
         map.put("isMine", viewer != null && viewer.id.equals(Authz.str(ownerId)));

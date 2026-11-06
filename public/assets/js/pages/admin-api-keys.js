@@ -15,6 +15,41 @@ function expiryLabel(value) {
   return expired ? '已过期' : ui.formatDate(value);
 }
 
+function permissionGroupsHtml(items) {
+  const groups = new Map();
+  for (const item of items) {
+    const module = item.module || '其他';
+    if (!groups.has(module)) groups.set(module, []);
+    groups.get(module).push(item);
+  }
+  return [...groups.entries()]
+    .map(
+      ([module, permissions]) => `
+      <div class="permission-group">
+        <h4>${ui.escapeHtml(module)}</h4>
+        <div class="permission-grid">
+          ${permissions
+            .map(
+              (permission) => `
+            <label class="permission-option">
+              <input type="checkbox" name="permission" value="${ui.escapeHtml(permission.code)}" />
+              <span>
+                <strong>${ui.escapeHtml(permission.name)}</strong>
+                <small>${ui.escapeHtml(permission.code)}${
+                  permission.description ? ` · ${ui.escapeHtml(permission.description)}` : ''
+                }</small>
+              </span>
+            </label>
+          `
+            )
+            .join('')}
+        </div>
+      </div>
+    `
+    )
+    .join('');
+}
+
 export async function renderApiKeys(main, ctx) {
   main.innerHTML = ui.loadingBlock('正在读取 API 密钥…');
   let data;
@@ -73,7 +108,7 @@ export async function renderApiKeys(main, ctx) {
       <p class="panel-lead">请求时携带以下任一请求头：</p>
       <pre class="code-block small">Authorization: Bearer sk_xxxxxxxxx
 X-API-Key: sk_xxxxxxxxx</pre>
-      <p class="field-hint">API 密钥只能访问站点公开接口与插件接口，不能访问管理后台、账号或写入其他用户数据。权限范围在创建时确定。</p>
+      <p class="field-hint">API 密钥按创建时勾选的权限访问对应接口，包括管理接口与插件接口。插件安装后会自动出现新的插件权限；密钥不能访问账号安全设置或代表其他用户操作。</p>
     </div>
   `;
 
@@ -95,7 +130,7 @@ X-API-Key: sk_xxxxxxxxx</pre>
       <form class="form-stack">
         <label class="field"><span>密钥名称</span><input name="name" maxlength="60" required placeholder="例如 社团机器人" /></label>
         <label class="field"><span>所属用户</span>
-          <select name="userId" required>
+          <select name="userId" data-user-select required>
             ${users
               .map(
                 (user) =>
@@ -106,26 +141,83 @@ X-API-Key: sk_xxxxxxxxx</pre>
               .join('')}
           </select>
         </label>
-        <div class="form-grid two">
-          <label class="field"><span>权限范围</span>
-            <select name="scope">
-              <option value="all">该用户全部权限</option>
-              <option value="plugin">仅插件权限</option>
-              <option value="read">仅查看权限</option>
-            </select>
-          </label>
-          <label class="field"><span>有效期</span>
-            <select name="expiresInDays">
-              <option value="30">30 天</option>
-              <option value="90" selected>90 天</option>
-              <option value="365">365 天</option>
-              <option value="0">永久</option>
-            </select>
-          </label>
+        <label class="field"><span>有效期</span>
+          <select name="expiresInDays">
+            <option value="30">30 天</option>
+            <option value="90" selected>90 天</option>
+            <option value="365">365 天</option>
+            <option value="0">永久</option>
+          </select>
+        </label>
+        <div class="field">
+          <span>权限</span>
+          <div class="permission-picker">
+            <div class="permission-picker-head">
+              <strong data-permission-count>正在读取…</strong>
+              <div class="permission-picker-actions">
+                <button type="button" class="link-button" data-permission-all>全选</button>
+                <button type="button" class="link-button" data-permission-none>清空</button>
+              </div>
+            </div>
+            <div class="permission-picker-body" data-permission-groups>${ui.loadingBlock(
+              '正在读取可用权限…'
+            )}</div>
+          </div>
+          <small class="field-hint">权限会随插件安装自动更新；只能授予该用户当前拥有的权限。</small>
         </div>
-        <p class="field-hint">密钥创建后只显示一次。外部服务只能使用该用户当前拥有的权限。</p>
+        <p class="field-hint">密钥创建后只显示一次。外部服务只能使用这里勾选的权限。</p>
       </form>
     `;
+
+    const groupsHost = content.querySelector('[data-permission-groups]');
+    const countLabel = content.querySelector('[data-permission-count]');
+    let permissionRequest = 0;
+
+    function updatePermissionCount() {
+      const boxes = [...groupsHost.querySelectorAll('input[name="permission"]')];
+      const checked = boxes.filter((box) => box.checked).length;
+      countLabel.textContent = boxes.length ? `已选 ${checked} / ${boxes.length} 项` : '没有可授予的权限';
+    }
+
+    async function loadPermissions(userId) {
+      const token = ++permissionRequest;
+      groupsHost.innerHTML = ui.loadingBlock('正在读取可用权限…');
+      countLabel.textContent = '正在读取…';
+      try {
+        const data = await api.get('/admin/api-keys/permissions', { userId });
+        if (token !== permissionRequest) return;
+        const items = (data.items || []).filter((item) => item.granted);
+        groupsHost.innerHTML = items.length
+          ? permissionGroupsHtml(items)
+          : `<div class="empty-state compact"><p>该用户当前没有可授予的权限</p></div>`;
+        updatePermissionCount();
+      } catch (error) {
+        if (token !== permissionRequest) return;
+        groupsHost.innerHTML = `<div class="empty-state compact"><p>${ui.escapeHtml(
+          error.message
+        )}</p></div>`;
+        countLabel.textContent = '权限读取失败';
+      }
+    }
+
+    groupsHost.addEventListener('change', updatePermissionCount);
+    content.querySelector('[data-permission-all]')?.addEventListener('click', () => {
+      groupsHost.querySelectorAll('input[name="permission"]').forEach((box) => {
+        box.checked = true;
+      });
+      updatePermissionCount();
+    });
+    content.querySelector('[data-permission-none]')?.addEventListener('click', () => {
+      groupsHost.querySelectorAll('input[name="permission"]').forEach((box) => {
+        box.checked = false;
+      });
+      updatePermissionCount();
+    });
+    content.querySelector('[data-user-select]')?.addEventListener('change', (event) => {
+      loadPermissions(event.target.value);
+    });
+    loadPermissions(users[0].id);
+
     ui.openModal({
       title: '新建 API 密钥',
       content,
@@ -138,12 +230,20 @@ X-API-Key: sk_xxxxxxxxx</pre>
           onClick: async ({ close, button }) => {
             const form = content.querySelector('form');
             if (!form.reportValidity()) return false;
+            const permissions = [
+              ...content.querySelectorAll('input[name="permission"]:checked'),
+            ].map((input) => input.value);
+            if (!permissions.length) {
+              ui.toast('请至少选择一项权限', 'error');
+              return false;
+            }
             ui.setButtonLoading(button, true, '创建中…');
             try {
               const result = await api.post('/admin/api-keys', {
                 name: form.elements.name.value.trim(),
                 userId: form.elements.userId.value,
-                scope: form.elements.scope.value,
+                scope: 'custom',
+                permissions,
                 expiresInDays: Number(form.elements.expiresInDays.value),
               });
               ui.setButtonLoading(button, false);

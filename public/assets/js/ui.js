@@ -269,7 +269,12 @@ export function avatarStyle(username) {
   return `background: linear-gradient(135deg, ${from}, ${to});`;
 }
 
-export function avatarHtml(username, { size = 'md' } = {}) {
+export function avatarHtml(username, { size = 'md', avatar = null } = {}) {
+  if (avatar) {
+    return `<span class="avatar avatar-${size} avatar-image" aria-hidden="true"><img src="${escapeHtml(
+      avatar
+    )}" alt="" loading="lazy" /></span>`;
+  }
   const letter = String(username || '?').slice(0, 1).toUpperCase();
   return `<span class="avatar avatar-${size}" style="${avatarStyle(username)}" aria-hidden="true">${escapeHtml(
     letter

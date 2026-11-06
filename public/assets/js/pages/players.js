@@ -38,7 +38,13 @@ function playerCardHtml(player) {
           <span class="role-chip">角色</span>
         </div>
         <p class="player-meta">
-          ${player.skin ? ui.escapeHtml(player.skin.name) : '默认外观'}
+          ${
+            player.skin
+              ? player.skin.isDefault
+                ? `默认 ${ui.escapeHtml(player.skin.name)} 皮肤`
+                : ui.escapeHtml(player.skin.name)
+              : '默认外观'
+          }
           <span class="dot-sep">·</span>
           ${player.cape ? `披风「${ui.escapeHtml(player.cape.name)}」` : '无披风'}
         </p>
@@ -132,17 +138,18 @@ export async function render(root, ctx) {
               <input type="radio" name="model" value="classic" checked />
               <span class="model-option-body">
                 <strong>经典</strong>
-                <small>Steve / Alex 身形，4 像素手臂</small>
+                <small>默认使用 Steve 皮肤，4 像素手臂</small>
               </span>
             </label>
             <label class="model-option">
               <input type="radio" name="model" value="slim" />
               <span class="model-option-body">
                 <strong>纤细</strong>
-                <small>Alex 身形，3 像素手臂</small>
+                <small>默认使用 Alex 皮肤，3 像素手臂</small>
               </span>
             </label>
           </div>
+          <small class="field-hint">没有装备皮肤时，经典模型使用 Steve，纤细模型使用 Alex。</small>
         </div>
       </form>
     `;
@@ -240,6 +247,14 @@ export async function render(root, ctx) {
     });
 
     async function renderContent() {
+      const skin = current.skin;
+      const customSkin = Boolean(skin && !skin.isDefault);
+      const skinTitle = skin ? (skin.isDefault ? `${skin.name}（默认）` : skin.name) : '默认皮肤';
+      const skinDescription = skin
+        ? skin.isDefault
+          ? `当前使用${ui.modelLabel(skin.model)}默认皮肤，选择皮肤可替换。`
+          : `${ui.modelLabel(skin.model)}模型`
+        : '还没有为角色装备皮肤。';
       content.innerHTML = `
         <div class="appearance-row">
           <div class="appearance-preview">
@@ -250,11 +265,11 @@ export async function render(root, ctx) {
           </div>
           <div class="appearance-info">
             <span class="eyebrow">SKIN</span>
-            <h3>${current.skin ? ui.escapeHtml(current.skin.name) : '默认皮肤'}</h3>
-            <p>${current.skin ? `${ui.modelLabel(current.skin.model)}模型` : '还没有为角色装备皮肤。'}</p>
+            <h3>${ui.escapeHtml(skinTitle)}</h3>
+            <p>${ui.escapeHtml(skinDescription)}</p>
             <div class="appearance-actions">
               <button class="btn btn-primary btn-sm" data-choose="skin">${icon('edit')}选择皮肤</button>
-              ${current.skin ? '<button class="btn btn-ghost btn-sm" data-clear="skin">清除</button>' : ''}
+              ${customSkin ? '<button class="btn btn-ghost btn-sm" data-clear="skin">清除</button>' : ''}
             </div>
           </div>
         </div>

@@ -22,6 +22,8 @@ const state = {
     tagline: '在方块宇宙里，留下你的名字',
     announcement: '',
     footer_text: '西南科技大学 Minecraft 星空社 · 由社团技术组维护',
+    icp_number: '',
+    police_number: '',
     registrationOpen: true,
     yggdrasilEnabled: true,
   },
@@ -36,6 +38,50 @@ const mainEl = document.getElementById('main');
 let currentCleanup = null;
 let headerOutsideHandler = null;
 let lastPath = null;
+
+const progressEl = document.getElementById('route-progress');
+let progressToken = 0;
+let progressTimer = null;
+let routeSequence = 0;
+let routeAnimation = null;
+
+function beginRouteProgress() {
+  const token = ++progressToken;
+  if (!progressEl) return token;
+  clearTimeout(progressTimer);
+  const bar = progressEl.firstElementChild;
+  progressEl.hidden = false;
+  progressEl.classList.add('is-active');
+  progressEl.classList.remove('is-done');
+  if (bar) {
+    bar.style.transition = 'none';
+    bar.style.width = '0%';
+    void bar.offsetWidth;
+    bar.style.transition = '';
+    requestAnimationFrame(() => {
+      if (token === progressToken) bar.style.width = '72%';
+    });
+  }
+  return token;
+}
+
+function endRouteProgress(token) {
+  if (token !== progressToken || !progressEl) return;
+  const bar = progressEl.firstElementChild;
+  progressEl.classList.add('is-done');
+  if (bar) bar.style.width = '100%';
+  clearTimeout(progressTimer);
+  progressTimer = setTimeout(() => {
+    if (token !== progressToken) return;
+    progressEl.classList.remove('is-active', 'is-done');
+    progressEl.hidden = true;
+    if (bar) bar.style.width = '0%';
+  }, 240);
+}
+
+function prefersReducedMotion() {
+  return Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+}
 
 const NAV_ITEMS = [
   { path: '/', label: '首页', icon: 'home' },
@@ -84,6 +130,15 @@ function isActive(itemPath, currentPath) {
   return currentPath === itemPath || currentPath.startsWith(`${itemPath}/`);
 }
 
+function updateHeaderActive() {
+  const current = parseHash();
+  headerEl.querySelectorAll('.main-nav .nav-link').forEach((link) => {
+    const href = link.getAttribute('href') || '';
+    const path = href.startsWith('#') ? href.slice(1) : href;
+    link.classList.toggle('is-active', isActive(path, current.path));
+  });
+}
+
 function displayName(user) {
   return user?.nickname || user?.username || '社员';
 }
@@ -106,13 +161,13 @@ function renderHeader() {
     ? `
       <details class="user-menu">
         <summary class="user-summary" aria-label="账号菜单">
-          ${ui.avatarHtml(displayName(state.user), { size: 'sm' })}
+          ${ui.avatarHtml(displayName(state.user), { size: 'sm', avatar: state.user.avatar })}
           <span class="user-name">${ui.escapeHtml(displayName(state.user))}</span>
           ${icon('chevron', 'icon user-chevron')}
         </summary>
         <div class="user-panel">
           <div class="user-panel-head">
-            ${ui.avatarHtml(displayName(state.user), { size: 'md' })}
+            ${ui.avatarHtml(displayName(state.user), { size: 'md', avatar: state.user.avatar })}
             <div>
               <strong>${ui.escapeHtml(displayName(state.user))}</strong>
               <span>${ui.escapeHtml(state.user.email || state.user.username)}</span>
@@ -206,6 +261,25 @@ function renderAnnouncement() {
 function renderFooter() {
   const year = new Date().getFullYear();
   const yggdrasil = state.home?.yggdrasilUrl || `${location.origin}/api/yggdrasil`;
+  const policeNumber = String(state.settings.police_number || '').trim();
+  const policeCode = policeNumber.match(/\d{10,}/)?.[0] || '';
+  const policeHref = policeCode
+    ? `https://beian.mps.gov.cn/#/query/webSearch?code=${encodeURIComponent(policeCode)}`
+    : 'https://beian.mps.gov.cn/';
+  const beian = [
+    state.settings.icp_number
+      ? `<a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">${ui.escapeHtml(
+          state.settings.icp_number
+        )}</a>`
+      : '',
+    policeNumber
+      ? `<a href="${policeHref}" target="_blank" rel="noopener noreferrer">${ui.escapeHtml(
+          policeNumber
+        )}</a>`
+      : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
   footerEl.innerHTML = `
     <div class="footer-inner">
       <div class="footer-brand">
@@ -226,7 +300,7 @@ function renderFooter() {
         <code>${ui.escapeHtml(yggdrasil)}</code>
         <button class="btn btn-ghost btn-sm" data-action="copy-ygg">复制</button>
       </div>
-      <p class="footer-copy">© ${year} SWUST Minecraft 星空社 · 在方块宇宙里相遇</p>
+      <p class="footer-copy">© ${year} SWUST Minecraft 星空社 · 在方块宇宙里相遇${beian ? ` · ${beian}` : ''}</p>
     </div>
   `;
   footerEl.querySelector('[data-action="copy-ygg"]')?.addEventListener('click', () => {
@@ -320,11 +394,50 @@ async function handleRoute() {
     return;
   }
 
+  const reducedMotion = prefersReducedMotion();
+  const sequence = ++routeSequence;
+  const progress = beginRouteProgress();
+  const reuseAdminShell =
+    routeRequiresAdmin(path) &&
+    routeRequiresAdmin(lastPath || '') &&
+    Boolean(mainEl.querySelector('.yd-admin'));
+
+  let leavingAnimation = null;
+  if (!reuseAdminShell) {
+    mainEl.classList.remove('page-enter');
+    routeAnimation?.cancel();
+    routeAnimation = null;
+    if (typeof mainEl.animate === 'function') {
+      leavingAnimation = mainEl.animate(
+        reducedMotion
+          ? [{ opacity: 1 }, { opacity: 0 }]
+          : [
+              { opacity: 1, transform: 'none' },
+              { opacity: 0, transform: 'translateY(-6px)' },
+            ],
+        {
+          duration: reducedMotion ? 180 : 200,
+          easing: 'ease',
+          fill: 'forwards',
+        }
+      );
+      routeAnimation = leavingAnimation;
+      await leavingAnimation.finished.catch(() => {});
+    }
+  }
+  if (sequence !== routeSequence) {
+    leavingAnimation?.cancel();
+    if (routeAnimation === leavingAnimation) routeAnimation = null;
+    endRouteProgress(progress);
+    return;
+  }
   currentCleanup?.();
   currentCleanup = null;
   if (mainEl.contains(document.activeElement)) document.activeElement.blur();
-  mainEl.innerHTML = '';
-  mainEl.classList.remove('page-enter');
+  if (!reuseAdminShell) {
+    mainEl.innerHTML = '';
+    mainEl.classList.remove('page-enter');
+  }
 
   let render = null;
   if (path === '/') render = renderHome;
@@ -337,7 +450,7 @@ async function handleRoute() {
   else if (path === '/admin' || path.startsWith('/admin/')) render = renderAdmin;
   else if (path.startsWith('/plugin/')) render = renderPlugin;
 
-  renderHeader();
+  updateHeaderActive();
   document.title = `${state.settings.site_name} · 皮肤站`;
   document.body.classList.toggle('is-home', path === '/');
   document.body.classList.toggle('is-admin', routeRequiresAdmin(path));
@@ -351,6 +464,10 @@ async function handleRoute() {
         <a class="btn btn-primary" href="#/">回到首页</a>
       </section>
     `;
+    mainEl.classList.add('page-enter');
+    leavingAnimation?.cancel();
+    if (routeAnimation === leavingAnimation) routeAnimation = null;
+    endRouteProgress(progress);
     return;
   }
 
@@ -360,6 +477,8 @@ async function handleRoute() {
   } catch (error) {
     console.error(error);
     if (error.status === 401) {
+      leavingAnimation?.cancel();
+      if (routeAnimation === leavingAnimation) routeAnimation = null;
       await refreshAuth();
       navigate(`/login?next=${encodeURIComponent(path)}`);
       return;
@@ -373,13 +492,22 @@ async function handleRoute() {
       </section>
     `;
     mainEl.querySelector('[data-action="retry"]')?.addEventListener('click', handleRoute);
+  } finally {
+    endRouteProgress(progress);
   }
 
   if (lastPath !== path) {
     window.scrollTo({ top: 0, behavior: 'instant' });
     lastPath = path;
   }
-  mainEl.classList.add('page-enter');
+  if (!reuseAdminShell) {
+    mainEl.classList.add('page-enter');
+    if (reducedMotion && typeof mainEl.animate === 'function') {
+      mainEl.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 320, easing: 'ease' });
+    }
+  }
+  leavingAnimation?.cancel();
+  if (routeAnimation === leavingAnimation) routeAnimation = null;
   mainEl.focus({ preventScroll: true });
 }
 

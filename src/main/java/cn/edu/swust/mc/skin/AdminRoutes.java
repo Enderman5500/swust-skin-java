@@ -16,7 +16,10 @@ public final class AdminRoutes {
         Web.Router router = app.router;
 
         router.get("/api/admin/stats", ctx -> {
-            Auth.requireAdmin(ctx);
+            AuthUser operator = Auth.requireUser(ctx);
+            if (!operator.can("system:user:view") && !operator.can("system:setting:view")) {
+                throw Web.forbidden("没有权限执行此操作");
+            }
             Database db = app.db;
             int users = count(db, "SELECT COUNT(*) AS count FROM users");
             int activeUsers = count(db, "SELECT COUNT(*) AS count FROM users WHERE status = 'ACTIVE'");
@@ -422,7 +425,9 @@ public final class AdminRoutes {
             item.put("phone", row.get("phone") == null ? null : Authz.str(row.get("phone")));
             item.put("qq", row.get("qq") == null ? null : Authz.str(row.get("qq")));
             item.put("password", Authz.str(row.get("password")));
-            item.put("avatarFileId", row.get("avatar_file_id") == null ? null : Authz.str(row.get("avatar_file_id")));
+            String avatarFileId = row.get("avatar_file_id") == null ? null : Authz.str(row.get("avatar_file_id"));
+            item.put("avatarFileId", avatarFileId);
+            item.put("avatar", Avatars.url(avatarFileId));
             item.put("emailVerified", Authz.bool(row.get("email_verified")));
             item.put("status", Authz.str(row.get("status")));
             item.put("depts", userDepts.getOrDefault(Authz.str(row.get("id")), List.of()));

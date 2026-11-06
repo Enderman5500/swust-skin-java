@@ -1,5 +1,8 @@
 package cn.edu.swust.mc.skin;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -9,6 +12,56 @@ public final class AuthRoutes {
 
     public static void register(App app) {
         Web.Router router = app.router;
+
+        router.post("/api/auth/email-code", ctx -> {
+            if (!app.mail.enabled()) {
+                throw new Web.HttpError(503, "mail_disabled", "邮件服务暂未启用，请联系管理员");
+            }
+            Map<String, Object> body = ctx.json();
+            String email = Authz.str(body.get("email")).trim().toLowerCase();
+            if (!Security.validEmail(email)) {
+                throw new Web.HttpError(400, "invalid_email", "请输入有效的邮箱地址");
+            }
+            if (app.db.one("SELECT id FROM users WHERE email = ? COLLATE NOCASE", email) != null) {
+                throw Web.conflict("该邮箱已被注册");
+            }
+
+            String ip = Web.clientIp(ctx.exchange, app.config.trustProxy);
+            app.rateLimiter.hit("email-code-ip:" + ip, 20, 10 * 60 * 1000,
+                    "验证码发送过于频繁，请稍后再试");
+            app.rateLimiter.hit("email-code-email:" + email, 5, 10 * 60 * 1000,
+                    "该邮箱验证码发送过于频繁，请稍后再试");
+
+            long retryAfter = EmailCodes.cooldownRemaining(app.db, email);
+            if (retryAfter > 0) {
+                throw new Web.HttpError(429, "too_many_requests",
+                        "请 " + retryAfter + " 秒后再发送验证码", Map.of("retryAfter", retryAfter));
+            }
+
+            LocalDate today = LocalDate.now(ZoneId.systemDefault());
+            long untilMidnight = Math.max(1000L,
+                    today.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                            - Instant.now().toEpochMilli());
+            app.rateLimiter.hit("email-code-ip-day:" + ip + ":" + today, 5, untilMidnight,
+                    "该 IP 今日验证码发送次数已达上限（5 次），请明天再试");
+
+            String code = EmailCodes.generate();
+            EmailCodes.store(app.db, email, code, ip);
+            try {
+                app.mail.sendVerificationCode(email, code, EmailCodes.CODE_MINUTES,
+                        Settings.get(app.db, "site_name"), Settings.get(app.db, "site_short_name"));
+            } catch (Exception e) {
+                EmailCodes.clear(app.db, email);
+                Log.error("发送邮箱验证码失败：" + e.getMessage());
+                throw new Web.HttpError(502, "mail_send_failed", "验证码发送失败，请稍后再试");
+            }
+
+            ctx.ok(Map.of(
+                    "ok", true,
+                    "cooldown", EmailCodes.COOLDOWN_SECONDS,
+                    "expiresIn", EmailCodes.CODE_MINUTES * 60
+            ));
+        });
 
         router.post("/api/auth/register", ctx -> {
             if (!"1".equals(Settings.get(app.db, "registration_open"))) {
@@ -20,6 +73,7 @@ public final class AuthRoutes {
             if (nickname.length() > 64) nickname = nickname.substring(0, 64);
             String email = Authz.str(body.get("email")).trim().toLowerCase();
             String password = Authz.str(body.get("password"));
+            String code = Authz.str(body.get("code")).trim();
             if (!Security.validUsername(username)) {
                 throw new Web.HttpError(400, "invalid_username", "用户名需为 3–16 位字母、数字或下划线");
             }
@@ -38,6 +92,9 @@ public final class AuthRoutes {
                     throw Web.conflict("该用户名已被注册");
                 }
                 throw Web.conflict("该邮箱已被注册");
+            }
+            if (!code.matches("\\d{6}") || !EmailCodes.verify(app.db, email, code)) {
+                throw new Web.HttpError(400, "invalid_code", "邮箱验证码错误或已过期");
             }
             String now = Security.isoNow();
             String userId = Security.nextId(app.config.snowflakeDataCenter, app.config.snowflakeMachine);
@@ -117,15 +174,44 @@ public final class AuthRoutes {
         router.patch("/api/account", ctx -> {
             AuthUser user = Auth.requireUser(ctx);
             Map<String, Object> body = ctx.json();
-            String email = Authz.str(body.get("email")).trim().toLowerCase();
-            if (!Security.validEmail(email)) {
-                throw new Web.HttpError(400, "invalid_email", "请输入有效的邮箱地址");
+            boolean hasEmail = body.containsKey("email");
+            boolean hasNickname = body.containsKey("nickname");
+            if (!hasEmail && !hasNickname) {
+                throw Web.badRequest("没有需要更新的资料");
             }
-            Map<String, Object> duplicate = app.db.one(
-                    "SELECT id FROM users WHERE email = ? COLLATE NOCASE AND id <> ?", email, user.id);
-            if (duplicate != null) throw Web.conflict("该邮箱已被其他账号使用");
-            app.db.update("UPDATE users SET email = ?, update_time = ?, version = version + 1 WHERE id = ?",
-                    email, Security.isoNow(), user.id);
+
+            String email = user.email;
+            if (hasEmail) {
+                email = Authz.str(body.get("email")).trim().toLowerCase();
+                if (!Security.validEmail(email)) {
+                    throw new Web.HttpError(400, "invalid_email", "请输入有效的邮箱地址");
+                }
+                Map<String, Object> duplicate = app.db.one(
+                        "SELECT id FROM users WHERE email = ? COLLATE NOCASE AND id <> ?", email, user.id);
+                if (duplicate != null) throw Web.conflict("该邮箱已被其他账号使用");
+            }
+
+            String nickname = user.nickname;
+            if (hasNickname) {
+                nickname = Security.sanitize(Authz.str(body.get("nickname")), 64);
+                if (nickname.isEmpty()) nickname = user.username;
+            }
+
+            app.db.update("""
+                    UPDATE users SET nickname = ?, email = ?, update_time = ?, version = version + 1
+                    WHERE id = ?
+                    """, nickname, email, Security.isoNow(), user.id);
+            AuthUser updated = Authz.authUser(app.db, app.db.one("SELECT * FROM users WHERE id = ?", user.id));
+            ctx.ok(Map.of("user", updated.toMap()));
+        });
+
+        router.post("/api/account/avatar", ctx -> {
+            AuthUser user = Auth.requireUser(ctx);
+            String filename = Avatars.save(app.config, ctx.body((int) Avatars.MAX_BYTES));
+            app.db.update("""
+                    UPDATE users SET avatar_file_id = ?, update_time = ?, version = version + 1
+                    WHERE id = ?
+                    """, filename, Security.isoNow(), user.id);
             AuthUser updated = Authz.authUser(app.db, app.db.one("SELECT * FROM users WHERE id = ?", user.id));
             ctx.ok(Map.of("user", updated.toMap()));
         });

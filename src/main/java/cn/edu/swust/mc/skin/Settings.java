@@ -5,21 +5,23 @@ import java.util.List;
 import java.util.Map;
 
 public final class Settings {
-    public static final Map<String, String> DEFAULTS = Map.of(
-            "site_name", "西南科技大学 Minecraft 星空社",
-            "site_short_name", "星空社",
-            "tagline", "让每一块方块，都映出你的星图",
-            "announcement", "欢迎来到星空社皮肤站。注册账号、创建角色并上传皮肤，在支持 authlib-injector 的启动器中登录，即可让小伙伴看到你的专属外观。",
-            "footer_text", "西南科技大学 Minecraft 星空社 · 由社团技术组维护",
-            "registration_open", "1",
-            "yggdrasil_enabled", "1",
-            "home_banner", "",
-            "home_banners", "[]"
+    public static final Map<String, String> DEFAULTS = Map.ofEntries(
+            Map.entry("site_name", "西南科技大学 Minecraft 星空社"),
+            Map.entry("site_short_name", "星空社"),
+            Map.entry("tagline", "让每一块方块，都映出你的星图"),
+            Map.entry("announcement", "欢迎来到星空社皮肤站。注册账号、创建角色并上传皮肤，在支持 authlib-injector 的启动器中登录，即可让小伙伴看到你的专属外观。"),
+            Map.entry("footer_text", "西南科技大学 Minecraft 星空社 · 由社团技术组维护"),
+            Map.entry("icp_number", ""),
+            Map.entry("police_number", ""),
+            Map.entry("registration_open", "1"),
+            Map.entry("yggdrasil_enabled", "1"),
+            Map.entry("home_banner", ""),
+            Map.entry("home_banners", "[]")
     );
 
     public static final List<String> PUBLIC_KEYS = List.of(
             "site_name", "site_short_name", "tagline", "announcement", "footer_text",
-            "registration_open", "yggdrasil_enabled"
+            "icp_number", "police_number", "registration_open", "yggdrasil_enabled"
     );
 
     private Settings() {
