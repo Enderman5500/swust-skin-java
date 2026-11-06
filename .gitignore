@@ -7,3 +7,4 @@ plugin-src/**/build/
 plugin-src/**/*.jar
 plugins/mc-wiki/assets/
 plugins/mc-wiki/cn/
+plugins/activity/cn/

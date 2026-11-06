@@ -101,5 +101,37 @@ export const api = {
       headers: { 'Content-Type': contentType },
     });
   },
+  /** 与 request 相同的鉴权与 CSRF 处理，但返回原始 Response，供下载文件使用。 */
+  async raw(path, { method = 'GET', body, raw = false, headers = {} } = {}) {
+    const url = path.startsWith('/api/') || path === '/api' ? path : `/api${path}`;
+    const requestHeaders = { ...headers };
+    if (csrfToken && !['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+      requestHeaders['X-CSRF-Token'] = csrfToken;
+    }
+    let payload = body;
+    if (body !== undefined && !raw) {
+      requestHeaders['Content-Type'] = 'application/json';
+      payload = JSON.stringify(body);
+    }
+    const response = await fetch(url, {
+      method,
+      headers: requestHeaders,
+      body: payload,
+      credentials: 'same-origin',
+    });
+    if (!response.ok) {
+      let message = `请求失败（${response.status}）`;
+      try {
+        const data = await response.json();
+        if (data?.error?.message) message = data.error.message;
+      } catch {
+        // 非 JSON 错误响应
+      }
+      const error = new Error(message);
+      error.status = response.status;
+      throw error;
+    }
+    return response;
+  },
   request,
 };
