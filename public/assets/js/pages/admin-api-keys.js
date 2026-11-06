@@ -32,7 +32,7 @@ function permissionGroupsHtml(items) {
             .map(
               (permission) => `
             <label class="permission-option">
-              <input type="checkbox" name="permission" value="${ui.escapeHtml(permission.code)}" checked />
+              <input type="checkbox" name="permission" value="${ui.escapeHtml(permission.code)}" />
               <span>
                 <strong>${ui.escapeHtml(permission.name)}</strong>
                 <small>${ui.escapeHtml(permission.code)}${
