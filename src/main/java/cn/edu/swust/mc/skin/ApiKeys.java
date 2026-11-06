@@ -106,6 +106,7 @@ public final class ApiKeys {
     public static boolean allowedPath(String method, String path) {
         String upper = method == null ? "GET" : method.toUpperCase();
         if ("/api/plugins".equals(path) || path.startsWith("/api/plugins/")) return true;
+        if (path.startsWith("/api/admin/")) return true;
         if (!"GET".equals(upper)) return false;
         if (path.equals("/api/health") || path.equals("/api/home") || path.equals("/api/stats")) return true;
         if (path.startsWith("/api/textures")) return true;
@@ -177,7 +178,7 @@ public final class ApiKeys {
         user.extraPermissions = permissions;
         user.wildcard = false;
         user.admin = false;
-        user.levelWeight = 0;
+        user.levelWeight = base.levelWeight;
         return user;
     }
 

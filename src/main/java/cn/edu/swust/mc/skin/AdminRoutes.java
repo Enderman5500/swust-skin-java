@@ -16,7 +16,10 @@ public final class AdminRoutes {
         Web.Router router = app.router;
 
         router.get("/api/admin/stats", ctx -> {
-            Auth.requireAdmin(ctx);
+            AuthUser operator = Auth.requireUser(ctx);
+            if (!operator.can("system:user:view") && !operator.can("system:setting:view")) {
+                throw Web.forbidden("没有权限执行此操作");
+            }
             Database db = app.db;
             int users = count(db, "SELECT COUNT(*) AS count FROM users");
             int activeUsers = count(db, "SELECT COUNT(*) AS count FROM users WHERE status = 'ACTIVE'");
