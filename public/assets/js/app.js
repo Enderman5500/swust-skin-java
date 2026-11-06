@@ -261,15 +261,20 @@ function renderAnnouncement() {
 function renderFooter() {
   const year = new Date().getFullYear();
   const yggdrasil = state.home?.yggdrasilUrl || `${location.origin}/api/yggdrasil`;
+  const policeNumber = String(state.settings.police_number || '').trim();
+  const policeCode = policeNumber.match(/\d{10,}/)?.[0] || '';
+  const policeHref = policeCode
+    ? `https://beian.mps.gov.cn/#/query/webSearch?code=${encodeURIComponent(policeCode)}`
+    : 'https://beian.mps.gov.cn/';
   const beian = [
     state.settings.icp_number
       ? `<a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">${ui.escapeHtml(
           state.settings.icp_number
         )}</a>`
       : '',
-    state.settings.police_number
-      ? `<a href="https://beian.mps.gov.cn/" target="_blank" rel="noopener noreferrer">${ui.escapeHtml(
-          state.settings.police_number
+    policeNumber
+      ? `<a href="${policeHref}" target="_blank" rel="noopener noreferrer">${ui.escapeHtml(
+          policeNumber
         )}</a>`
       : '',
   ]
