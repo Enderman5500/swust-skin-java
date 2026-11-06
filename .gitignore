@@ -11,3 +11,4 @@ game-integrations/**/run/
 game-integrations/**/target/
 plugins/mc-wiki/assets/
 plugins/mc-wiki/cn/
+plugins/activity/cn/

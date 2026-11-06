@@ -38,11 +38,12 @@
 | 品牌 | 星空社徽章、深海军蓝 / 星金配色、响应式首页、社团文案与联机指引 |
 | 首页 | 管理后台可上传多张首页主图（PNG / JPG / WebP，最多 8 张）并自动循环滚动、支持左右箭头切换；未上传时使用社团徽章占位；登录后展示可拖入 PCL2 / HMCL 的认证卡片 |
 
-内置三个示例插件：
+内置四个示例插件：
 
 - **服务器状态**：Java 插件，真实 TCP 探测服务器在线状态与延迟，管理员可在页面内维护服务器地址。
 - **随机皮肤**：纯前端插件，从公开皮肤库随机抽 9 件作品。
 - **MC 百科**：Java 插件，从 Mojang 官方客户端 / 服务端 JAR 导入物品、方块、生物与合成配方，支持多版本发布、3D 物品图标与后台导入任务。
+- **社团活动**：Java 插件，活动发布与报名、参与核验、活动身份信息管理，支持 DOCX 证明模板与多活动联动导出。
 
 ## 快速开始
 
@@ -278,6 +279,70 @@ plugin-src/mc-wiki/build.sh      # Windows: plugin-src\mc-wiki\build.bat
 
 产物为 `plugins/mc-wiki/`（可直接运行）和 `plugin-src/mc-wiki/mc-wiki.jar`（可在插件管理页上传安装）。源码位于 `plugin-src/mc-wiki/`。
 
+## 社团活动
+
+`plugins/activity/` 提供活动广场、参与核验与活动证明导出，入口为 `#/plugin/activity`，管理员入口为 `#/plugin/activity?tab=admin`。
+
+**活动流程**
+
+1. 管理员在「活动管理」中新建活动，支持草稿 / 开放报名 / 已结束三种状态、报名时间窗口、名额上限与证明开关。
+2. 社员在「活动广场」报名；管理员在「参与核验」中按人通过、拒绝或批量核验。
+3. 社员在「我的活动」中开启「参与活动证明」，填写姓名、学号、专业班级、学院与专业。未开启时不会进入证明名单，信息也可以留空。
+4. 管理员上传 DOCX 证明模板后，在「证明导出」中选择一个或多个活动，预览并修改名单后生成一份包含全部参与者的 DOCX。
+
+**学号与年级**
+
+学号格式为 `51 + 4 位入学年份 + 4 位数字`（例如 `5120241234`），开启证明时姓名、学号和专业班级为必填。系统按每年 9 月划分学年，根据入学年份与「预计毕业年份」判断年级；预计毕业年份默认按入学年份 + 4 自动推算，可手动修改（五年制、延期毕业等），取值范围限制在入学年份至入学年份 + 10 年。默认参与范围为大一大二大三；大四及已毕业默认不再进入证明名单，可在「我的活动」中点击「继续参与」手动保留参与资格；未填写身份、未开启证明或学号无效同样会单独列出。
+
+**固定参与人员**
+
+「证明导出」中可以维护固定参与人员（工作人员、外校同学等未在网站报名的人员），支持手动填写，也可以从已填写身份信息的现有用户直接导入。固定人员会随每次导出加入名单，同样需要填写符合规则的学号和专业班级，并按默认参与范围（大一至大三）判断是否进入名单。
+
+**多活动联动**
+
+证明导出支持一次选择多个活动：
+
+- 「任一活动通过」：参与过所选活动之一且核验通过的社员都会进入名单，正文中的 `{{activities}}` 列出所选活动。
+- 「需全部活动通过」：只有所选活动全部核验通过的人才会进入名单。
+
+**模板与预览**
+
+- 管理员可以上传任意 `.docx` 模板，并可在「在线编辑模板」中直接修改正文段落文字，表格中的参与者名单由系统自动重建（每行两人：姓名 / 专业班级 / 学号）。
+- 「预览并生成」会展示可编辑的证明编号、签发日期、签发单位、正文活动名称和参与者表格；可以增删人员、修改姓名/班级/学号后再生成。
+- 模板正文支持以下占位符，渲染时会合并被 Word 拆分的文本片段后替换：
+
+```text
+{{proofNo}} {{issueDate}} {{issuer}} {{activities}} {{activityCount}} {{generatedAt}}
+{{name}} {{studentNo}} {{college}} {{className}} {{major}} {{enrollmentYear}} {{graduationYear}}
+```
+
+社员也可以在「我的活动」中为已核验的活动单独下载自己的证明 DOCX。
+
+**已盖章 PDF**
+
+管理员在「证明导出 → 已盖章 PDF」上传盖章扫描件，有两种方式：
+
+- 根据某次导出记录上传：自动使用该记录的参与者名单匹配，名单内用户均可下载。
+- 独立上传：上传时从已填写身份信息的用户中手动勾选参与名单。
+
+参与者在「我的活动 → 已盖章证明」中下载对应的盖章 PDF；下载权限按用户 ID 或身份表学号匹配，未在名单内的用户无法下载。管理员可下载或删除已上传的盖章文件。
+
+数据位置：
+
+```text
+data/plugin-data/activity/     activities.json、participations.json、identities.json、
+                               settings.json、exports.json、stamped.json、template.docx、
+                               exports/*.docx、stamped/*.pdf
+```
+
+服务器在线自动报名预留了活动级开关与 `/admin/sync` 接口，需要接入服务器插件提供的在线玩家数据后启用，当前返回「暂未接入」提示。
+
+重新构建插件：
+
+```bash
+plugin-src/activity/build.sh      # Windows: plugin-src\activity\build.bat
+```
+
 ## 插件权限
 
 每个已安装插件会自动注册一个权限码：
@@ -358,6 +423,7 @@ public final class MyPlugin implements SkinPlugin {
 
 - `ctx.registerRoute(method, path, handler)`：注册 `/api/plugins/<id><path>`。
 - `ctx.registerAdminRoute(...)`：仅管理员可访问。
+- 路由返回 `PluginResponse.download(filename, contentType, bytes)` 时直接输出文件下载，适合导出的 DOCX / ZIP 等二进制内容。
 - `ctx.on(event, handler)`：监听 `texture.uploaded`、`player.created`、`player.equipped` 等事件。
 - `ctx.getConfig()` / `ctx.setConfig(patch)`：读取与保存插件配置。
 - `ctx.getData(key)` / `ctx.setData(key, value)`：插件私有持久化数据。

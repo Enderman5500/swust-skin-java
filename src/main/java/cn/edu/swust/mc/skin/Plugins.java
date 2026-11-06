@@ -352,7 +352,12 @@ public final class Plugins {
             if (route.admin && !ctx.user.admin) throw Web.forbidden("没有权限执行此操作");
             try {
                 Object result = route.handler.handle(new PluginRequest(ctx, record.manifest));
-                ctx.ok(result);
+                if (result instanceof cn.edu.swust.mc.skin.plugin.PluginResponse response) {
+                    ctx.sendBytes(response.status(), response.body(), response.contentType(), "no-store",
+                            response.headers());
+                } else {
+                    ctx.ok(result);
+                }
             } catch (Web.HttpError | Yggdrasil.YggdrasilError e) {
                 throw e;
             } catch (Exception e) {

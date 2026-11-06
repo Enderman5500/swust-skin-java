@@ -1,0 +1,24 @@
+{
+  "id": "activity",
+  "name": "社团活动",
+  "version": "1.0.0",
+  "description": "发布 Minecraft 社团活动，用户报名、管理员核验参与，并按身份信息导出活动证明。",
+  "author": "星空社技术组",
+  "mainClass": "cn.edu.swust.mc.skin.plugins.activity.ActivityPlugin",
+  "client": "client.mjs",
+  "enabledByDefault": true,
+  "nav": {
+    "title": "社团活动",
+    "icon": "star",
+    "order": 50
+  },
+  "adminNav": [
+    {
+      "title": "活动管理",
+      "category": "插件页面",
+      "icon": "star",
+      "path": "#/plugin/activity?tab=admin",
+      "order": 50
+    }
+  ]
+}
