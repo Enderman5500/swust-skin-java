@@ -253,7 +253,8 @@ public final class LogRoutes {
     }
 
     private static long send(OutputStream output, long sequence, String line) throws IOException {
-        write(output, "id: " + sequence + "\nevent: log\ndata: " + line + "\n\n");
+        String safe = line.replace("\r", "");
+        write(output, "id: " + sequence + "\nevent: log\ndata: " + safe + "\n\n");
         return sequence + 1;
     }
 
