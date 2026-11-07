@@ -10,6 +10,10 @@ const paths = {
     '<path d="M12 3 4.5 6v6c0 4.2 3 7.2 7.5 9 4.5-1.8 7.5-4.8 7.5-9V6L12 3Z"/><path d="m9 12 2 2 4-4"/>',
   server:
     '<rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><path d="M7 7h0M7 17h0M11 7h5M11 17h5"/>',
+  terminal:
+    '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M13 15h4"/>',
+  pause: '<path d="M9 5v14M15 5v14"/>',
+  play: '<path d="m8 5 11 7-11 7Z"/>',
   sparkles:
     '<path d="m12 3 1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8L12 3Z"/><path d="m19 15 .8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/>',
   download: '<path d="M12 4v12"/><path d="m7 11 5 5 5-5"/><path d="M4 20h16"/>',

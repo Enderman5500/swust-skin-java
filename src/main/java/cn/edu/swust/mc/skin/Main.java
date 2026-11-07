@@ -33,6 +33,7 @@ public final class Main {
 
     public static void main(String[] args) throws Exception {
         Config config = new Config();
+        Log.init(config.dataDir.resolve("logs"));
         Log.info("正在启动 SWUSTMC Skin（Java）…");
         Database db = new Database(config);
         db.bootstrap();
@@ -48,6 +49,7 @@ public final class Main {
         SkinRoutes.register(app);
         AdminRoutes.register(app);
         ApiKeyRoutes.register(app);
+        LogRoutes.register(app);
         PluginRoutes.register(app);
         YggdrasilRoutes.register(app);
 

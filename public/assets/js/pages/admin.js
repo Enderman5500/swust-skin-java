@@ -11,6 +11,7 @@ import { renderRoles } from './admin-roles.js';
 import { renderUsers } from './admin-users.js';
 import { renderApiKeys } from './admin-api-keys.js';
 import { renderMinecraftServers } from './admin-minecraft-servers.js';
+import { renderLogs } from './admin-logs.js';
 
 const SIDEBAR_GROUPS_KEY = 'swust.admin.sidebar.groups';
 
@@ -24,6 +25,7 @@ const SECTIONS = [
   { key: 'plugins', label: '插件管理', icon: 'plugin', permission: 'skin:plugin:view', category: '插件与扩展' },
   { key: 'api-keys', label: 'API 密钥', icon: 'key', permission: 'system:user:view', category: '插件与扩展' },
   { key: 'settings', label: '站点设置', icon: 'settings', permission: 'system:setting:view', category: '系统' },
+  { key: 'logs', label: '系统日志', icon: 'terminal', permission: 'system:setting:view', category: '系统' },
 ];
 
 function can(user, code) {
@@ -164,7 +166,7 @@ export async function render(root, ctx) {
     }
     if (main) {
       main.classList.remove('admin-section-enter');
-      await renderAdminSection(main, ctx, active, activeSection, allowed);
+      const cleanup = await renderAdminSection(main, ctx, active, activeSection, allowed);
       main.classList.add('admin-section-enter');
       if (
         window.matchMedia?.('(prefers-reduced-motion: reduce)').matches &&
@@ -172,6 +174,7 @@ export async function render(root, ctx) {
       ) {
         main.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 280, easing: 'ease' });
       }
+      return cleanup;
     }
     return;
   }
@@ -296,7 +299,7 @@ export async function render(root, ctx) {
   });
 
   const main = root.querySelector('[data-admin-main]');
-  await renderAdminSection(main, ctx, active, activeSection, allowed);
+  return renderAdminSection(main, ctx, active, activeSection, allowed);
 }
 
 async function renderAdminSection(main, ctx, active, activeSection, allowed) {
@@ -312,15 +315,16 @@ async function renderAdminSection(main, ctx, active, activeSection, allowed) {
     return;
   }
 
-  if (active === 'users') await renderUsers(main, ctx);
-  else if (active === 'roles') await renderRoles(main, ctx);
-  else if (active === 'players') await renderPlayers(main, ctx);
-  else if (active === 'textures') await renderTextures(main, ctx);
-  else if (active === 'minecraft-servers') await renderMinecraftServers(main, ctx);
-  else if (active === 'plugins') await renderPlugins(main, ctx);
-  else if (active === 'api-keys') await renderApiKeys(main, ctx);
-  else if (active === 'settings') await renderSettings(main, ctx);
-  else await renderOverview(main, ctx);
+  if (active === 'users') return renderUsers(main, ctx);
+  if (active === 'roles') return renderRoles(main, ctx);
+  if (active === 'players') return renderPlayers(main, ctx);
+  if (active === 'textures') return renderTextures(main, ctx);
+  if (active === 'minecraft-servers') return renderMinecraftServers(main, ctx);
+  if (active === 'plugins') return renderPlugins(main, ctx);
+  if (active === 'api-keys') return renderApiKeys(main, ctx);
+  if (active === 'settings') return renderSettings(main, ctx);
+  if (active === 'logs') return renderLogs(main, ctx);
+  return renderOverview(main, ctx);
 }
 
 async function renderOverview(main, ctx) {
