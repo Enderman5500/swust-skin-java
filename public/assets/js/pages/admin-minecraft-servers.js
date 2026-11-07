@@ -151,7 +151,7 @@ function renderList(main, ctx, servers, totals) {
       ${
         servers.length
           ? `<table class="data-table mc-server-table">
-              <thead><tr><th>服务器</th><th>服务器 ID</th><th>地址</th><th>状态</th><th>端 / 版本</th><th>最后心跳/探测</th><th>操作</th></tr></thead>
+              <thead><tr><th>服务器</th><th>服务器 ID</th><th>地址</th><th>状态</th><th>公开</th><th>端 / 版本</th><th>最后心跳/探测</th><th>操作</th></tr></thead>
               <tbody>
                 ${servers
                   .map(
@@ -166,16 +166,14 @@ function renderList(main, ctx, servers, totals) {
                       server.id
                     )}" title="复制服务器 ID">${icon('copy')}</button></td>
                     <td data-label="地址"><code>${ui.escapeHtml(server.address)}</code></td>
-                    <td data-label="状态">
-                      <div class="server-status-cell">
-                        ${statusPill(server.online, server.onlineCount, server.maxPlayers)}
-                        <label class="table-switch" title="${server.visible ? '已在公开页面显示' : '已隐藏'}">
-                          <input type="checkbox" data-action="toggle-visible" data-server="${ui.escapeHtml(server.id)}" ${
-                            server.visible ? 'checked' : ''
-                          } />
-                          <span></span>
-                        </label>
-                      </div>
+                    <td data-label="状态">${statusPill(server.online, server.onlineCount, server.maxPlayers)}</td>
+                    <td data-label="公开">
+                      <label class="table-switch" title="${server.visible ? '已在公开页面显示' : '已隐藏'}">
+                        <input type="checkbox" data-action="toggle-visible" data-server="${ui.escapeHtml(server.id)}" aria-label="公开显示" ${
+                          server.visible ? 'checked' : ''
+                        } />
+                        <span></span>
+                      </label>
                     </td>
                     <td data-label="端和版本">${
                       server.loader

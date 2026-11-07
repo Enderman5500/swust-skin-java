@@ -6557,13 +6557,6 @@ body.is-admin .site-main {
   margin: 0;
 }
 
-.server-status-cell {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
 .table-switch {
   position: relative;
   display: inline-flex;
@@ -6689,13 +6682,14 @@ body.is-admin .site-main {
   word-break: break-all;
 }
 
-.yd-admin-content .mc-server-table th:nth-child(1) { width: 18%; }
-.yd-admin-content .mc-server-table th:nth-child(2) { width: 15%; }
+.yd-admin-content .mc-server-table th:nth-child(1) { width: 16%; }
+.yd-admin-content .mc-server-table th:nth-child(2) { width: 14%; }
 .yd-admin-content .mc-server-table th:nth-child(3) { width: 16%; }
-.yd-admin-content .mc-server-table th:nth-child(4) { width: 14%; }
-.yd-admin-content .mc-server-table th:nth-child(5) { width: 10%; }
-.yd-admin-content .mc-server-table th:nth-child(6) { width: 11%; }
-.yd-admin-content .mc-server-table th:nth-child(7) { width: 16%; }
+.yd-admin-content .mc-server-table th:nth-child(4) { width: 12%; }
+.yd-admin-content .mc-server-table th:nth-child(5) { width: 7%; }
+.yd-admin-content .mc-server-table th:nth-child(6) { width: 10%; }
+.yd-admin-content .mc-server-table th:nth-child(7) { width: 10%; }
+.yd-admin-content .mc-server-table th:nth-child(8) { width: 15%; }
 
 .data-table .field-hint {
   display: block;
