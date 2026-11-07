@@ -6610,6 +6610,60 @@ body.is-admin .site-main {
   transform: translateX(16px);
 }
 
+.server-name-link {
+  color: var(--navy);
+  font-weight: 700;
+  border-bottom: 1px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.server-name-link:hover {
+  color: var(--gold-deep);
+  border-color: var(--gold);
+}
+
+.mc-back-link {
+  margin-bottom: 10px;
+}
+
+.mc-back-link .icon {
+  transform: rotate(180deg);
+}
+
+.mc-stat-grid .stat-card > div {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+}
+
+.mc-stat-grid .stat-card strong {
+  font-size: 27px;
+  line-height: 1.15;
+}
+
+.compact-switch {
+  align-items: center;
+  gap: 12px;
+  min-height: 46px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.compact-switch > span {
+  gap: 2px;
+}
+
+.compact-switch strong {
+  font-size: 12px;
+}
+
+.compact-switch small {
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
 .mc-online-list {
   display: flex;
   flex-direction: column;
@@ -6635,13 +6689,30 @@ body.is-admin .site-main {
   word-break: break-all;
 }
 
-.yd-admin-content .mc-server-table th:nth-child(1) { width: 20%; }
-.yd-admin-content .mc-server-table th:nth-child(2) { width: 13%; }
+.yd-admin-content .mc-server-table th:nth-child(1) { width: 18%; }
+.yd-admin-content .mc-server-table th:nth-child(2) { width: 15%; }
 .yd-admin-content .mc-server-table th:nth-child(3) { width: 16%; }
-.yd-admin-content .mc-server-table th:nth-child(4) { width: 13%; }
-.yd-admin-content .mc-server-table th:nth-child(5) { width: 11%; }
+.yd-admin-content .mc-server-table th:nth-child(4) { width: 14%; }
+.yd-admin-content .mc-server-table th:nth-child(5) { width: 10%; }
 .yd-admin-content .mc-server-table th:nth-child(6) { width: 11%; }
 .yd-admin-content .mc-server-table th:nth-child(7) { width: 16%; }
+
+.data-table .field-hint {
+  display: block;
+  margin-top: 3px;
+}
+
+.mc-server-table .icon-btn {
+  width: 28px;
+  height: 28px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+.mc-server-table .icon-btn .icon {
+  width: 15px;
+  height: 15px;
+}
 
 @media (max-width: 720px) {
   .mc-time-summary {

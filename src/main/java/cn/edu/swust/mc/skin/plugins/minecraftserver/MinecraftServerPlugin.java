@@ -81,6 +81,7 @@ public final class MinecraftServerPlugin implements SkinPlugin {
                       port INTEGER NOT NULL,
                       description TEXT NOT NULL DEFAULT '',
                       visible INTEGER NOT NULL DEFAULT 1,
+                      sort_order INTEGER NOT NULL DEFAULT 0,
                       created_at TEXT NOT NULL,
                       updated_at TEXT NOT NULL
                     )
@@ -137,6 +138,7 @@ public final class MinecraftServerPlugin implements SkinPlugin {
             statement.execute("CREATE INDEX IF NOT EXISTS idx_mc_reports_time ON report_log(received_at)");
         }
         ensureColumn("servers", "visible", "INTEGER NOT NULL DEFAULT 1");
+        ensureColumn("servers", "sort_order", "INTEGER NOT NULL DEFAULT 0");
     }
 
     private void ensureColumn(String table, String column, String definition) throws SQLException {
@@ -156,7 +158,7 @@ public final class MinecraftServerPlugin implements SkinPlugin {
                        st.observed_at, st.received_at
                 FROM servers s LEFT JOIN server_status st ON st.server_id = s.id
                 WHERE s.visible = 1
-                ORDER BY s.created_at ASC
+                ORDER BY s.sort_order ASC, s.created_at ASC
                 """);
              ResultSet result = statement.executeQuery()) {
             while (result.next()) servers.add(publicServer(result));
@@ -357,7 +359,7 @@ public final class MinecraftServerPlugin implements SkinPlugin {
                 SELECT s.*, st.online_count, st.max_players, st.version, st.loader,
                        st.observed_at, st.received_at
                 FROM servers s LEFT JOIN server_status st ON st.server_id = s.id
-                ORDER BY s.created_at ASC
+                ORDER BY s.sort_order ASC, s.created_at ASC
                 """);
              ResultSet result = statement.executeQuery()) {
             while (result.next()) {
@@ -430,13 +432,17 @@ public final class MinecraftServerPlugin implements SkinPlugin {
         boolean visible = body.containsKey("visible")
                 ? Authz.bool(body.get("visible"))
                 : existing == null || Boolean.TRUE.equals(existing.get("visible"));
+        int sortOrder = body.containsKey("sortOrder")
+                ? (int) parseLong(body.get("sortOrder"), 0)
+                : existing == null ? 0 : Authz.num(existing.get("sortOrder"));
+        sortOrder = Math.max(-999999, Math.min(999999, sortOrder));
         if (id.isEmpty()) {
             do {
                 id = "srv_" + Security.randomHex(4);
             } while (serverRow(id) != null);
             try (PreparedStatement insert = db.prepareStatement("""
-                    INSERT INTO servers (id, name, host, port, description, visible, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO servers (id, name, host, port, description, visible, sort_order, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """)) {
                 insert.setString(1, id);
                 insert.setString(2, name);
@@ -444,23 +450,25 @@ public final class MinecraftServerPlugin implements SkinPlugin {
                 insert.setInt(4, port);
                 insert.setString(5, description);
                 insert.setInt(6, visible ? 1 : 0);
-                insert.setString(7, now);
+                insert.setInt(7, sortOrder);
                 insert.setString(8, now);
+                insert.setString(9, now);
                 insert.executeUpdate();
             }
         } else {
             if (existing == null) throw Web.notFound("服务器不存在");
             try (PreparedStatement update = db.prepareStatement("""
-                    UPDATE servers SET name = ?, host = ?, port = ?, description = ?, visible = ?, updated_at = ?
-                    WHERE id = ?
+                    UPDATE servers SET name = ?, host = ?, port = ?, description = ?, visible = ?,
+                      sort_order = ?, updated_at = ? WHERE id = ?
                     """)) {
                 update.setString(1, name);
                 update.setString(2, host);
                 update.setInt(3, port);
                 update.setString(4, description);
                 update.setInt(5, visible ? 1 : 0);
-                update.setString(6, now);
-                update.setString(7, id);
+                update.setInt(6, sortOrder);
+                update.setString(7, now);
+                update.setString(8, id);
                 update.executeUpdate();
             }
         }
@@ -744,6 +752,7 @@ public final class MinecraftServerPlugin implements SkinPlugin {
         server.put("port", result.getInt("port"));
         server.put("description", result.getString("description"));
         server.put("visible", result.getInt("visible") != 0);
+        server.put("sortOrder", result.getInt("sort_order"));
         server.put("createdAt", result.getString("created_at"));
         server.put("updatedAt", result.getString("updated_at"));
         server.put("address", result.getString("host") + ":" + result.getInt("port"));
