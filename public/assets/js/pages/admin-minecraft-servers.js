@@ -277,8 +277,12 @@ api-key  = sk_...（需要 plugin:minecraft-server:use 权限）</pre>
           id: input.dataset.server,
           visible,
         });
+        const server = findServer(input.dataset.server);
+        if (server) server.visible = visible;
+        const label = input.closest('.table-switch');
+        if (label) label.title = visible ? '已在公开页面显示' : '已隐藏';
+        input.disabled = false;
         ui.toast(visible ? '服务器已在公开页面显示' : '服务器已从公开页面隐藏', 'success');
-        await renderMinecraftServers(main, ctx);
       } catch (error) {
         input.checked = !visible;
         input.disabled = false;
