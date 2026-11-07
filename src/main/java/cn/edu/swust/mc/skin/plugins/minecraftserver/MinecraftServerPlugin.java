@@ -2,12 +2,20 @@ package cn.edu.swust.mc.skin.plugins.minecraftserver;
 
 import cn.edu.swust.mc.skin.AuthUser;
 import cn.edu.swust.mc.skin.Authz;
+import cn.edu.swust.mc.skin.Json;
 import cn.edu.swust.mc.skin.Security;
 import cn.edu.swust.mc.skin.Web;
 import cn.edu.swust.mc.skin.plugin.PluginContext;
 import cn.edu.swust.mc.skin.plugin.PluginRequest;
 import cn.edu.swust.mc.skin.plugin.SkinPlugin;
 
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -22,6 +30,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 public final class MinecraftServerPlugin implements SkinPlugin {
     private static final int MAX_ONLINE = 200;
@@ -30,6 +43,7 @@ public final class MinecraftServerPlugin implements SkinPlugin {
 
     private PluginContext context;
     private Connection db;
+    private final Map<String, CachedPing> pingCache = new ConcurrentHashMap<>();
 
     @Override
     public void activate(PluginContext context) throws Exception {
@@ -133,6 +147,7 @@ public final class MinecraftServerPlugin implements SkinPlugin {
              ResultSet result = statement.executeQuery()) {
             while (result.next()) servers.add(publicServer(result));
         }
+        applyPings(servers);
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("servers", servers);
         data.put("checkedAt", Security.isoNow());
@@ -337,6 +352,7 @@ public final class MinecraftServerPlugin implements SkinPlugin {
                 servers.add(server);
             }
         }
+        applyPings(servers);
 
         List<Map<String, Object>> players = new ArrayList<>();
         long totalMillis = 0;
@@ -504,6 +520,155 @@ public final class MinecraftServerPlugin implements SkinPlugin {
             }
         }
         return players;
+    }
+
+    private void applyPings(List<Map<String, Object>> servers) {
+        Map<String, PingResult> results = pingAll(servers);
+        for (Map<String, Object> server : servers) {
+            String id = Authz.str(server.get("id"));
+            boolean heartbeatOnline = Boolean.TRUE.equals(server.get("online"));
+            int heartbeatCount = Authz.num(server.get("onlineCount"));
+            int heartbeatMax = Authz.num(server.get("maxPlayers"));
+            PingResult ping = results.get(id);
+            if (ping != null && ping.online()) {
+                server.put("online", true);
+                server.put("onlineCount", ping.onlineCount());
+                if (ping.maxPlayers() > 0) server.put("maxPlayers", ping.maxPlayers());
+                if (!ping.version().isBlank()) server.put("version", ping.version());
+                if (!ping.motd().isBlank()) server.put("motd", ping.motd());
+                server.put("statusSource", "ping");
+            } else {
+                server.put("online", heartbeatOnline);
+                server.put("onlineCount", heartbeatOnline ? heartbeatCount : 0);
+                server.put("maxPlayers", heartbeatMax);
+                server.put("statusSource", heartbeatOnline ? "heartbeat" : "offline");
+            }
+            server.put("pingedAt", ping == null ? null : ping.checkedAt());
+        }
+    }
+
+    private Map<String, PingResult> pingAll(List<Map<String, Object>> servers) {
+        Map<String, PingResult> results = new ConcurrentHashMap<>();
+        long now = System.currentTimeMillis();
+        List<Map<String, Object>> pending = new ArrayList<>();
+        for (Map<String, Object> server : servers) {
+            String id = Authz.str(server.get("id"));
+            CachedPing cached = pingCache.get(id);
+            if (cached != null && now - cached.at() < 5000) {
+                results.put(id, cached.result());
+            } else {
+                pending.add(server);
+            }
+        }
+        if (pending.isEmpty()) return results;
+        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            List<Future<?>> futures = new ArrayList<>();
+            for (Map<String, Object> server : pending) {
+                String id = Authz.str(server.get("id"));
+                String host = Authz.str(server.get("host"));
+                int port = Authz.num(server.get("port"));
+                futures.add(executor.submit(() -> {
+                    PingResult result = ping(host, port);
+                    results.put(id, result);
+                    pingCache.put(id, new CachedPing(System.currentTimeMillis(), result));
+                }));
+            }
+            for (Future<?> future : futures) {
+                try {
+                    future.get(2, TimeUnit.SECONDS);
+                } catch (Exception ignored) {
+                }
+            }
+        }
+        return results;
+    }
+
+    private PingResult ping(String host, int port) {
+        String checkedAt = Security.isoNow();
+        if (host == null || host.isBlank() || port < 1 || port > 65535) {
+            return new PingResult(false, 0, 0, "", "", checkedAt);
+        }
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress(host, port), 1200);
+            socket.setSoTimeout(1500);
+            socket.setTcpNoDelay(true);
+            DataOutputStream output = new DataOutputStream(socket.getOutputStream());
+            DataInputStream input = new DataInputStream(socket.getInputStream());
+
+            ByteArrayOutputStream handshake = new ByteArrayOutputStream();
+            DataOutputStream handshakeData = new DataOutputStream(handshake);
+            writeVarInt(handshakeData, 0x00);
+            writeVarInt(handshakeData, 47);
+            writeString(handshakeData, host);
+            handshakeData.writeShort(port);
+            writeVarInt(handshakeData, 1);
+            sendPacket(output, handshake.toByteArray());
+            sendPacket(output, new byte[]{0x00});
+
+            int length = readVarInt(input);
+            if (length <= 0 || length > 2 * 1024 * 1024) throw new IOException("状态包长度异常");
+            int packetId = readVarInt(input);
+            if (packetId != 0) throw new IOException("状态包类型异常");
+            String json = readString(input);
+            @SuppressWarnings("unchecked")
+            Map<String, Object> root = Json.MAPPER.readValue(json, Map.class);
+            Map<String, Object> players = map(root.get("players"));
+            Map<String, Object> version = map(root.get("version"));
+            int onlineCount = players == null ? 0 : Math.max(0, Authz.num(players.get("online")));
+            int maxPlayers = players == null ? 0 : Math.max(0, Authz.num(players.get("max")));
+            String versionName = version == null ? "" : Authz.str(version.get("name"));
+            String motd = Authz.str(root.get("description"));
+            return new PingResult(true, onlineCount, maxPlayers, versionName, motd, checkedAt);
+        } catch (Exception e) {
+            return new PingResult(false, 0, 0, "", "", checkedAt);
+        }
+    }
+
+    private static void sendPacket(DataOutputStream output, byte[] body) throws IOException {
+        writeVarInt(output, body.length);
+        output.write(body);
+        output.flush();
+    }
+
+    private static void writeString(DataOutputStream output, String value) throws IOException {
+        byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+        writeVarInt(output, bytes.length);
+        output.write(bytes);
+    }
+
+    private static void writeVarInt(DataOutputStream output, int value) throws IOException {
+        while ((value & ~0x7F) != 0) {
+            output.writeByte((value & 0x7F) | 0x80);
+            value >>>= 7;
+        }
+        output.writeByte(value);
+    }
+
+    private static int readVarInt(DataInputStream input) throws IOException {
+        int value = 0;
+        int position = 0;
+        while (true) {
+            int current = input.readUnsignedByte();
+            value |= (current & 0x7F) << position;
+            if ((current & 0x80) == 0) return value;
+            position += 7;
+            if (position >= 35) throw new IOException("VarInt 过长");
+        }
+    }
+
+    private static String readString(DataInputStream input) throws IOException {
+        int length = readVarInt(input);
+        if (length < 0 || length > 2 * 1024 * 1024) throw new IOException("字符串长度异常");
+        byte[] bytes = new byte[length];
+        input.readFully(bytes);
+        return new String(bytes, StandardCharsets.UTF_8);
+    }
+
+    private record PingResult(boolean online, int onlineCount, int maxPlayers,
+                              String version, String motd, String checkedAt) {
+    }
+
+    private record CachedPing(long at, PingResult result) {
     }
 
     private Map<String, Object> publicServer(ResultSet result) throws SQLException {

@@ -57,7 +57,7 @@ export async function renderMinecraftServers(main, ctx) {
       ${
         servers.length
           ? `<table class="data-table mc-server-table">
-              <thead><tr><th>服务器</th><th>服务器 ID</th><th>地址</th><th>状态</th><th>端 / 版本</th><th>最后心跳</th><th>操作</th></tr></thead>
+              <thead><tr><th>服务器</th><th>服务器 ID</th><th>地址</th><th>状态</th><th>端 / 版本</th><th>最后心跳/探测</th><th>操作</th></tr></thead>
               <tbody>
                 ${servers
                   .map(
@@ -71,10 +71,20 @@ export async function renderMinecraftServers(main, ctx) {
                     )}" title="复制服务器 ID">${icon('copy')}</button></td>
                     <td data-label="地址"><code>${ui.escapeHtml(server.address)}</code></td>
                     <td data-label="状态">${statusPill(server.online, server.onlineCount, server.maxPlayers)}</td>
-                    <td data-label="端和版本">${ui.escapeHtml(server.loader || '—')}<small class="field-hint">${ui.escapeHtml(
-                      server.version || ''
-                    )}</small></td>
-                    <td data-label="最后心跳">${server.lastSeenAt ? ui.timeAgo(server.lastSeenAt) : '从未上报'}</td>
+                    <td data-label="端和版本">${
+                      server.loader
+                        ? `${ui.escapeHtml(server.loader)}<small class="field-hint">${ui.escapeHtml(
+                            server.version || ''
+                          )}</small>`
+                        : ui.escapeHtml(server.version || '—')
+                    }</td>
+                    <td data-label="最后心跳/探测">${
+                      server.lastSeenAt
+                        ? `心跳 ${ui.timeAgo(server.lastSeenAt)}`
+                        : server.pingedAt
+                          ? `探测 ${ui.timeAgo(server.pingedAt)}`
+                          : '从未上报'
+                    }</td>
                     <td data-label="操作" class="table-actions">
                       <button class="btn btn-ghost btn-sm" data-action="view-players" data-server="${ui.escapeHtml(
                         server.id

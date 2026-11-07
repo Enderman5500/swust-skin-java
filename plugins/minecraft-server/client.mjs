@@ -27,8 +27,16 @@ function renderServers(servers, tools) {
           <p class="server-address"><code>${escapeHtml(server.address)}</code></p>
           ${server.description ? `<p class="mc-server-desc">${escapeHtml(server.description)}</p>` : ''}
           <div class="mc-server-meta">
-            <span>${escapeHtml(server.loader || '未知端')} ${escapeHtml(server.version || '')}</span>
-            <span>${server.lastSeenAt ? `最后心跳 ${timeAgo(server.lastSeenAt)}` : '从未上报'}</span>
+            <span>${escapeHtml(
+              server.loader ? `${server.loader} ${server.version || ''}` : server.version || '未知版本'
+            )}</span>
+            <span>${
+              server.lastSeenAt
+                ? `最后心跳 ${timeAgo(server.lastSeenAt)}`
+                : server.pingedAt
+                  ? `最后探测 ${timeAgo(server.pingedAt)}`
+                  : '从未上报'
+            }</span>
           </div>
         </article>
       `
