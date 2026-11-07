@@ -70,7 +70,17 @@ export async function renderMinecraftServers(main, ctx) {
                       server.id
                     )}" title="复制服务器 ID">${icon('copy')}</button></td>
                     <td data-label="地址"><code>${ui.escapeHtml(server.address)}</code></td>
-                    <td data-label="状态">${statusPill(server.online, server.onlineCount, server.maxPlayers)}</td>
+                    <td data-label="状态">
+                      <div class="server-status-cell">
+                        ${statusPill(server.online, server.onlineCount, server.maxPlayers)}
+                        <label class="table-switch" title="${server.visible ? '已在公开页面显示' : '已隐藏'}">
+                          <input type="checkbox" data-action="toggle-visible" data-server="${ui.escapeHtml(server.id)}" ${
+                            server.visible ? 'checked' : ''
+                          } />
+                          <span></span>
+                        </label>
+                      </div>
+                    </td>
                     <td data-label="端和版本">${
                       server.loader
                         ? `${ui.escapeHtml(server.loader)}<small class="field-hint">${ui.escapeHtml(
@@ -174,6 +184,10 @@ api-key  = sk_...（需要 plugin:minecraft-server:use 权限）</pre>
         <label class="field"><span>描述</span><textarea name="description" rows="3" maxlength="300" placeholder="服务器玩法或说明">${ui.escapeHtml(
           server?.description || ''
         )}</textarea></label>
+        <label class="switch-field">
+          <span><strong>在公开页面显示</strong><small>关闭后普通访客和登录用户都看不到这台服务器，但后台仍会继续 Ping 和统计。</small></span>
+          <input type="checkbox" name="visible" ${server?.visible !== false ? 'checked' : ''} />
+        </label>
         <p class="field-hint">${
           server
             ? `服务器 ID：<code>${ui.escapeHtml(server.id)}</code>`
@@ -201,6 +215,7 @@ api-key  = sk_...（需要 plugin:minecraft-server:use 权限）</pre>
                 host: form.elements.host.value.trim(),
                 port: Number(form.elements.port.value),
                 description: form.elements.description.value.trim(),
+                visible: form.elements.visible.checked,
               });
               ui.setButtonLoading(button, false);
               close();
@@ -252,6 +267,24 @@ api-key  = sk_...（需要 plugin:minecraft-server:use 权限）</pre>
   });
   main.querySelectorAll('[data-action="copy-id"]').forEach((button) => {
     button.addEventListener('click', () => ui.copyText(button.dataset.id, '服务器 ID 已复制'));
+  });
+  main.querySelectorAll('[data-action="toggle-visible"]').forEach((input) => {
+    input.addEventListener('change', async () => {
+      const visible = input.checked;
+      input.disabled = true;
+      try {
+        await api.post('/plugins/minecraft-server/admin/server/visibility', {
+          id: input.dataset.server,
+          visible,
+        });
+        ui.toast(visible ? '服务器已在公开页面显示' : '服务器已从公开页面隐藏', 'success');
+        await renderMinecraftServers(main, ctx);
+      } catch (error) {
+        input.checked = !visible;
+        input.disabled = false;
+        ui.toast(error.message, 'error');
+      }
+    });
   });
   main.querySelectorAll('[data-action="edit-server"]').forEach((button) => {
     button.addEventListener('click', () => openEditor(findServer(button.dataset.server)));
