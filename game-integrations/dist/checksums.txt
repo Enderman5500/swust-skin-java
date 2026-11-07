@@ -1,1 +1,2 @@
+5a807c56cf411fea1b7356acc8b862ba534e85204f8da2c4e63d7dddf205d9a7 *dist/fabric/26/minecraft-server-report-fabric-26-1.0.0.jar
 5e352466a6ccce24539fd6ebbe00bdec3aadb22750336912cba455e8a9465838 *dist/paper/universal/minecraft-server-report-paper.jar

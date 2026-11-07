@@ -74,6 +74,12 @@ foreach ($entry in $Matrix.fabric) {
     Copy-LoaderJar (Join-Path $Root 'fabric') 'fabric' $entry.family
 }
 
+Write-Host 'Fabric 26.x: official-name adapter'
+if (-not $DryRun) {
+    Invoke-Build (Join-Path $Root 'fabric26') @{}
+    Copy-LoaderJar (Join-Path $Root 'fabric26') 'fabric' '26'
+}
+
 foreach ($entry in $Matrix.forge) {
     Write-Host "Forge $($entry.family): compile=$($entry.compile) range=$($entry.range)"
     if ($entry.available -eq $false) { Write-Host '  skipped (not released)'; continue }

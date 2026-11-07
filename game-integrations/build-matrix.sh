@@ -42,6 +42,9 @@ build_gradle fabric fabric 1.20 \
   -Pyarn_mappings=1.20.6+build.1 -Ploader_version=0.15.11 -Pfabric_api_version=0.100.8+1.20.6 \
   -Ploom_version=1.7-SNAPSHOT -Pjava_version=21
 
+echo "Fabric 26.x"
+build_gradle fabric26 fabric 26
+
 echo "Forge 1.18 / 1.19 / 1.20.1"
 build_gradle forge forge 1.18 \
   -Pminecraft_family=1.18 -Pminecraft_version=1.18.2 -Pminecraft_range='[1.18,1.19)' \

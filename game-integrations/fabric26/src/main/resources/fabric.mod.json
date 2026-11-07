@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "minecraft-server-report",
+  "version": "1.0.0",
+  "name": "Minecraft Server Report",
+  "description": "Report server online players, total playtime and AFK time to the SWUST skin site.",
+  "authors": ["SWUST Minecraft"],
+  "environment": "server",
+  "entrypoints": {
+    "main": ["cn.edu.swust.mc.report.fabric26.Fabric26ReportMod"]
+  },
+  "depends": {
+    "fabricloader": ">=0.20.0",
+    "minecraft": ">=26 <27",
+    "fabric-api": "*",
+    "java": ">=25"
+  }
+}

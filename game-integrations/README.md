@@ -40,8 +40,16 @@ mvn -q -DskipTests package
 产物：
 
 ```text
-game-integrations/paper/target/minecraft-server-report-paper.jar
+game-integrations/dist/paper/universal/minecraft-server-report-paper.jar
 ```
+
+Fabric 26.3 代表产物：
+
+```text
+game-integrations/dist/fabric/26/minecraft-server-report-fabric-26-1.0.0.jar
+```
+
+Fabric 26.x 使用 `fabric26/` 的 official-name 适配源。1.20.6 等旧 Fabric 构建仍需要可访问 Fabric Maven 或使用本地依赖缓存。
 
 安装到 `plugins/`，首次启动会生成：
 

@@ -1,0 +1,32 @@
+plugins {
+    id 'net.fabricmc.fabric-loom' version '1.16-SNAPSHOT'
+    id 'java'
+}
+
+group = 'cn.edu.swust.mc'
+version = '1.0.0'
+
+repositories {
+    maven { url = 'https://maven.fabricmc.net/' }
+    mavenCentral()
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:26.3"
+    implementation "net.fabricmc:fabric-loader:0.20.0"
+    implementation "net.fabricmc.fabric-api:fabric-api:0.163.0+26.3"
+    implementation files('../core/target/minecraft-server-report-core-1.0.0.jar')
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 25
+    options.encoding = 'UTF-8'
+}
+
+base {
+    archivesName = 'minecraft-server-report-fabric-26'
+}
+
+tasks.named('jar', Jar) {
+    from { zipTree(file('../core/target/minecraft-server-report-core-1.0.0.jar')) }
+}
