@@ -599,7 +599,12 @@ public final class MinecraftServerPlugin implements SkinPlugin {
             }
         }
         if (pending.isEmpty()) return results;
-        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+        ExecutorService executor = Executors.newFixedThreadPool(Math.min(4, pending.size()), runnable -> {
+            Thread thread = new Thread(runnable, "mc-server-ping");
+            thread.setDaemon(true);
+            return thread;
+        });
+        try {
             List<Future<?>> futures = new ArrayList<>();
             for (Map<String, Object> server : pending) {
                 String id = Authz.str(server.get("id"));
@@ -611,12 +616,21 @@ public final class MinecraftServerPlugin implements SkinPlugin {
                     pingCache.put(id, new CachedPing(System.currentTimeMillis(), result));
                 }));
             }
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
             for (Future<?> future : futures) {
+                long remaining = deadline - System.nanoTime();
+                if (remaining <= 0) {
+                    future.cancel(true);
+                    continue;
+                }
                 try {
-                    future.get(2, TimeUnit.SECONDS);
+                    future.get(remaining, TimeUnit.NANOSECONDS);
                 } catch (Exception ignored) {
+                    future.cancel(true);
                 }
             }
+        } finally {
+            executor.shutdownNow();
         }
         return results;
     }
