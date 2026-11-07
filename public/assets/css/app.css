@@ -6497,6 +6497,108 @@ body.is-admin .site-main {
   margin-top: 0;
 }
 
+/* Minecraft server plugin */
+.mc-server-desc {
+  margin: 4px 0 10px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.mc-server-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font-size: 10.5px;
+  color: var(--muted-2);
+}
+
+.mc-my-time {
+  margin-top: 20px;
+}
+
+.mc-time-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.mc-time-summary > div {
+  padding: 14px;
+  border-radius: 11px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+}
+
+.mc-time-summary strong {
+  display: block;
+  font-size: 18px;
+  color: var(--navy);
+}
+
+.mc-time-summary span {
+  font-size: 10.5px;
+  color: var(--muted-2);
+}
+
+.mc-login-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.mc-login-hint .panel-lead {
+  margin: 0;
+}
+
+.mc-online-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mc-online-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+}
+
+.mc-online-row small {
+  grid-column: 1 / -1;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--muted-2);
+  word-break: break-all;
+}
+
+.yd-admin-content .mc-server-table th:nth-child(1) { width: 20%; }
+.yd-admin-content .mc-server-table th:nth-child(2) { width: 13%; }
+.yd-admin-content .mc-server-table th:nth-child(3) { width: 16%; }
+.yd-admin-content .mc-server-table th:nth-child(4) { width: 13%; }
+.yd-admin-content .mc-server-table th:nth-child(5) { width: 11%; }
+.yd-admin-content .mc-server-table th:nth-child(6) { width: 11%; }
+.yd-admin-content .mc-server-table th:nth-child(7) { width: 16%; }
+
+@media (max-width: 720px) {
+  .mc-time-summary {
+    grid-template-columns: 1fr;
+  }
+  .mc-login-hint {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
 
 /* Keep admin table columns stable at the right edge */
 .yd-admin-content .data-table {

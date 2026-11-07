@@ -1,0 +1,45 @@
+plugins {
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'java'
+}
+
+group = 'cn.edu.swust.mc'
+version = project.mod_version
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://maven.minecraftforge.net/' }
+}
+
+minecraft {
+    mappings channel: 'official', version: project.minecraft_version
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${project.minecraft_version}-${project.forge_version}"
+    implementation files('../core/target/minecraft-server-report-core-1.0.0.jar')
+}
+
+processResources {
+    filesMatching('META-INF/mods.toml') {
+        expand(
+            'mod_version': project.mod_version,
+            'forge_loader_range': project.forge_loader_range,
+            'forge_range': project.forge_range,
+            'mc_range': project.minecraft_range
+        )
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = project.java_version.toInteger()
+    options.encoding = 'UTF-8'
+}
+
+tasks.named('jar', Jar) {
+    from { zipTree(file('../core/target/minecraft-server-report-core-1.0.0.jar')) }
+}
+
+base {
+    archivesName = "minecraft-server-report-forge-${minecraft_family}"
+}

@@ -637,6 +637,27 @@ public final class Plugins {
         }
 
         @Override
+        public Path dataDir() {
+            Path dir = app.config.dataDir.resolve("plugin-data").resolve(record.id).normalize();
+            try {
+                Files.createDirectories(dir);
+            } catch (IOException e) {
+                throw new IllegalStateException("无法创建插件数据目录", e);
+            }
+            return dir;
+        }
+
+        @Override
+        public Map<String, Object> findPlayer(String uuid, String name) {
+            String normalized = Security.stripUuid(uuid);
+            Map<String, Object> row = normalized.matches("^[0-9a-f]{32}$")
+                    ? Players.byUuid(db, normalized)
+                    : null;
+            if (row == null) row = Players.byName(db, name);
+            return row == null ? null : Players.serialize(row, null);
+        }
+
+        @Override
         public void registerRoute(String method, String path, SkinPlugin.RouteHandler handler) {
             addRoute(method, path, handler, false);
         }

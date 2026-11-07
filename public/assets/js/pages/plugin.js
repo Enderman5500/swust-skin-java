@@ -74,6 +74,9 @@ export async function render(root, ctx) {
       confirm: ui.confirmDialog,
       escapeHtml: ui.escapeHtml,
       formatDate: ui.formatDate,
+      timeAgo: ui.timeAgo,
+      icon,
+      ui,
       skinPreview: { drawSkinCard, drawCapePreview },
     };
     const cleanup = await module.mount(host, pluginCtx);

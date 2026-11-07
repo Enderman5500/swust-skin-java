@@ -1,0 +1,1 @@
+5e352466a6ccce24539fd6ebbe00bdec3aadb22750336912cba455e8a9465838 *dist/paper/universal/minecraft-server-report-paper.jar

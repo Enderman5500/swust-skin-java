@@ -5,3 +5,7 @@ target/
 data/
 plugin-src/**/build/
 plugin-src/**/*.jar
+game-integrations/**/build/
+game-integrations/**/.gradle/
+game-integrations/**/run/
+game-integrations/**/target/

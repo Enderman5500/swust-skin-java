@@ -196,6 +196,31 @@ PUT /api/admin/users/:id/permissions
 - 不可访问：账号与登录、玩家与衣柜等用户私有接口，以及未授权权限对应的接口。
 - API 密钥按用户当前有效权限求交集，角色或额外权限被收回后，密钥权限同步缩小。
 
+## Minecraft 服务器插件
+
+内置 `minecraft-server` 插件提供：
+
+- 顶部「服务器」入口与公开服务器列表
+- 在线人数、在线状态、客户端加载器/版本
+- 每名玩家的总在线、活跃与挂机时长
+- 管理后台「社团服务 → MC 服务器」的新增/编辑/删除和完整统计
+
+统计数据保存在**独立 SQLite 数据库**：
+
+```text
+data/plugin-data/minecraft-server/minecraft-server.db
+```
+
+游戏端通过 **base-url + 服务器 ID + API 密钥** 上报。API 密钥需要勾选 `plugin:minecraft-server:use` 权限。普通访客只看到服务器在线人数；登录用户只能看到自己的时长；管理员能看到全部玩家和挂机统计。
+
+游戏端源码、构建矩阵和代表产物位于：
+
+```text
+game-integrations/
+```
+
+详见 `game-integrations/README.md`。
+
 ## 插件权限
 
 每个已安装插件会自动注册一个权限码：

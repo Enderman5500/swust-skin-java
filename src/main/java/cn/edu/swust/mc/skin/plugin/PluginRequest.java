@@ -41,6 +41,10 @@ public final class PluginRequest {
         return ctx.user != null && ctx.user.admin;
     }
 
+    public boolean apiKey() {
+        return ctx.apiKey != null;
+    }
+
     public Map<String, Object> manifest() {
         return manifest;
     }

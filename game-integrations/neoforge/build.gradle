@@ -1,0 +1,48 @@
+plugins {
+    id 'net.neoforged.moddev' version '1.0.17'
+    id 'java'
+}
+
+group = 'cn.edu.swust.mc'
+version = project.mod_version
+
+repositories {
+    mavenCentral()
+}
+
+neoForge {
+    version = project.neoforge_version
+    runs {
+        server {
+            server()
+        }
+    }
+}
+
+dependencies {
+    implementation files('../core/target/minecraft-server-report-core-1.0.0.jar')
+}
+
+processResources {
+    filesMatching('META-INF/neoforge.mods.toml') {
+        expand(
+            'mod_version': project.mod_version,
+            'neoforge_loader_range': project.neoforge_loader_range,
+            'neoforge_range': project.neoforge_range,
+            'mc_range': project.minecraft_range
+        )
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = project.java_version.toInteger()
+    options.encoding = 'UTF-8'
+}
+
+tasks.named('jar', Jar) {
+    from { zipTree(file('../core/target/minecraft-server-report-core-1.0.0.jar')) }
+}
+
+base {
+    archivesName = "minecraft-server-report-neoforge-${minecraft_family}"
+}

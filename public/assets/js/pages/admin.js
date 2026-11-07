@@ -10,6 +10,7 @@ import * as ui from '../ui.js';
 import { renderRoles } from './admin-roles.js';
 import { renderUsers } from './admin-users.js';
 import { renderApiKeys } from './admin-api-keys.js';
+import { renderMinecraftServers } from './admin-minecraft-servers.js';
 
 const SIDEBAR_GROUPS_KEY = 'swust.admin.sidebar.groups';
 
@@ -19,6 +20,7 @@ const SECTIONS = [
   { key: 'roles', label: '角色管理', icon: 'shield', permission: 'system:role:view', category: '用户与权限' },
   { key: 'players', label: '角色档案', icon: 'user', permission: 'skin:player:view', category: '皮肤站' },
   { key: 'textures', label: '材质管理', icon: 'image', permission: 'skin:texture:view', category: '皮肤站' },
+  { key: 'minecraft-servers', label: 'MC 服务器', icon: 'server', permission: 'plugin:minecraft-server:use', category: '社团服务' },
   { key: 'plugins', label: '插件管理', icon: 'plugin', permission: 'skin:plugin:view', category: '插件与扩展' },
   { key: 'api-keys', label: 'API 密钥', icon: 'key', permission: 'system:user:view', category: '插件与扩展' },
   { key: 'settings', label: '站点设置', icon: 'settings', permission: 'system:setting:view', category: '系统' },
@@ -314,6 +316,7 @@ async function renderAdminSection(main, ctx, active, activeSection, allowed) {
   else if (active === 'roles') await renderRoles(main, ctx);
   else if (active === 'players') await renderPlayers(main, ctx);
   else if (active === 'textures') await renderTextures(main, ctx);
+  else if (active === 'minecraft-servers') await renderMinecraftServers(main, ctx);
   else if (active === 'plugins') await renderPlugins(main, ctx);
   else if (active === 'api-keys') await renderApiKeys(main, ctx);
   else if (active === 'settings') await renderSettings(main, ctx);

@@ -1,0 +1,6 @@
+name: MinecraftServerReport
+version: 1.0.0
+main: cn.edu.swust.mc.report.paper.MinecraftServerReportPlugin
+api-version: 1.18
+description: Report Minecraft server online players and playtime to the SWUST skin site.
+author: SWUST Minecraft

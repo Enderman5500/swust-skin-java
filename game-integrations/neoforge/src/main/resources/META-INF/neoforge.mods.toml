@@ -1,0 +1,24 @@
+modLoader="javafml"
+loaderVersion="${neoforge_loader_range}"
+license="MIT"
+issueTrackerURL="https://github.com/zhou-BZDDX/swust-skin-java/issues"
+
+[[mods]]
+modId="minecraft_server_report"
+version="${mod_version}"
+displayName="Minecraft Server Report"
+description="Report online players, total playtime and AFK time to the SWUST skin site."
+
+[[dependencies.minecraft_server_report]]
+modId="neoforge"
+type="required"
+versionRange="${neoforge_range}"
+ordering="NONE"
+side="SERVER"
+
+[[dependencies.minecraft_server_report]]
+modId="minecraft"
+type="required"
+versionRange="${mc_range}"
+ordering="NONE"
+side="SERVER"
