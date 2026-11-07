@@ -1,12 +1,22 @@
 plugins {
-    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'net.minecraftforge.gradle' version '6.0.54'
     id 'java'
 }
 
 group = 'cn.edu.swust.mc'
 version = project.mod_version
 
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
 repositories {
+    // Offline/prefetched dependencies used by restricted networks.
+    maven { url = uri("${rootDir}/../target/local-maven") }
+    // USTC's BMCLAPI mirror hosts MinecraftForge artifacts where the official Maven is unreachable.
+    maven { url = 'https://unicom.mirrors.ustc.edu.cn/bmclapi/' }
     mavenCentral()
     maven { url = 'https://maven.minecraftforge.net/' }
 }

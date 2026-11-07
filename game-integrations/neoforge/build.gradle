@@ -7,6 +7,10 @@ group = 'cn.edu.swust.mc'
 version = project.mod_version
 
 repositories {
+    // Offline/prefetched dependencies used by restricted networks.
+    maven { url = uri("${rootDir}/../target/local-maven") }
+    // USTC's BMCLAPI mirror hosts NeoForge artifacts where the official Maven is unreachable.
+    maven { url = 'https://unicom.mirrors.ustc.edu.cn/bmclapi/' }
     mavenCentral()
 }
 

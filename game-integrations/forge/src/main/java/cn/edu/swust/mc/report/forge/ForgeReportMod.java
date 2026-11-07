@@ -15,7 +15,6 @@ import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.loading.FMLPaths;
-import net.minecraftforge.versions.minecraft.MinecraftVersion;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,9 +45,9 @@ public final class ForgeReportMod {
             ReportConfig config = ReportConfig.load(dir.resolve("config.properties"));
             ledger = new PlaytimeLedger(dir.resolve("playtime.properties"), config.afkTimeoutMillis());
             reporter = new Reporter(config, ledger, () -> ONLINE.values().stream().toList(),
-                    server::getMaxPlayers, MinecraftVersion.VERSION, "forge");
+                    server::getMaxPlayers, server.getServerVersion(), "forge");
             reporter.start();
-            LOGGER.info("Minecraft 服务器上报已启动（Forge {}）", MinecraftVersion.VERSION);
+            LOGGER.info("Minecraft 服务器上报已启动（Forge {}）", server.getServerVersion());
         } catch (Exception e) {
             LOGGER.error("启动上报失败", e);
         }
