@@ -3792,6 +3792,84 @@ pre {
   white-space: nowrap;
 }
 
+.plugin-table th:nth-child(1) {
+  width: 35%;
+}
+
+.plugin-table th:nth-child(2) {
+  width: 12%;
+}
+
+.plugin-table th:nth-child(3) {
+  width: 20%;
+}
+
+.plugin-table th:nth-child(4) {
+  width: 33%;
+}
+
+.plugin-table td.table-actions {
+  white-space: normal;
+}
+
+/* The plugin table only has four columns, so let it fit narrow content areas
+   instead of forcing the generic admin-table horizontal scroll. */
+.yd-admin-content .data-table.plugin-table {
+  min-width: 0;
+}
+
+.plugin-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.plugin-cell-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.plugin-cell-title strong {
+  font-size: 13.5px;
+  color: var(--navy);
+}
+
+.plugin-cell-desc {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.plugin-cell-id {
+  font-size: 10px;
+  color: var(--muted-2);
+}
+
+.plugin-cell-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 10.5px;
+  line-height: 1.6;
+  color: var(--muted-2);
+}
+
+.plugin-error-row td {
+  padding-top: 0;
+}
+
+.plugin-error-row .plugin-error {
+  margin: 0;
+}
+
 .plugin-card {
   display: grid;
   grid-template-columns: minmax(260px, 1.25fr) minmax(220px, 0.85fr) auto;
@@ -5355,6 +5433,19 @@ pre {
   }
   .table-actions {
     justify-content: flex-end;
+  }
+  .plugin-table .table-actions {
+    flex-wrap: wrap;
+    white-space: normal;
+  }
+  .plugin-table .table-actions .btn {
+    margin-left: 0;
+  }
+  .plugin-table td[data-label="插件"] {
+    text-align: left;
+  }
+  .plugin-table td[data-label="插件"]::before {
+    display: none;
   }
   .user-cell,
   .texture-cell {

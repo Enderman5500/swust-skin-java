@@ -745,7 +745,7 @@ async function renderPlugins(main, ctx) {
       <label class="search-box">${icon('search')}<input type="search" placeholder="搜索插件名称、作者或 ID" data-plugin-search /></label>
       <span class="plugin-search-count" data-plugin-count></span>
     </div>
-    <div class="plugin-admin-grid" data-plugin-list>${ui.loadingBlock('正在读取插件…')}</div>
+    <div class="panel table-panel" data-plugin-list>${ui.loadingBlock('正在读取插件…')}</div>
     <div data-plugin-pager></div>
     <div class="panel plugin-help">
       <div class="panel-head"><div><p class="eyebrow">DEVELOPER</p><h3>插件包结构</h3></div></div>
@@ -773,46 +773,60 @@ async function renderPlugins(main, ctx) {
   let query = '';
   let page = 1;
 
-  function cardHtml(plugin) {
+  function rowHtml(plugin) {
     return `
-      <article class="plugin-card ${plugin.error ? 'has-error' : ''}">
-        <div class="plugin-card-head">
-          <div>
-            <div class="plugin-card-title">
-              <h3>${ui.escapeHtml(plugin.name)}</h3>
+      <tr data-plugin-id="${ui.escapeHtml(plugin.id)}" class="${plugin.error ? 'has-error' : ''}">
+        <td data-label="插件">
+          <div class="plugin-cell">
+            <div class="plugin-cell-title">
+              <strong>${ui.escapeHtml(plugin.name)}</strong>
               <span class="role-chip muted">v${ui.escapeHtml(plugin.version)}</span>
             </div>
-            <p class="plugin-card-description">${ui.escapeHtml(plugin.description || '没有描述')}</p>
+            <p class="plugin-cell-desc">${ui.escapeHtml(plugin.description || '没有描述')}</p>
+            <code class="plugin-cell-id">${ui.escapeHtml(plugin.id)}</code>
           </div>
-          ${statusPill(plugin.enabled && plugin.loaded, plugin.loaded ? '运行中' : '已启用', '已停用')}
-        </div>
-        <div class="plugin-card-meta">
-          <span>作者：${ui.escapeHtml(plugin.author || '未知')}</span>
-          <span>${plugin.hasServer ? '服务端模块' : '纯前端'}</span>
-          ${plugin.nav ? `<span>导航：${ui.escapeHtml(plugin.nav.title)}</span>` : ''}
-        </div>
-        ${plugin.error ? `<p class="plugin-error">${ui.escapeHtml(plugin.error)}</p>` : ''}
-        <div class="plugin-card-actions">
-          <button class="btn ${plugin.enabled ? 'btn-ghost' : 'btn-primary'} btn-sm" data-action="toggle-plugin" data-id="${plugin.id}" data-enabled="${plugin.enabled}">
+        </td>
+        <td data-label="状态">${statusPill(plugin.enabled && plugin.loaded, plugin.loaded ? '运行中' : '已启用', '已停用')}</td>
+        <td data-label="信息">
+          <div class="plugin-cell-meta">
+            <span>作者：${ui.escapeHtml(plugin.author || '未知')}</span>
+            <span>${plugin.hasServer ? '服务端模块' : '纯前端'}${
+              plugin.nav ? ` · 导航：${ui.escapeHtml(plugin.nav.title)}` : ''
+            }</span>
+          </div>
+        </td>
+        <td data-label="操作" class="table-actions">
+          <button class="btn ${plugin.enabled ? 'btn-ghost' : 'btn-primary'} btn-sm" data-action="toggle-plugin" data-id="${ui.escapeHtml(
+            plugin.id
+          )}" data-enabled="${plugin.enabled}">
             ${icon(plugin.enabled ? 'close' : 'check')}${plugin.enabled ? '停用' : '启用'}
           </button>
           ${
             plugin.enabled
-              ? `<button class="btn btn-ghost btn-sm" data-action="reload-plugin" data-id="${plugin.id}">${icon(
-                  'refresh'
-                )}重载</button>`
+              ? `<button class="btn btn-ghost btn-sm" data-action="reload-plugin" data-id="${ui.escapeHtml(
+                  plugin.id
+                )}">${icon('refresh')}重载</button>`
               : ''
           }
           ${
             plugin.clientUrl && plugin.nav && plugin.enabled
-              ? `<a class="btn btn-ghost btn-sm" href="#/plugin/${plugin.id}">${icon('external')}打开页面</a>`
+              ? `<a class="btn btn-ghost btn-sm" href="#/plugin/${ui.escapeHtml(
+                  plugin.id
+                )}">${icon('external')}打开页面</a>`
               : ''
           }
-          <button class="btn btn-ghost btn-sm danger-text" data-action="delete-plugin" data-id="${plugin.id}">${icon(
-            'trash'
-          )}卸载</button>
-        </div>
-      </article>
+          <button class="btn btn-ghost btn-sm danger-text" data-action="delete-plugin" data-id="${ui.escapeHtml(
+            plugin.id
+          )}">${icon('trash')}卸载</button>
+        </td>
+      </tr>
+      ${
+        plugin.error
+          ? `<tr class="plugin-error-row"><td colspan="4"><p class="plugin-error">${ui.escapeHtml(
+              plugin.error
+            )}</p></td></tr>`
+          : ''
+      }
     `;
   }
 
@@ -837,7 +851,10 @@ async function renderPlugins(main, ctx) {
       : `共 ${items.length} 个插件`;
     listHost.innerHTML = `${
       visible.length
-        ? visible.map(cardHtml).join('')
+        ? `<table class="data-table plugin-table">
+            <thead><tr><th>插件</th><th>状态</th><th>信息</th><th class="table-actions-col">操作</th></tr></thead>
+            <tbody>${visible.map(rowHtml).join('')}</tbody>
+          </table>`
         : emptyTable(query ? '没有匹配的插件' : '还没有安装插件')
     }${
       scanErrors.length
