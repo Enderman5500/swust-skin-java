@@ -1,5 +1,5 @@
 plugins {
-    id 'net.neoforged.moddev' version '1.0.17'
+    id 'net.neoforged.moddev' version '2.0.148'
     id 'java'
 }
 
@@ -24,11 +24,15 @@ neoForge {
 }
 
 def localAuthlib = file('../target/local-maven/com/mojang/authlib/6.0.54/authlib-6.0.54.jar')
+def localFastutil = file('../target/local-maven/it/unimi/dsi/fastutil/8.5.18/fastutil-8.5.18.jar')
 
 dependencies {
     implementation files('../core/target/minecraft-server-report-core-1.0.0.jar')
     if (localAuthlib.exists()) {
         compileOnly files(localAuthlib)
+    }
+    if (localFastutil.exists()) {
+        compileOnly files(localFastutil)
     }
 }
 

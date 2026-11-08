@@ -15,7 +15,6 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
-import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,6 +22,9 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 @Mod("minecraft_server_report")
 public final class NeoForgeReportMod {
@@ -33,6 +35,7 @@ public final class NeoForgeReportMod {
     private PlaytimeLedger ledger;
     private Reporter reporter;
     private MinecraftServer server;
+    private ScheduledExecutorService ticker;
 
     public NeoForgeReportMod() {
         NeoForge.EVENT_BUS.register(this);
@@ -45,11 +48,25 @@ public final class NeoForgeReportMod {
             Path dir = FMLPaths.CONFIGDIR.get().resolve("minecraft-server-report");
             ReportConfig config = ReportConfig.load(dir.resolve("config.properties"));
             ledger = new PlaytimeLedger(dir.resolve("playtime.properties"), config.afkTimeoutMillis());
-            String version = SharedConstants.getCurrentVersion().getName();
+            String version = currentMinecraftVersion();
             reporter = new Reporter(config, ledger, () -> ONLINE.values().stream().toList(),
                     server::getMaxPlayers, version, "neoforge");
             reporter.start();
             LOGGER.info("Minecraft 服务器上报已启动（NeoForge {}）", version);
+            ticker = Executors.newSingleThreadScheduledExecutor(runnable -> {
+                Thread thread = new Thread(runnable, "minecraft-server-report-activity");
+                thread.setDaemon(true);
+                return thread;
+            });
+            ticker.scheduleAtFixedRate(() -> {
+                MinecraftServer current = server;
+                if (current == null) return;
+                try {
+                    current.execute(() -> pollActivity(current));
+                } catch (RuntimeException ignored) {
+                    // 服务器正在关闭时不再提交活动检测。
+                }
+            }, 1, 1, TimeUnit.SECONDS);
         } catch (Exception e) {
             LOGGER.error("启动上报失败", e);
         }
@@ -57,6 +74,10 @@ public final class NeoForgeReportMod {
 
     @SubscribeEvent
     public void onServerStopping(ServerStoppingEvent event) {
+        if (ticker != null) {
+            ticker.shutdownNow();
+            ticker = null;
+        }
         if (reporter != null) reporter.stop();
         reporter = null;
         ledger = null;
@@ -84,18 +105,29 @@ public final class NeoForgeReportMod {
         if (reporter != null) reporter.requestReport();
     }
 
-    @SubscribeEvent
-    public void onTick(ServerTickEvent.Post event) {
+    private void pollActivity(MinecraftServer current) {
         if (ledger == null || server == null) return;
         long now = System.currentTimeMillis();
-        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+        for (ServerPlayer player : current.getPlayerList().getPlayers()) {
             Look previous = LOOKS.get(player.getUUID());
-            Look current = new Look(player.position(), player.getYRot(), player.getXRot());
-            if (previous == null || previous.changed(current)) {
+            Look look = new Look(player.position(), player.getYRot(), player.getXRot());
+            if (previous == null || previous.changed(look)) {
                 ledger.markActivity(key(player), player.getGameProfile().getName(), now);
             }
-            LOOKS.put(player.getUUID(), current);
+            LOOKS.put(player.getUUID(), look);
         }
+    }
+
+    private static String currentMinecraftVersion() {
+        Object version = SharedConstants.getCurrentVersion();
+        for (String method : new String[]{"name", "getName"}) {
+            try {
+                Object value = version.getClass().getMethod(method).invoke(version);
+                if (value instanceof String text && !text.isBlank()) return text;
+            } catch (ReflectiveOperationException ignored) {
+            }
+        }
+        return "unknown";
     }
 
     private static String key(ServerPlayer player) {
