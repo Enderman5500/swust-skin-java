@@ -43,9 +43,12 @@ mvn -q -DskipTests package
 game-integrations/dist/paper/universal/minecraft-server-report-paper.jar
 ```
 
-Fabric 26.3 代表产物：
+Fabric 代表产物：
 
 ```text
+game-integrations/dist/fabric/1.18/minecraft-server-report-fabric-1.18-1.0.0.jar
+game-integrations/dist/fabric/1.19/minecraft-server-report-fabric-1.19-1.0.0.jar
+game-integrations/dist/fabric/1.20/minecraft-server-report-fabric-1.20-1.0.0.jar
 game-integrations/dist/fabric/26/minecraft-server-report-fabric-26-1.0.0.jar
 ```
 
@@ -55,7 +58,13 @@ Forge 1.20.1 代表产物：
 game-integrations/dist/forge/1.20/minecraft-server-report-forge-1.20-1.0.0.jar
 ```
 
-Fabric 26.x 使用 `fabric26/` 的 official-name 适配源。1.20.6 等旧 Fabric 构建仍需要可访问 Fabric Maven 或使用本地依赖缓存。Forge 构建需要 JDK 17 和可访问的 Forge 依赖源；受限网络可使用 BMCLAPI 镜像。
+NeoForge 1.21 代表产物：
+
+```text
+game-integrations/dist/neoforge/1.21/minecraft-server-report-neoforge-1.21-1.0.0.jar
+```
+
+Fabric 26.x 使用 `fabric26/` 的 official-name 适配源；1.18–1.20 使用 Yarn 映射。Fabric 构建需要可访问的 Fabric Maven；受限网络可将 `maven.fabricmc.net` 替换为 CreeperHost 镜像。Forge 构建需要 JDK 17；NeoForge 1.21 使用 JDK 21。受限网络下 Forge / NeoForge 依赖可通过 `https://maven.creeperhost.net` 获取。
 
 安装到 `plugins/`，首次启动会生成：
 

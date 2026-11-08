@@ -6,7 +6,15 @@ plugins {
 group = 'cn.edu.swust.mc'
 version = project.mod_version
 
+def intermediary = project.findProperty('intermediary_url') ?:
+        'https://maven.creeperhost.net/net/fabricmc/intermediary/%1$s/intermediary-%1$s-v2.jar'
+
+loom {
+    intermediaryUrl = intermediary
+}
+
 repositories {
+    maven { url = 'https://maven.creeperhost.net/' }
     maven { url = 'https://maven.fabricmc.net/' }
     mavenCentral()
 }
@@ -17,7 +25,10 @@ dependencies {
     modImplementation "net.fabricmc:fabric-loader:${loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
     implementation files("../core/target/minecraft-server-report-core-1.0.0.jar")
-    include files("../core/target/minecraft-server-report-core-1.0.0.jar")
+}
+
+tasks.named('jar', Jar) {
+    from { zipTree(file('../core/target/minecraft-server-report-core-1.0.0.jar')) }
 }
 
 processResources {

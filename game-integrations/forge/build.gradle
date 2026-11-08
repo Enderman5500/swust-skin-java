@@ -15,8 +15,8 @@ java {
 repositories {
     // Offline/prefetched dependencies used by restricted networks.
     maven { url = uri("${rootDir}/../target/local-maven") }
-    // USTC's BMCLAPI mirror hosts MinecraftForge artifacts where the official Maven is unreachable.
-    maven { url = 'https://unicom.mirrors.ustc.edu.cn/bmclapi/' }
+    // CreeperHost mirrors MinecraftForge and NeoForge artifacts where the official Maven is unreachable.
+    maven { url = 'https://maven.creeperhost.net' }
     mavenCentral()
     maven { url = 'https://maven.minecraftforge.net/' }
 }

@@ -100,7 +100,7 @@ public final class FabricReportMod implements ModInitializer {
 
     private record Look(Vec3d position, float yaw, float pitch) {
         boolean changed(Look other) {
-            return position.distanceSquared(other.position) > 0.0001
+            return position.squaredDistanceTo(other.position) > 0.0001
                     || Math.abs(yaw - other.yaw) > 0.5
                     || Math.abs(pitch - other.pitch) > 0.5;
         }

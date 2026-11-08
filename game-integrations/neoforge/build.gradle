@@ -9,8 +9,8 @@ version = project.mod_version
 repositories {
     // Offline/prefetched dependencies used by restricted networks.
     maven { url = uri("${rootDir}/../target/local-maven") }
-    // USTC's BMCLAPI mirror hosts NeoForge artifacts where the official Maven is unreachable.
-    maven { url = 'https://unicom.mirrors.ustc.edu.cn/bmclapi/' }
+    // CreeperHost mirrors MinecraftForge and NeoForge artifacts where the official Maven is unreachable.
+    maven { url = 'https://maven.creeperhost.net' }
     mavenCentral()
 }
 
@@ -23,8 +23,13 @@ neoForge {
     }
 }
 
+def localAuthlib = file('../target/local-maven/com/mojang/authlib/6.0.54/authlib-6.0.54.jar')
+
 dependencies {
     implementation files('../core/target/minecraft-server-report-core-1.0.0.jar')
+    if (localAuthlib.exists()) {
+        compileOnly files(localAuthlib)
+    }
 }
 
 processResources {
