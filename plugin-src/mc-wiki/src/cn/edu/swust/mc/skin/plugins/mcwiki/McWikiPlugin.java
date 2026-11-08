@@ -48,6 +48,8 @@ public final class McWikiPlugin implements SkinPlugin {
                 .resolve("data").resolve("plugin-data").resolve("mc-wiki");
         Path assetsDir = pluginDir == null ? null : pluginDir.resolve("assets");
         store = new WikiStore(dataDir, assetsDir);
+        int cleaned = store.cleanupUntranslatedItems();
+        if (cleaned > 0) ctx.info("已清理 " + cleaned + " 个无英文名的历史占位物品");
         http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
         mojang = new MojangClient(http, WikiStore.MAPPER);
         catalog = new WikiCatalog(store);
@@ -71,11 +73,18 @@ public final class McWikiPlugin implements SkinPlugin {
                 number(request, "page", 1), number(request, "size", 24)));
         ctx.registerRoute("GET", "/item", request -> query.itemDetail(
                 request.query("version"), required(request.query("id"), "id")));
+        ctx.registerRoute("GET", "/versions", request -> query.importedVersions());
+        ctx.registerRoute("GET", "/compare", request -> query.compare(
+                request.query("from"), request.query("to")));
+        ctx.registerRoute("GET", "/tag", request -> query.tag(
+                request.query("version"), required(request.query("id"), "id")));
         ctx.registerRoute("GET", "/recipes", request -> query.recipes(
                 request.query("version"), request.query("keyword"),
                 number(request, "page", 1), number(request, "size", 12)));
 
         // 后台管理
+        ctx.registerAdminRoute("GET", "/admin/compare", request -> query.compare(
+                request.query("from"), request.query("to")));
         ctx.registerAdminRoute("GET", "/admin/state", request -> query.adminState(
                 request.query("keyword"), request.query("type"), request.query("status"),
                 number(request, "page", 1), number(request, "size", 20)));

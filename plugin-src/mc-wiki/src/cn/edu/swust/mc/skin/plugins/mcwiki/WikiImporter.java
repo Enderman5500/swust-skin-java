@@ -111,6 +111,8 @@ final class WikiImporter {
                     String path = id.contains(":") ? id.substring(id.indexOf(':') + 1) : id;
                     name = sortedNames.get(sortPath(path));
                 }
+                // 没有英文名的条目通常是从方块状态/配方补出的占位 id，避免混入物品目录
+                if (name == null || name.en() == null || name.en().isBlank()) continue;
                 Map<String, Object> item = new LinkedHashMap<>();
                 item.put("namespacedId", id);
                 item.put("kind", kind);
@@ -129,6 +131,7 @@ final class WikiImporter {
                 row.put("resultCount", recipe.resultCount());
                 row.put("ingredients", recipe.ingredients());
                 row.put("grid", recipe.grid());
+                row.put("gridTags", recipe.gridTags());
                 row.put("rawJson", recipe.rawJson());
                 recipes.add(row);
             }
@@ -136,6 +139,7 @@ final class WikiImporter {
             store.writeItems(version, items);
             store.writeRecipes(version, recipes);
             store.writeBlockstates(version, data.blockstates());
+            store.writeTags(version, data.tagMembers());
             store.writeImport(version, items.size(), recipes.size());
             catalog.invalidate(version);
 

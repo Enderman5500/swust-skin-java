@@ -32,6 +32,7 @@ final class WikiStore {
             Files.createDirectories(dataDir.resolve("items"));
             Files.createDirectories(dataDir.resolve("recipes"));
             Files.createDirectories(dataDir.resolve("blockstates"));
+            Files.createDirectories(dataDir.resolve("tags"));
             Files.createDirectories(dataDir.resolve("events"));
             this.tmpDir = dataDir.resolve("tmp");
             Files.createDirectories(tmpDir);
@@ -106,6 +107,16 @@ final class WikiStore {
         writeJson(dataDir.resolve("recipes").resolve(name(version) + ".json"), recipes);
     }
 
+    synchronized Map<String, List<String>> tags(String version) {
+        return read(dataDir.resolve("tags").resolve(name(version) + ".json"),
+                new TypeReference<Map<String, List<String>>>() {
+                }, new LinkedHashMap<>());
+    }
+
+    synchronized void writeTags(String version, Map<String, List<String>> tags) {
+        writeJson(dataDir.resolve("tags").resolve(name(version) + ".json"), tags);
+    }
+
     synchronized Map<String, String> blockstates(String version) {
         return read(dataDir.resolve("blockstates").resolve(name(version) + ".json"),
                 new TypeReference<Map<String, String>>() {
@@ -120,7 +131,27 @@ final class WikiStore {
         deleteIfExists(dataDir.resolve("items").resolve(name(version) + ".json"));
         deleteIfExists(dataDir.resolve("recipes").resolve(name(version) + ".json"));
         deleteIfExists(dataDir.resolve("blockstates").resolve(name(version) + ".json"));
+        deleteIfExists(dataDir.resolve("tags").resolve(name(version) + ".json"));
         deleteImport(version);
+    }
+
+    /** 清理历史导入中无英文名的占位物品，并同步导入计数；返回移除数量。 */
+    synchronized int cleanupUntranslatedItems() {
+        Map<String, Map<String, Object>> imports = imports();
+        int removedTotal = 0;
+        for (String version : new ArrayList<>(imports.keySet())) {
+            List<Map<String, Object>> rows = items(version);
+            int before = rows.size();
+            rows.removeIf(row -> String.valueOf(row.getOrDefault("nameEn", "")).isBlank());
+            int removed = before - rows.size();
+            if (removed == 0) continue;
+            writeItems(version, rows);
+            Map<String, Object> record = imports.get(version);
+            record.put("items", rows.size());
+            removedTotal += removed;
+        }
+        if (removedTotal > 0) writeJson(dataDir.resolve("imports.json"), imports);
+        return removedTotal;
     }
 
     synchronized Map<String, Object> publication() {

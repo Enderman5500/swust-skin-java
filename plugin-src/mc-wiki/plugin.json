@@ -1,7 +1,7 @@
 {
   "id": "mc-wiki",
   "name": "Minecraft 百科",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "导入 Minecraft 版本数据，浏览物品、方块、生物与合成配方，管理员可管理导入版本与发布状态。",
   "author": "星空社技术组",
   "mainClass": "cn.edu.swust.mc.skin.plugins.mcwiki.McWikiPlugin",

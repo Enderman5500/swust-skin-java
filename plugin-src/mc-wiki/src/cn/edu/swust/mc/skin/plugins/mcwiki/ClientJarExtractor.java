@@ -26,11 +26,18 @@ import java.util.zip.ZipFile;
  */
 final class ClientJarExtractor {
     record Extraction(Map<String, LangMerger.Name> names, List<RecipeRecord> recipes, Set<String> tags,
-                      Set<String> entityIds, Map<String, String> blockstates, List<String> diagnostics) {
+                      Set<String> entityIds, Map<String, String> blockstates, List<String> diagnostics,
+                      Map<String, List<String>> tagMembers) {
     }
 
     record RecipeRecord(String id, String type, String resultId, int resultCount,
-                        List<String> ingredients, List<String> grid, String rawJson) {
+                        List<String> ingredients, List<String> grid, List<String> gridTags, String rawJson) {
+    }
+
+    private record CellValue(String id, String tag) {
+    }
+
+    private record GridResult(List<String> ids, List<String> tags) {
     }
 
     private static final String ITEM_TAG_PREFIX = "data/minecraft/tags/items/";
@@ -59,8 +66,10 @@ final class ClientJarExtractor {
         entities.addAll(server.entityIds());
         List<String> diagnostics = new ArrayList<>(client.diagnostics());
         diagnostics.addAll(server.diagnostics());
+        Map<String, List<String>> tagMembers = new LinkedHashMap<>(client.tagMembers());
+        tagMembers.putAll(server.tagMembers());
         return new Extraction(client.names(), List.copyOf(recipes.values()), Set.copyOf(tags),
-                Set.copyOf(entities), client.blockstates(), List.copyOf(diagnostics));
+                Set.copyOf(entities), client.blockstates(), List.copyOf(diagnostics), Map.copyOf(tagMembers));
     }
 
     private Extraction scan(Path jar, byte[] externalZh, String label) {
@@ -79,13 +88,17 @@ final class ClientJarExtractor {
             Map<String, List<String>> tagValues = new LinkedHashMap<>();
             zip.stream().filter(e -> !e.isDirectory()).forEach(entry -> {
                 String path = entry.getName();
-                if (path.endsWith(".json") && (path.startsWith(ITEM_TAG_PREFIX) || path.startsWith(ITEM_TAG_PREFIX_121))) {
-                    try {
-                        int cut = path.startsWith(ITEM_TAG_PREFIX) ? ITEM_TAG_PREFIX.length() : ITEM_TAG_PREFIX_121.length();
-                        tagValues.put("minecraft:" + path.substring(cut, path.length() - 5), tagValues(read(zip, path)));
-                    } catch (Exception ex) {
-                        diagnostics.add(path + ": " + ex.getMessage());
-                    }
+                if (!path.endsWith(".json")) return;
+                String prefix = path.startsWith(ITEM_TAG_PREFIX) ? ITEM_TAG_PREFIX
+                        : path.startsWith(ITEM_TAG_PREFIX_121) ? ITEM_TAG_PREFIX_121
+                        : path.startsWith(BLOCK_TAG_PREFIX) ? BLOCK_TAG_PREFIX
+                        : path.startsWith(BLOCK_TAG_PREFIX_121) ? BLOCK_TAG_PREFIX_121 : null;
+                if (prefix == null) return;
+                try {
+                    tagValues.put("minecraft:" + path.substring(prefix.length(), path.length() - 5),
+                            tagValues(read(zip, path)));
+                } catch (Exception ex) {
+                    diagnostics.add(path + ": " + ex.getMessage());
                 }
             });
             Map<String, List<String>> tagMembers = new LinkedHashMap<>();
@@ -117,7 +130,7 @@ final class ClientJarExtractor {
                 }
             });
             return new Extraction(names, List.copyOf(recipes), Set.copyOf(tags), Set.copyOf(entities),
-                    Map.copyOf(blockstates), List.copyOf(diagnostics));
+                    Map.copyOf(blockstates), List.copyOf(diagnostics), Map.copyOf(resolvedTags));
         } catch (IOException ex) {
             throw new IllegalArgumentException(label + " 读取失败", ex);
         }
@@ -138,14 +151,15 @@ final class ClientJarExtractor {
         node.path("ingredients").forEach(v -> ingredients.add(ingredient(v)));
         if (node.has("ingredient")) ingredients.add(ingredient(node.get("ingredient")));
         node.path("key").fields().forEachRemaining(e -> ingredients.add(ingredient(e.getValue())));
+        GridResult grid = grid(node, tagMembers);
         return new RecipeRecord(path.substring(path.lastIndexOf('/') + 1, path.length() - 5), type(node),
                 normalize(result), count, ingredients.stream().filter(java.util.Objects::nonNull).distinct().toList(),
-                grid(node, tagMembers), new String(bytes, StandardCharsets.UTF_8));
+                grid.ids(), grid.tags(), new String(bytes, StandardCharsets.UTF_8));
     }
 
-    /** 3x3 九宫格（行优先、靠左上、null 为空格）。 */
-    private List<String> grid(JsonNode node, Map<String, List<String>> tagMembers) {
-        String[] cells = new String[9];
+    /** 3x3 九宫格（行优先、靠左上、null 为空格），并记录每格来自哪个标签。 */
+    private GridResult grid(JsonNode node, Map<String, List<String>> tagMembers) {
+        CellValue[] cells = new CellValue[9];
         JsonNode pattern = node.path("pattern");
         if (pattern.isArray() && !pattern.isEmpty()) {
             JsonNode key = node.path("key");
@@ -176,20 +190,36 @@ final class ClientJarExtractor {
                 cells[slot++] = gridIngredient(value, tagMembers);
             }
         }
-        return Arrays.asList(cells);
+        List<String> ids = new ArrayList<>();
+        List<String> tags = new ArrayList<>();
+        for (CellValue cell : cells) {
+            ids.add(cell == null ? null : cell.id());
+            tags.add(cell == null ? null : cell.tag());
+        }
+        return new GridResult(ids, tags);
     }
 
-    private String gridIngredient(JsonNode node, Map<String, List<String>> tagMembers) {
+    /** 配方落格原料解析为具体物品 id；标签同时保留标签 id，便于前端展示全部成员。 */
+    private CellValue gridIngredient(JsonNode node, Map<String, List<String>> tagMembers) {
         if (node == null || node.isNull()) return null;
-        if (node.isTextual()) return normalize(node.asText());
-        if (node.has("item")) return normalize(node.path("item").asText());
+        if (node.isTextual()) {
+            String value = node.asText();
+            if (value.startsWith("#")) {
+                String tag = normalize(value.substring(1));
+                List<String> members = tagMembers.get(tag);
+                return new CellValue(members == null || members.isEmpty() ? null : members.getFirst(), tag);
+            }
+            return new CellValue(normalize(value), null);
+        }
+        if (node.has("item")) return new CellValue(normalize(node.path("item").asText()), null);
         if (node.has("tag")) {
-            List<String> members = tagMembers.get(normalize(node.path("tag").asText()));
-            return members == null || members.isEmpty() ? null : members.getFirst();
+            String tag = normalize(node.path("tag").asText());
+            List<String> members = tagMembers.get(tag);
+            return new CellValue(members == null || members.isEmpty() ? null : members.getFirst(), tag);
         }
         if (node.isArray()) {
             for (JsonNode option : node) {
-                String resolved = gridIngredient(option, tagMembers);
+                CellValue resolved = gridIngredient(option, tagMembers);
                 if (resolved != null) return resolved;
             }
         }

@@ -263,13 +263,17 @@ game-integrations/
 数据与产物位置：
 
 ```text
-data/plugin-data/mc-wiki/     版本清单、物品、配方、方块状态、发布状态与任务日志
+data/plugin-data/mc-wiki/     版本清单、物品、配方、标签、方块状态、发布状态与任务日志
 plugins/mc-wiki/assets/       渲染图（由 /plugin-assets/mc-wiki/... 静态托管，不纳入版本控制）
 ```
 
 导入与渲染资产更新都在单线程后台任务中执行。后台「任务中心」页集中显示任务列表、实时进度与日志，可暂停、继续、取消或删除记录；从版本管理启动的任务会自动跳转到任务中心。版本列表默认把快照折叠到对应正式版下（名称带版本号的 `-pre/-rc/-snapshot` 直接归属，周快照按发布时间归属到之后发布的正式版，晚于全部正式版的进入「未发布快照」分组），点击分组前的箭头展开或收起。
 
-公开接口：`GET /api/plugins/mc-wiki/meta|items|item|recipes`；后台接口：`GET/POST /api/plugins/mc-wiki/admin/*`（仅管理员）。
+- 物品详情支持直接下载 3D 图标（仅当该物品有渲染图）。
+- 配方九宫格中的标签格（如 `#minecraft:bamboo_blocks`）带 `#` 角标，悬浮可查看该标签包含的全部物品。
+- 「版本比对」对普通用户开放：选择两个已导入版本，按物品 / 方块 / 生物 / 配方查看新增、修改与删除差异，支持汇总计数快捷切换。
+
+公开接口：`GET /api/plugins/mc-wiki/meta|items|item|recipes|tag|versions|compare`；后台接口：`GET/POST /api/plugins/mc-wiki/admin/*`（仅管理员）。
 
 重新构建插件：
 
