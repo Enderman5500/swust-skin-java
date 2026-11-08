@@ -3797,6 +3797,7 @@ pre {
   grid-template-columns: minmax(260px, 1.25fr) minmax(220px, 0.85fr) auto;
   align-items: center;
   gap: 22px;
+  min-width: 0;
   height: auto;
   min-height: 0;
   padding: 18px 20px;
@@ -3896,6 +3897,31 @@ pre {
 
 .plugin-help {
   margin-top: 4px;
+}
+
+/* Intermediate widths (split-screen / narrow windows): keep actions from overflowing. */
+@media (max-width: 1240px) {
+  .plugin-card {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .plugin-card-head {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .plugin-card-meta {
+    grid-column: 1;
+    grid-row: 2;
+    min-width: 0;
+  }
+  .plugin-card-actions {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: center;
+  }
+  .plugin-error {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
 }
 
 @media (max-width: 900px) {
@@ -6063,6 +6089,7 @@ body.is-admin .site-main {
   flex-direction: column;
   gap: 20px;
   width: 100%;
+  min-width: 0;
   max-width: 1440px;
   margin: 0 auto;
   padding: 24px;
