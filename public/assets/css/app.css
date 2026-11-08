@@ -3681,19 +3681,19 @@ pre {
 
 /* Plugin admin */
 .plugin-admin-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
-  grid-auto-rows: 1fr;
-  gap: 16px;
-}
-
-.plugin-card {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  height: 100%;
-  min-height: 232px;
-  padding: 22px;
+}
+
+.plugin-card {
+  display: grid;
+  grid-template-columns: minmax(260px, 1.25fr) minmax(220px, 0.85fr) auto;
+  align-items: center;
+  gap: 22px;
+  height: auto;
+  min-height: 0;
+  padding: 18px 20px;
   border-radius: var(--radius);
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.86);
@@ -3706,9 +3706,12 @@ pre {
 
 .plugin-card-head {
   display: flex;
-  align-items: flex-start;
+  grid-column: 1;
+  grid-row: 1;
+  align-items: center;
   justify-content: space-between;
   gap: 14px;
+  min-width: 0;
 }
 
 .plugin-card-title {
@@ -3732,18 +3735,19 @@ pre {
 
 .plugin-card-head .plugin-card-description {
   display: -webkit-box;
-  min-height: calc(1.65em * 3);
+  min-height: 0;
   overflow: hidden;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
 }
 
 .plugin-card-meta {
   display: flex;
+  grid-column: 2;
+  grid-row: 1;
   flex-wrap: wrap;
   gap: 6px 14px;
-  padding-top: 10px;
-  border-top: 1px solid var(--line);
+  padding-top: 0;
   font-size: 10.5px;
   color: var(--muted-2);
 }
@@ -3764,6 +3768,8 @@ pre {
 }
 
 .plugin-error {
+  grid-column: 1 / -1;
+  grid-row: 2;
   padding: 8px 10px;
   border-radius: 8px;
   background: rgba(180, 75, 75, 0.08);
@@ -3773,15 +3779,35 @@ pre {
 
 .plugin-card-actions {
   display: flex;
-  flex-wrap: wrap;
+  grid-column: 3;
+  grid-row: 1;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
   gap: 6px;
-  margin-top: auto;
-  padding-top: 14px;
-  border-top: 1px solid var(--line);
+  margin-top: 0;
+  padding-top: 0;
 }
 
 .plugin-help {
   margin-top: 4px;
+}
+
+@media (max-width: 900px) {
+  .plugin-card {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .plugin-card-head,
+  .plugin-card-meta,
+  .plugin-card-actions,
+  .plugin-error {
+    grid-column: 1;
+    grid-row: auto;
+  }
+  .plugin-card-actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
 }
 
 .scan-errors {
