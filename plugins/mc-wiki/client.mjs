@@ -40,6 +40,13 @@ const STYLE = `
 .mcw-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); border-color: var(--line-strong); }
 .mcw-card strong { font-size: 13px; color: var(--navy); }
 .mcw-card small { font-size: 10.5px; color: var(--muted-2, var(--muted)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.mcw-card { overflow: hidden; }
+.mcw-card strong { max-width: 100%; overflow-wrap: anywhere; line-height: 1.45; }
+.mcw-card small { max-width: 100%; }
+.mcw-icon-wrap { flex-shrink: 0; }
+.mcw-result > div { min-width: 0; }
+.mcw-result strong, .mcw-result small { overflow-wrap: anywhere; }
+.mcw-dialog-head small { overflow-wrap: anywhere; }
 .mcw-card-badge { position: absolute; top: 12px; right: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(44,76,102,.14); background: rgba(220,232,243,.55); color: var(--navy); font-size: 9.5px; letter-spacing: .04em; }
 .mcw-card-icon { margin-bottom: 4px; }
 .mcw-icon-wrap { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; }
@@ -67,7 +74,10 @@ const STYLE = `
 .mcw-empty h3 { font-family: var(--font-display); font-size: 22px; color: var(--navy); margin-bottom: 8px; }
 .mcw-empty p { font-size: 12.5px; max-width: 520px; margin: 0 auto 16px; line-height: 1.8; }
 .mcw-empty .mcw-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
-.mcw-pager { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 18px; font-size: 12px; color: var(--muted); }
+.mcw-pager { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 18px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+.mcw-page-jump { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.mcw-page-jump input { width: 58px; height: 30px; padding: 0 8px; border: 1px solid var(--line); border-radius: 8px; background: #fff; font-size: 12px; text-align: center; color: var(--text); }
+.mcw-page-jump input:focus { outline: none; border-color: rgba(44, 76, 102, 0.35); box-shadow: 0 0 0 3px rgba(44, 76, 102, 0.08); }
 .mcw-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-radius: var(--radius); border: 1px solid var(--line); background: rgba(255,255,255,.8); overflow: hidden; }
 .mcw-stat { padding: 16px 18px; border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .mcw-stat:last-child { border-right: 0; }
@@ -141,8 +151,14 @@ const STYLE = `
   .mcw-jobdetail .mcw-log { min-height: 260px; }
 }
 .mcw-job-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border-radius: 9px; border: 1px solid var(--line); background: #fff; font-size: 11.5px; }
-.mcw-overlay { position: fixed; inset: 0; z-index: 120; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(9,21,34,.45); backdrop-filter: blur(3px); }
-.mcw-dialog { width: min(720px, 100%); max-height: min(86vh, 900px); overflow: auto; border-radius: var(--radius-lg); background: #fff; box-shadow: var(--shadow-lg); }
+@keyframes mcw-view-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.mcw-view-enter { animation: mcw-view-in 0.4s var(--ease) both; }
+.mcw-overlay { position: fixed; inset: 0; z-index: 120; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(9,21,34,.45); backdrop-filter: blur(3px); opacity: 0; transition: opacity 0.24s ease, backdrop-filter 0.24s ease; }
+.mcw-overlay.is-open { opacity: 1; }
+.mcw-overlay.is-closing { pointer-events: none; opacity: 0; backdrop-filter: blur(0); }
+.mcw-dialog { width: min(720px, 100%); max-height: min(86vh, 900px); overflow: auto; border-radius: var(--radius-lg); background: #fff; box-shadow: var(--shadow-lg); transform: translateY(22px) scale(0.965); transform-origin: 50% 55%; transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.mcw-overlay.is-open .mcw-dialog { transform: none; }
+.mcw-overlay.is-closing .mcw-dialog { transform: translateY(14px) scale(0.975); }
 .mcw-dialog-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 22px 24px 16px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: #fff; z-index: 1; }
 .mcw-dialog-head h2 { font-family: var(--font-display); font-size: 24px; color: var(--navy); }
 .mcw-dialog-head small { font-size: 11px; color: var(--muted); font-family: var(--font-mono); }
@@ -157,6 +173,24 @@ const STYLE = `
 .mcw-detail-recipes .mcw-recipe { padding: 10px 12px; }
 .mcw-muted { color: var(--muted); font-size: 11.5px; }
 .mcw-tag { font-family: var(--font-mono); font-size: 10px; color: var(--muted); }
+@media (max-width: 900px) {
+  .mcw-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+  .mcw-detail-hero { flex-wrap: wrap; }
+}
+@media (max-width: 640px) {
+  .mcw-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .mcw-card { padding: 13px; }
+  .mcw-card strong { font-size: 12.5px; }
+  .mcw-card-badge { top: 8px; right: 8px; padding: 1px 6px; font-size: 9px; }
+  .mcw-toolbar-right { width: 100%; }
+  .mcw-toolbar .search-box { width: 100%; max-width: none; }
+  .mcw-page-jump input { width: 50px; }
+  .mcw-dialog-body { padding: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mcw-view-enter { animation: none; }
+  .mcw-overlay, .mcw-dialog { transition: none; }
+}
 @media (max-width: 720px) {
   .mcw-stats { grid-template-columns: repeat(2, 1fr); }
   .mcw-stat:nth-child(2) { border-right: 0; }
@@ -354,6 +388,13 @@ export async function mount(root, ctx) {
     else if (tab === 'jobs') renderJobs();
     else if (tab === 'recipes') renderRecipes();
     else renderItems();
+    animateView();
+  }
+
+  function animateView() {
+    view.classList.remove('mcw-view-enter');
+    void view.offsetWidth;
+    view.classList.add('mcw-view-enter');
   }
 
   // ---------------- 物品图鉴 ----------------
@@ -426,6 +467,8 @@ export async function mount(root, ctx) {
         itemView.page <= 1 ? 'disabled' : ''
       }>上一页</button>
           <span>第 ${itemView.page} / ${totalPages} 页 · 共 ${data.total} 个条目</span>
+          <label class="mcw-page-jump">跳至 <input type="number" min="1" max="${totalPages}" data-item-jump-input aria-label="跳转页码" /> 页</label>
+          <button class="btn btn-ghost btn-sm" data-item-jump>跳转</button>
           <button class="btn btn-ghost btn-sm" data-item-page="${itemView.page + 1}" ${
         itemView.page >= totalPages ? 'disabled' : ''
       }>下一页</button>
@@ -440,6 +483,17 @@ export async function mount(root, ctx) {
           itemView.page = Number(button.dataset.itemPage);
           loadItems();
         });
+      });
+      const itemJump = body.querySelector('[data-item-jump-input]');
+      const jumpItems = () => {
+        const value = Math.trunc(Number(itemJump.value));
+        if (!Number.isFinite(value)) return;
+        itemView.page = Math.min(totalPages, Math.max(1, value));
+        loadItems();
+      };
+      body.querySelector('[data-item-jump]').addEventListener('click', jumpItems);
+      itemJump.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') jumpItems();
       });
     } catch (error) {
       body.innerHTML = `<div class="mcw-empty"><h3>物品读取失败</h3><p>${esc(error.message || '未知错误')}</p></div>`;
@@ -485,10 +539,17 @@ export async function mount(root, ctx) {
         <div class="mcw-dialog-body"><div class="plugin-loading">正在读取详情…</div></div>
       </div>`;
     document.body.append(overlay);
+    void overlay.offsetWidth;
+    overlay.classList.add('is-open');
     const body = overlay.querySelector('.mcw-dialog-body');
+    let closing = false;
     const close = () => {
+      if (closing) return;
+      closing = true;
       document.removeEventListener('keydown', onKey);
-      overlay.remove();
+      overlay.classList.remove('is-open');
+      overlay.classList.add('is-closing');
+      setTimeout(() => overlay.remove(), 320);
     };
     const onKey = (event) => {
       if (event.key === 'Escape') close();
@@ -581,6 +642,8 @@ export async function mount(root, ctx) {
         recipeView.page <= 1 ? 'disabled' : ''
       }>上一页</button>
           <span>第 ${recipeView.page} / ${totalPages} 页 · 共 ${data.total} 个配方</span>
+          <label class="mcw-page-jump">跳至 <input type="number" min="1" max="${totalPages}" data-recipe-jump-input aria-label="跳转页码" /> 页</label>
+          <button class="btn btn-ghost btn-sm" data-recipe-jump>跳转</button>
           <button class="btn btn-ghost btn-sm" data-recipe-page="${recipeView.page + 1}" ${
         recipeView.page >= totalPages ? 'disabled' : ''
       }>下一页</button>
@@ -593,6 +656,17 @@ export async function mount(root, ctx) {
           recipeView.page = Number(button.dataset.recipePage);
           loadRecipes();
         });
+      });
+      const recipeJump = body.querySelector('[data-recipe-jump-input]');
+      const jumpRecipes = () => {
+        const value = Math.trunc(Number(recipeJump.value));
+        if (!Number.isFinite(value)) return;
+        recipeView.page = Math.min(totalPages, Math.max(1, value));
+        loadRecipes();
+      };
+      body.querySelector('[data-recipe-jump]').addEventListener('click', jumpRecipes);
+      recipeJump.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') jumpRecipes();
       });
     } catch (error) {
       body.innerHTML = `<div class="mcw-empty"><h3>配方读取失败</h3><p>${esc(error.message || '未知错误')}</p></div>`;
@@ -723,6 +797,8 @@ export async function mount(root, ctx) {
           <span>第 ${adminView.page} / ${totalPages} 页 · 共 ${data.total} ${
       data.grouped ? `组 · ${data.snapshotCount} 个快照` : '个版本'
     }</span>
+          <label class="mcw-page-jump">跳至 <input type="number" min="1" max="${totalPages}" data-admin-jump-input aria-label="跳转页码" /> 页</label>
+          <button class="btn btn-ghost btn-sm" data-admin-jump>跳转</button>
           <button class="btn btn-ghost btn-sm" data-admin-page="${adminView.page + 1}" ${
       adminView.page >= totalPages ? 'disabled' : ''
     }>下一页</button>
@@ -738,6 +814,17 @@ export async function mount(root, ctx) {
         adminView.page = Number(button.dataset.adminPage);
         loadAdmin();
       });
+    });
+    const adminJump = view.querySelector('[data-admin-jump-input]');
+    const jumpAdmin = () => {
+      const value = Math.trunc(Number(adminJump.value));
+      if (!Number.isFinite(value)) return;
+      adminView.page = Math.min(totalPages, Math.max(1, value));
+      loadAdmin();
+    };
+    view.querySelector('[data-admin-jump]').addEventListener('click', jumpAdmin);
+    adminJump.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') jumpAdmin();
     });
     view.querySelectorAll('[data-version-action]').forEach((button) => {
       button.addEventListener('click', () => versionAction(button.dataset.versionAction, button.dataset.version));
