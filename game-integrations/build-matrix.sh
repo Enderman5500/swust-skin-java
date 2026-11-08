@@ -28,7 +28,7 @@ if [[ "$DRY_RUN" == "0" ]]; then
   cp -f "$ROOT/paper/target/minecraft-server-report-paper.jar" "$DIST/paper/universal/"
 fi
 
-echo "Fabric 1.18 / 1.19 / 1.20"
+echo "Fabric 1.18 / 1.19 / 1.20 / 1.21"
 build_gradle fabric fabric 1.18 \
   -Pminecraft_family=1.18 -Pminecraft_version=1.18.2 -Pminecraft_range='>=1.18 <1.19' \
   -Pyarn_mappings=1.18.2+build.4 -Ploader_version=0.14.24 -Pfabric_api_version=0.77.0+1.18.2 \
@@ -40,6 +40,10 @@ build_gradle fabric fabric 1.19 \
 build_gradle fabric fabric 1.20 \
   -Pminecraft_family=1.20 -Pminecraft_version=1.20.6 -Pminecraft_range='>=1.20 <1.21' \
   -Pyarn_mappings=1.20.6+build.1 -Ploader_version=0.15.11 -Pfabric_api_version=0.100.8+1.20.6 \
+  -Ploom_version=1.7-SNAPSHOT -Pjava_version=21
+build_gradle fabric fabric 1.21 \
+  -Pminecraft_family=1.21 -Pminecraft_version=1.21.1 -Pminecraft_range='>=1.21 <26' \
+  -Pyarn_mappings=1.21.1+build.3 -Ploader_version=0.16.14 -Pfabric_api_version=0.116.17+1.21.1 \
   -Ploom_version=1.7-SNAPSHOT -Pjava_version=21
 
 echo "Fabric 26.x"

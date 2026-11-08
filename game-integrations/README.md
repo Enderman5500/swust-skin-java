@@ -49,6 +49,7 @@ Fabric 代表产物：
 game-integrations/dist/fabric/1.18/minecraft-server-report-fabric-1.18-1.0.0.jar
 game-integrations/dist/fabric/1.19/minecraft-server-report-fabric-1.19-1.0.0.jar
 game-integrations/dist/fabric/1.20/minecraft-server-report-fabric-1.20-1.0.0.jar
+game-integrations/dist/fabric/1.21/minecraft-server-report-fabric-1.21-1.0.0.jar
 game-integrations/dist/fabric/26/minecraft-server-report-fabric-26-1.0.0.jar
 ```
 
