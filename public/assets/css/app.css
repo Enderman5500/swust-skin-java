@@ -4961,7 +4961,39 @@ pre {
   }
 }
 
-@media (max-width: 1020px) {
+/* Narrow desktop / split-screen: compact the top navigation instead of pushing
+   the header actions out of the viewport. */
+@media (min-width: 1121px) and (max-width: 1340px) {
+  .header-inner {
+    gap: 20px;
+  }
+  .main-nav {
+    gap: 3px;
+    margin-left: 4px;
+  }
+  .nav-link {
+    gap: 0;
+    padding: 9px 11px;
+  }
+  .nav-link .nav-icon {
+    display: none;
+  }
+}
+
+/* Let the navigation shrink (and scroll horizontally) when plugins add many
+   entries, so it never pushes the account actions off-screen. */
+@media (min-width: 1121px) {
+  .main-nav {
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .main-nav::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@media (max-width: 1120px) {
   .main-nav {
     position: absolute;
     left: 0;
