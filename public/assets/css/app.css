@@ -6066,7 +6066,12 @@ body.is-admin .site-main {
 }
 
 .yd-admin-content .table-panel {
+  padding: 0;
   overflow-x: auto;
+}
+
+.yd-admin-content .data-table th {
+  background: #fff;
 }
 
 /* =========================================================

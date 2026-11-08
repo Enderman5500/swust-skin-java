@@ -565,7 +565,7 @@ async function renderPlayers(main, ctx) {
     load();
   }, 300));
 
-  main.addEventListener('click', async (event) => {
+  async function onMainClick(event) {
     const button = event.target.closest('[data-action]');
     if (!button) return;
     const player = rows.find((item) => item.id === Number(button.dataset.id));
@@ -588,9 +588,11 @@ async function renderPlayers(main, ctx) {
         ui.toast(error.message, 'error');
       }
     }
-  });
+  }
+  main.addEventListener('click', onMainClick);
 
   await load();
+  return () => main.removeEventListener('click', onMainClick);
 }
 
 async function renderTextures(main, ctx) {
@@ -696,7 +698,7 @@ async function renderTextures(main, ctx) {
     load();
   });
 
-  main.addEventListener('click', async (event) => {
+  async function onMainClick(event) {
     const button = event.target.closest('[data-action]');
     if (!button) return;
     const texture = rows.find((item) => item.id === Number(button.dataset.id));
@@ -727,9 +729,11 @@ async function renderTextures(main, ctx) {
         ui.toast(error.message, 'error');
       }
     }
-  });
+  }
+  main.addEventListener('click', onMainClick);
 
   await load();
+  return () => main.removeEventListener('click', onMainClick);
 }
 
 async function renderPlugins(main, ctx) {
@@ -876,7 +880,7 @@ async function renderPlugins(main, ctx) {
     }
   });
 
-  main.addEventListener('click', async (event) => {
+  async function onMainClick(event) {
     const button = event.target.closest('[data-action]');
     if (!button) return;
     const action = button.dataset.action;
@@ -928,9 +932,11 @@ async function renderPlugins(main, ctx) {
         ui.toast(error.message, 'error');
       }
     }
-  });
+  }
+  main.addEventListener('click', onMainClick);
 
   await load();
+  return () => main.removeEventListener('click', onMainClick);
 }
 
 async function renderSettings(main, ctx) {

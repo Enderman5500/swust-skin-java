@@ -421,7 +421,7 @@ export async function renderUsers(main, ctx) {
     load();
   });
 
-  main.addEventListener('click', async (event) => {
+  async function onMainClick(event) {
     const pageButton = event.target.closest('[data-page]');
     if (pageButton && !pageButton.disabled) {
       state.page = Number(pageButton.dataset.page);
@@ -478,8 +478,11 @@ export async function renderUsers(main, ctx) {
         ui.toast(error.message, 'error');
       }
     }
-  });
+  }
+  main.addEventListener('click', onMainClick);
 
   await loadRoles();
   await load();
+
+  return () => main.removeEventListener('click', onMainClick);
 }
