@@ -32,7 +32,8 @@ final class WikiCatalog {
 
     private Index build(String version) {
         List<Map<String, Object>> items = List.copyOf(store.items(version));
-        List<Map<String, Object>> recipes = List.copyOf(store.recipes(version));
+        List<Map<String, Object>> recipes = store.recipes(version).stream()
+                .map(WikiCatalog::displayableSpecialRecipe).toList();
         Map<String, Map<String, Object>> itemsById = new LinkedHashMap<>();
         for (Map<String, Object> item : items) {
             itemsById.put(String.valueOf(item.get("namespacedId")), item);
@@ -46,6 +47,82 @@ final class WikiCatalog {
         Map<String, List<Map<String, Object>>> frozen = new LinkedHashMap<>();
         byResult.forEach((key, value) -> frozen.put(key, List.copyOf(value)));
         return new Index(version, Map.copyOf(itemsById), items, recipes, Map.copyOf(frozen));
+    }
+
+
+    /** 原版特殊合成没有配方 JSON 内容，为百科展示补一组代表性材料。 */
+    private static Map<String, Object> displayableSpecialRecipe(Map<String, Object> recipe) {
+        String type = String.valueOf(recipe.getOrDefault("type", ""));
+        if (!isBlankRecipe(recipe)) return recipe;
+        List<String> ingredients;
+        List<String> grid = new ArrayList<>();
+        List<String> tags = new ArrayList<>();
+        for (int slot = 0; slot < 9; slot++) tags.add(null);
+        switch (type) {
+            case "minecraft:crafting_special_firework_rocket" -> {
+                ingredients = List.of("minecraft:paper", "minecraft:gunpowder", "minecraft:firework_star");
+                grid.addAll(ingredients);
+            }
+            case "minecraft:crafting_special_firework_star" -> {
+                ingredients = List.of("minecraft:gunpowder", "#minecraft:dyes");
+                grid.add("minecraft:gunpowder");
+                grid.add("minecraft:white_dye");
+                tags.set(1, "minecraft:dyes");
+            }
+            case "minecraft:crafting_special_firework_star_fade" -> {
+                ingredients = List.of("minecraft:firework_star", "#minecraft:dyes");
+                grid.add("minecraft:firework_star");
+                grid.add("minecraft:white_dye");
+                tags.set(1, "minecraft:dyes");
+            }
+            case "minecraft:crafting_special_bannerduplicate" -> {
+                String banner = String.valueOf(recipe.getOrDefault("resultId", "minecraft:white_banner"));
+                ingredients = List.of(banner, banner);
+                grid.add(banner);
+                grid.add(banner);
+            }
+            case "minecraft:crafting_dye" -> {
+                String target = String.valueOf(recipe.getOrDefault("resultId", "minecraft:leather_helmet"));
+                ingredients = List.of(target, "#minecraft:dyes");
+                grid.add(target);
+                grid.add("minecraft:white_dye");
+                tags.set(1, "minecraft:dyes");
+            }
+            case "minecraft:crafting_special_shielddecoration" -> {
+                ingredients = List.of("minecraft:shield", "#minecraft:banners");
+                grid.add("minecraft:shield");
+                grid.add("minecraft:white_banner");
+                tags.set(1, "minecraft:banners");
+            }
+            case "minecraft:crafting_decorated_pot" -> {
+                ingredients = List.of("#minecraft:decorated_pot_ingredients");
+                for (int slot = 0; slot < 4; slot++) {
+                    grid.add("minecraft:brick");
+                    tags.set(slot, "minecraft:decorated_pot_ingredients");
+                }
+            }
+            default -> {
+                return recipe;
+            }
+        }
+        while (grid.size() < 9) grid.add(null);
+        Map<String, Object> copy = new LinkedHashMap<>(recipe);
+        copy.put("ingredients", ingredients);
+        copy.put("grid", grid);
+        copy.put("gridTags", tags);
+        return copy;
+    }
+
+    private static boolean isBlankRecipe(Map<String, Object> recipe) {
+        Object ingredients = recipe.get("ingredients");
+        if (ingredients instanceof List<?> list && !list.isEmpty()) return false;
+        Object grid = recipe.get("grid");
+        if (grid instanceof List<?> list) {
+            for (Object value : list) {
+                if (value != null && !String.valueOf(value).isBlank()) return false;
+            }
+        }
+        return true;
     }
 
     List<Map<String, Object>> search(Index index, String keyword, String kind, int page, int size) {

@@ -92,7 +92,7 @@ final class WikiQuery {
         Map<String, Object> meta = new LinkedHashMap<>();
         meta.put("published", !published.isEmpty());
         meta.put("version", current);
-        meta.put("versions", published);
+        meta.put("versions", sortedByRelease(published));
         if (selected == null) {
             meta.put("items", 0);
             meta.put("recipes", 0);
@@ -104,6 +104,19 @@ final class WikiQuery {
         meta.put("recipes", index.recipes().size());
         meta.put("kinds", catalog.kindCounts(index));
         return meta;
+    }
+
+    /** 按版本清单顺序（新版本在前）排列发布版本，供前端版本选择器使用。 */
+    private List<String> sortedByRelease(List<String> published) {
+        Map<String, Integer> order = new LinkedHashMap<>();
+        int index = 0;
+        for (Map<String, Object> version : store.versions()) {
+            order.put(String.valueOf(version.get("id")), index++);
+        }
+        List<String> rows = new ArrayList<>(published);
+        rows.sort((a, b) -> Integer.compare(order.getOrDefault(a, Integer.MAX_VALUE),
+                order.getOrDefault(b, Integer.MAX_VALUE)));
+        return rows;
     }
 
     Map<String, Object> items(String version, String keyword, String kind, int page, int size) {
@@ -212,6 +225,7 @@ final class WikiQuery {
             for (Object value : list) {
                 if (value == null) {
                     cells.add(null);
+                    position++;
                     continue;
                 }
                 String id = String.valueOf(value);
@@ -507,19 +521,32 @@ final class WikiQuery {
             for (Object value : list) grid.add(value == null ? null : String.valueOf(value));
         }
         row.put("grid", grid);
+        List<String> gridTags = new ArrayList<>();
+        Object rawTags = recipe.get("gridTags");
+        if (rawTags instanceof List<?> list) {
+            for (Object value : list) gridTags.add(value == null ? null : String.valueOf(value));
+        }
         List<Object> gridDetail = new ArrayList<>();
+        int position = 0;
         for (String id : grid) {
             if (id == null) {
                 gridDetail.add(null);
+                position++;
                 continue;
             }
             Map<String, Object> cell = new LinkedHashMap<>();
             cell.put("id", id);
             Map<String, Object> item = index.itemsById().get(id);
             cell.put("nameZh", item == null ? "" : item.getOrDefault("nameZh", ""));
+            cell.put("nameEn", item == null ? "" : item.getOrDefault("nameEn", ""));
+            cell.put("kind", item == null ? "item" : item.getOrDefault("kind", "item"));
             cell.put("icon", item == null ? null : renders.iconPath(id,
                     String.valueOf(item.getOrDefault("kind", "item"))));
+            if (position < gridTags.size() && gridTags.get(position) != null) {
+                cell.put("tag", gridTags.get(position));
+            }
             gridDetail.add(cell);
+            position++;
         }
         row.put("gridDetail", gridDetail);
         return row;

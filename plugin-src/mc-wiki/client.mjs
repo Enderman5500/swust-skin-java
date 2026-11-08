@@ -10,11 +10,13 @@ const RECIPE_LABELS = {
   'minecraft:stonecutting': '切石',
   'minecraft:smithing_transform': '锻造',
   'minecraft:smithing_trim': '锻造纹饰',
+  'minecraft:crafting_transmute': '染色转换',
   'minecraft:crafting_special_armordye': '盔甲染色',
   'minecraft:crafting_special_bannerduplicate': '旗帜复制',
   'minecraft:crafting_special_bookcloning': '成书复制',
   'minecraft:crafting_special_firework_rocket': '烟花火箭',
-  'minecraft:crafting_special_firework_star': '烟花之星',
+  'minecraft:crafting_special_firework_star': '烟火之星',
+  'minecraft:crafting_special_firework_star_fade': '烟火之星（淡出）',
   'minecraft:crafting_special_mapcloning': '地图复制',
   'minecraft:crafting_special_mapextending': '地图扩展',
   'minecraft:crafting_special_repairitem': '物品修复',
@@ -148,10 +150,15 @@ const STYLE = `
 .mcw-detail-name-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .mcw-cell.is-tag { border-color: rgba(44, 76, 102, 0.28); }
 .mcw-tag-mark { position: absolute; top: 2px; right: 3px; font-family: var(--font-mono); font-size: 8px; color: var(--navy); opacity: 0.7; }
-.mcw-hover-card.is-tag-card { display: block; width: min(360px, calc(100vw - 28px)); padding: 12px 14px; }
+.mcw-hover-card.is-tag-card { display: block; width: min(360px, calc(100vw - 28px)); max-width: none; padding: 12px 14px; max-height: min(70vh, 380px); overflow-y: auto; pointer-events: auto; }
 .mcw-tag-head { font-family: var(--font-mono); font-size: 11px; color: var(--navy); margin-bottom: 2px; word-break: break-all; }
 .mcw-tag-count { font-size: 10px; color: var(--muted); margin-bottom: 8px; }
-.mcw-tag-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 4px 10px; max-height: 260px; overflow: auto; pointer-events: auto; }
+.mcw-hover-card.is-tag-card { padding-right: 22px; scrollbar-width: thin; scrollbar-color: rgba(44, 76, 102, 0.38) transparent; }
+.mcw-hover-card.is-tag-card::-webkit-scrollbar { width: 12px; }
+.mcw-hover-card.is-tag-card::-webkit-scrollbar-track { background: transparent; }
+.mcw-hover-card.is-tag-card::-webkit-scrollbar-thumb { min-height: 32px; border: 4px solid transparent; border-radius: 999px; background: rgba(44, 76, 102, 0.38); background-clip: padding-box; }
+.mcw-hover-card.is-tag-card::-webkit-scrollbar-thumb:hover { background: rgba(44, 76, 102, 0.55); background-clip: padding-box; }
+.mcw-tag-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 4px 10px; }
 .mcw-tag-chip { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 11px; color: var(--text); }
 .mcw-tag-chip .mcw-icon-wrap { width: 22px; height: 22px; flex: 0 0 auto; }
 .mcw-tag-chip .mcw-icon-wrap.is-empty::after { font-size: 9px; border-radius: 4px; }
@@ -180,8 +187,11 @@ const STYLE = `
 .mcw-diff-card { border-radius: var(--radius); border: 1px solid var(--line); background: rgba(255,255,255,.88); overflow: hidden; }
 .mcw-diff-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 14px; border-bottom: 1px solid var(--line); background: var(--paper); font-size: 11px; color: var(--muted); }
 .mcw-diff-card-head code { font-family: var(--font-mono); font-size: 10.5px; overflow-wrap: anywhere; }
-.mcw-diff-body { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 12px; padding: 14px; align-items: stretch; }
-.mcw-diff-side { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 10px 12px; border-radius: 10px; border: 1px dashed var(--line-strong); }
+.mcw-diff-body { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 12px; padding: 12px; align-items: stretch; }
+.mcw-diff-body.is-single { grid-template-columns: minmax(0, 1fr); }
+.mcw-compare-recipe { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mcw-compare-recipe-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.mcw-diff-side { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 8px 10px; border-radius: 10px; border: 1px dashed var(--line-strong); }
 .mcw-diff-side.is-present { border-style: solid; background: rgba(244,246,249,.55); }
 .mcw-diff-side.is-target { border-color: rgba(60,122,91,.28); background: rgba(60,122,91,.05); }
 .mcw-diff-side-label { font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
@@ -250,10 +260,15 @@ const STYLE = `
 .mcw-detail-name-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .mcw-cell.is-tag { border-color: rgba(44, 76, 102, 0.28); }
 .mcw-tag-mark { position: absolute; top: 2px; right: 3px; font-family: var(--font-mono); font-size: 8px; color: var(--navy); opacity: 0.7; }
-.mcw-hover-card.is-tag-card { display: block; width: min(360px, calc(100vw - 28px)); padding: 12px 14px; }
+.mcw-hover-card.is-tag-card { display: block; width: min(360px, calc(100vw - 28px)); max-width: none; padding: 12px 14px; max-height: min(70vh, 380px); overflow-y: auto; pointer-events: auto; }
 .mcw-tag-head { font-family: var(--font-mono); font-size: 11px; color: var(--navy); margin-bottom: 2px; word-break: break-all; }
 .mcw-tag-count { font-size: 10px; color: var(--muted); margin-bottom: 8px; }
-.mcw-tag-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 4px 10px; max-height: 260px; overflow: auto; pointer-events: auto; }
+.mcw-hover-card.is-tag-card { padding-right: 22px; scrollbar-width: thin; scrollbar-color: rgba(44, 76, 102, 0.38) transparent; }
+.mcw-hover-card.is-tag-card::-webkit-scrollbar { width: 12px; }
+.mcw-hover-card.is-tag-card::-webkit-scrollbar-track { background: transparent; }
+.mcw-hover-card.is-tag-card::-webkit-scrollbar-thumb { min-height: 32px; border: 4px solid transparent; border-radius: 999px; background: rgba(44, 76, 102, 0.38); background-clip: padding-box; }
+.mcw-hover-card.is-tag-card::-webkit-scrollbar-thumb:hover { background: rgba(44, 76, 102, 0.55); background-clip: padding-box; }
+.mcw-tag-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 4px 10px; }
 .mcw-tag-chip { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 11px; color: var(--text); }
 .mcw-tag-chip .mcw-icon-wrap { width: 22px; height: 22px; flex: 0 0 auto; }
 .mcw-tag-chip .mcw-icon-wrap.is-empty::after { font-size: 9px; border-radius: 4px; }
@@ -282,8 +297,11 @@ const STYLE = `
 .mcw-diff-card { border-radius: var(--radius); border: 1px solid var(--line); background: rgba(255,255,255,.88); overflow: hidden; }
 .mcw-diff-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 14px; border-bottom: 1px solid var(--line); background: var(--paper); font-size: 11px; color: var(--muted); }
 .mcw-diff-card-head code { font-family: var(--font-mono); font-size: 10.5px; overflow-wrap: anywhere; }
-.mcw-diff-body { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 12px; padding: 14px; align-items: stretch; }
-.mcw-diff-side { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 10px 12px; border-radius: 10px; border: 1px dashed var(--line-strong); }
+.mcw-diff-body { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 12px; padding: 12px; align-items: stretch; }
+.mcw-diff-body.is-single { grid-template-columns: minmax(0, 1fr); }
+.mcw-compare-recipe { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mcw-compare-recipe-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.mcw-diff-side { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 8px 10px; border-radius: 10px; border: 1px dashed var(--line-strong); }
 .mcw-diff-side.is-present { border-style: solid; background: rgba(244,246,249,.55); }
 .mcw-diff-side.is-target { border-color: rgba(60,122,91,.28); background: rgba(60,122,91,.05); }
 .mcw-diff-side-label { font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
@@ -322,8 +340,29 @@ const STYLE = `
   .mcw-card strong { font-size: 12.5px; }
   .mcw-card-badge { top: 8px; right: 8px; padding: 1px 6px; font-size: 9px; }
   .mcw-toolbar-right { width: 100%; }
-  .mcw-toolbar .search-box { width: 100%; max-width: none; }
-  .mcw-page-jump input { width: 50px; }
+  .mcw-tabs { display: flex; width: 100%; max-width: 100%; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding: 3px; gap: 4px; }
+  .mcw-tabs::-webkit-scrollbar { display: none; }
+  .mcw-tabs .chip { flex: 0 0 auto; min-height: 32px; padding: 7px 9px; font-size: 11px; }
+  .filter-chips { flex-wrap: nowrap; max-width: 100%; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+  .filter-chips::-webkit-scrollbar { display: none; }
+  .filter-chips > * { flex: 0 0 auto; }
+  .mcw-toolbar { gap: 10px; }
+  .mcw-toolbar-right { width: 100%; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; gap: 4px; }
+  .mcw-toolbar-right::-webkit-scrollbar { display: none; }
+  .mcw-toolbar-right > * { flex: 0 0 auto; }
+  .mcw-toolbar .search-box { flex: 1 1 150px; min-width: 0; width: auto; max-width: none; }
+  .mcw-toolbar .search-box input { min-width: 0; }
+  .mcw-toolbar .select-box select { min-width: 88px; max-width: 130px; padding: 0 30px 0 10px; font-size: 11.5px; }
+  .mcw-toolbar-right .mcw-compare-select select { min-width: 0; max-width: 130px; padding: 0 22px 0 8px; font-size: 11px; }
+  .mcw-toolbar-right [data-compare-run] { min-height: 32px; padding: 0 12px; }
+  .mcw-hide-mobile { display: none; }
+  .mcw-compare-summary { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+  .mcw-compare-summary::-webkit-scrollbar { display: none; }
+  .mcw-compare-group { flex: 0 0 auto; }
+  .mcw-page-jump, .mcw-jump-btn { display: none; }
+  .mcw-pager { flex-wrap: nowrap; gap: 6px; font-size: 10.5px; }
+  .mcw-pager .btn { min-height: 30px; padding: 0 10px; }
+  .mcw-pager-total { display: none; }
   .mcw-dialog-body { padding: 16px; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -354,11 +393,19 @@ export async function mount(root, ctx) {
     ctx.query?.tab === 'admin' && isAdmin ? 'admin' : ctx.query?.tab === 'jobs' && isAdmin ? 'jobs' : 'items';
   let meta = null;
   let version = '';
-  let itemView = { keyword: '', kind: '', page: 1, size: 24, loading: false };
+  const compactLayout = () => window.matchMedia?.('(max-width: 640px)').matches === true;
+  let lastCompact = compactLayout();
+  const applyPageSizes = () => {
+    itemView.size = lastCompact ? 12 : 18;
+    recipeView.size = lastCompact ? 8 : 12;
+    adminView.size = lastCompact ? 10 : 15;
+    compareView.size = lastCompact ? 12 : 20;
+  };
+  let itemView = { keyword: '', kind: '', page: 1, size: 18, loading: false };
   let recipeView = { keyword: '', page: 1, size: 12, loading: false };
-  const adminView = { keyword: '', type: '', status: '', page: 1, data: null, loading: false };
+  const adminView = { keyword: '', type: '', status: '', page: 1, size: 15, data: null, loading: false };
   const expandedGroups = new Set();
-  const compareView = { from: '', to: '', data: null, kind: 'items', filter: 'added', itemKind: 'item', keyword: '', page: 1, size: 24, versions: [] };
+  const compareView = { from: '', to: '', data: null, kind: 'items', filter: 'added', itemKind: 'item', keyword: '', page: 1, size: 20, versions: [] };
   const jobView = {
     selectedId: null,
     job: null,
@@ -371,6 +418,7 @@ export async function mount(root, ctx) {
   let searchTimer = null;
 
   injectStyle();
+  applyPageSizes();
   root.innerHTML = `
     <section class="plugin-shell mcw">
       <header class="plugin-head">
@@ -447,18 +495,33 @@ export async function mount(root, ctx) {
   }
 
   let hoverCardEl = null;
+  let hoverHideTimer = 0;
 
   function ensureHoverCard() {
     if (hoverCardEl) return hoverCardEl;
     hoverCardEl = document.createElement('div');
     hoverCardEl.className = 'mcw-hover-card';
     hoverCardEl.hidden = true;
+    hoverCardEl.addEventListener('mouseenter', cancelHideHoverCard);
+    hoverCardEl.addEventListener('mouseleave', scheduleHideHoverCard);
     document.body.append(hoverCardEl);
     return hoverCardEl;
   }
 
-  function showHoverCard(cell, event) {
+  function cancelHideHoverCard() {
+    clearTimeout(hoverHideTimer);
+    hoverHideTimer = 0;
+  }
+
+  function scheduleHideHoverCard() {
+    cancelHideHoverCard();
+    hoverHideTimer = setTimeout(hideHoverCard, 220);
+  }
+
+  function showHoverCard(cell) {
     const card = ensureHoverCard();
+    card.classList.remove('is-tag-card');
+    card.scrollTop = 0;
     card.innerHTML = `
       <span class="mcw-icon-wrap ${cell.dataset.hoverIcon ? '' : 'is-empty'}" data-initial="${initialOf(
       cell.dataset.hoverName,
@@ -470,23 +533,27 @@ export async function mount(root, ctx) {
       </span>`;
     bindIcons(card);
     card.hidden = false;
-    positionHoverCard(event);
+    positionHoverCard(cell);
   }
 
-  function positionHoverCard(event) {
+  function positionHoverCard(cell) {
     const card = hoverCardEl;
     if (!card || card.hidden) return;
     const rect = card.getBoundingClientRect();
+    const anchor = cell.getBoundingClientRect();
     const pad = 14;
-    let x = event.clientX + 16;
-    let y = event.clientY + 16;
-    if (x + rect.width > window.innerWidth - pad) x = event.clientX - rect.width - 16;
-    if (y + rect.height > window.innerHeight - pad) y = event.clientY - rect.height - 16;
-    card.style.left = `${Math.max(pad, x)}px`;
-    card.style.top = `${Math.max(pad, y)}px`;
+    const gap = 10;
+    let x = anchor.left + (anchor.width - rect.width) / 2;
+    let y = anchor.bottom + gap;
+    if (y + rect.height > window.innerHeight - pad) y = anchor.top - rect.height - gap;
+    x = Math.max(pad, Math.min(x, window.innerWidth - rect.width - pad));
+    y = Math.max(pad, Math.min(y, window.innerHeight - rect.height - pad));
+    card.style.left = `${Math.round(x)}px`;
+    card.style.top = `${Math.round(y)}px`;
   }
 
   function hideHoverCard() {
+    cancelHideHoverCard();
     hoverToken += 1;
     if (hoverCardEl) {
       hoverCardEl.hidden = true;
@@ -499,19 +566,37 @@ export async function mount(root, ctx) {
 
   function bindRecipeHover(container) {
     container.querySelectorAll('[data-hover-id]').forEach((cell) => {
-      cell.addEventListener('mouseenter', (event) => {
-        if (cell.dataset.hoverTag) showTagHoverCard(cell, event);
-        else showHoverCard(cell, event);
+      cell.addEventListener('mouseenter', () => {
+        cancelHideHoverCard();
+        if (cell.dataset.hoverTag) showTagHoverCard(cell);
+        else showHoverCard(cell);
       });
-      cell.addEventListener('mousemove', positionHoverCard);
-      cell.addEventListener('mouseleave', hideHoverCard);
+      cell.addEventListener('mouseleave', scheduleHideHoverCard);
+      cell.addEventListener(
+        'wheel',
+        (event) => {
+          if (!cell.dataset.hoverTag) return;
+          const card = hoverCardEl;
+          if (!card || card.hidden || !card.classList.contains('is-tag-card')) return;
+          const max = card.scrollHeight - card.clientHeight;
+          if (max <= 0) return;
+          const delta = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
+          const next = Math.max(0, Math.min(max, card.scrollTop + delta));
+          if (next === card.scrollTop) return;
+          event.preventDefault();
+          card.scrollTop = next;
+        },
+        { passive: false }
+      );
     });
   }
 
-  function showTagHoverCard(cell, event) {
+  function showTagHoverCard(cell) {
     const tag = cell.dataset.hoverTag;
+    const tagVersion = cell.dataset.hoverVersion || version;
     const card = ensureHoverCard();
     card.classList.add('is-tag-card');
+    card.scrollTop = 0;
     const token = ++hoverToken;
     const render = (data) => {
       if (token !== hoverToken) return;
@@ -529,21 +614,23 @@ export async function mount(root, ctx) {
             )}</span></span>`
           )
           .join('')}</div>`;
+      card.scrollTop = 0;
       bindIcons(card);
       card.hidden = false;
-      positionHoverCard(event);
+      positionHoverCard(cell);
     };
-    const cached = tagCache.get(tag);
+    const cacheKey = tagVersion + '|' + tag;
+    const cached = tagCache.get(cacheKey);
     if (cached) {
       render(cached);
       return;
     }
     card.innerHTML = `<div class="mcw-tag-head">#${esc(tag.replace(/^#/, ''))}</div><div class="mcw-tag-count">加载标签成员…</div>`;
     card.hidden = false;
-    positionHoverCard(event);
-    api.get(`${base}/tag`, { version, id: tag })
+    positionHoverCard(cell);
+    api.get(`${base}/tag`, { version: tagVersion, id: tag })
       .then((data) => {
-        tagCache.set(tag, data);
+        tagCache.set(cacheKey, data);
         render(data);
       })
       .catch(() => {
@@ -696,9 +783,9 @@ export async function mount(root, ctx) {
           <button class="btn btn-ghost btn-sm" data-item-page="${itemView.page - 1}" ${
         itemView.page <= 1 ? 'disabled' : ''
       }>上一页</button>
-          <span>第 ${itemView.page} / ${totalPages} 页 · 共 ${data.total} 个条目</span>
+          <span class="mcw-pager-info">第 ${itemView.page} / ${totalPages} 页<span class="mcw-pager-total"> · 共 ${data.total} 个条目</span></span>
           <label class="mcw-page-jump">跳至 <input type="number" min="1" max="${totalPages}" data-item-jump-input aria-label="跳转页码" inputmode="numeric" /> 页</label>
-          <button class="btn btn-ghost btn-sm" data-item-jump disabled>跳转</button>
+          <button class="btn btn-ghost btn-sm mcw-jump-btn" data-item-jump disabled>跳转</button>
           <button class="btn btn-ghost btn-sm" data-item-page="${itemView.page + 1}" ${
         itemView.page >= totalPages ? 'disabled' : ''
       }>下一页</button>
@@ -893,9 +980,9 @@ export async function mount(root, ctx) {
           <button class="btn btn-ghost btn-sm" data-recipe-page="${recipeView.page - 1}" ${
         recipeView.page <= 1 ? 'disabled' : ''
       }>上一页</button>
-          <span>第 ${recipeView.page} / ${totalPages} 页 · 共 ${data.total} 个配方</span>
+          <span class="mcw-pager-info">第 ${recipeView.page} / ${totalPages} 页<span class="mcw-pager-total"> · 共 ${data.total} 个配方</span></span>
           <label class="mcw-page-jump">跳至 <input type="number" min="1" max="${totalPages}" data-recipe-jump-input aria-label="跳转页码" inputmode="numeric" /> 页</label>
-          <button class="btn btn-ghost btn-sm" data-recipe-jump disabled>跳转</button>
+          <button class="btn btn-ghost btn-sm mcw-jump-btn" data-recipe-jump disabled>跳转</button>
           <button class="btn btn-ghost btn-sm" data-recipe-page="${recipeView.page + 1}" ${
         recipeView.page >= totalPages ? 'disabled' : ''
       }>下一页</button>
@@ -986,7 +1073,7 @@ export async function mount(root, ctx) {
         type: adminView.type,
         status: adminView.status,
         page: adminView.page,
-        size: 20,
+        size: adminView.size,
       });
       adminView.data = data;
       if (disposed || tab !== 'admin') return;
@@ -1053,11 +1140,11 @@ export async function mount(root, ctx) {
           <button class="btn btn-ghost btn-sm" data-admin-page="${adminView.page - 1}" ${
       adminView.page <= 1 ? 'disabled' : ''
     }>上一页</button>
-          <span>第 ${adminView.page} / ${totalPages} 页 · 共 ${data.total} ${
+          <span class="mcw-pager-info">第 ${adminView.page} / ${totalPages} 页<span class="mcw-pager-total"> · 共 ${data.total} ${
       data.grouped ? `组 · ${data.snapshotCount} 个快照` : '个版本'
-    }</span>
+    }</span></span>
           <label class="mcw-page-jump">跳至 <input type="number" min="1" max="${totalPages}" data-admin-jump-input aria-label="跳转页码" inputmode="numeric" /> 页</label>
-          <button class="btn btn-ghost btn-sm" data-admin-jump disabled>跳转</button>
+          <button class="btn btn-ghost btn-sm mcw-jump-btn" data-admin-jump disabled>跳转</button>
           <button class="btn btn-ghost btn-sm" data-admin-page="${adminView.page + 1}" ${
       adminView.page >= totalPages ? 'disabled' : ''
     }>下一页</button>
@@ -1341,8 +1428,8 @@ export async function mount(root, ctx) {
         </div>`;
       return;
     }
-    if (!versions.some((row) => row.id === compareView.from)) compareView.from = versions[1].id;
-    if (!versions.some((row) => row.id === compareView.to)) compareView.to = versions[0].id;
+    if (!versions.some((row) => row.id === compareView.from)) compareView.from = '';
+    if (!versions.some((row) => row.id === compareView.to)) compareView.to = '';
     paintCompareShell();
     if (compareView.data) paintCompareResults();
   }
@@ -1353,33 +1440,60 @@ export async function mount(root, ctx) {
       .join('');
   }
 
+  function versionsNewerThan(fromId) {
+    const from = compareView.versions.find((row) => row.id === fromId);
+    if (!from) return [];
+    const time = String(from.releaseTime || '');
+    return compareView.versions.filter((row) => String(row.releaseTime || '') > time);
+  }
+
   function paintCompareShell() {
+    const newer = versionsNewerThan(compareView.from);
+    const toValue = newer.some((row) => row.id === compareView.to) ? compareView.to : '';
+    compareView.to = toValue;
     view.innerHTML = `
       <div class="mcw-toolbar">
-        <div class="filter-chips"><span class="mcw-muted">对比两个已导入版本，查看物品与配方的变化</span></div>
+        <div class="filter-chips"><span class="mcw-muted">先选择前项版本，后项只能选择比它更新的版本</span></div>
         <div class="mcw-toolbar-right">
-          <label class="select-box"><select data-compare-from>${compareOptions(compareView.from)}</select></label>
+          <label class="select-box mcw-compare-select"><select data-compare-from>
+            <option value="">选择前项版本</option>
+            ${compareOptions(compareView.from)}
+          </select></label>
           <span class="mcw-muted">→</span>
-          <label class="select-box"><select data-compare-to>${compareOptions(compareView.to)}</select></label>
-          <button class="btn btn-primary" data-compare-run>开始比对</button>
+          <label class="select-box mcw-compare-select"><select data-compare-to ${compareView.from ? '' : 'disabled'}>
+            <option value="">${compareView.from ? (newer.length ? '选择后项版本' : '前项已最新') : '先选前项版本'}</option>
+            ${newer.map((row) => `<option value="${esc(row.id)}" ${row.id === toValue ? 'selected' : ''}>${esc(row.id)}</option>`).join('')}
+          </select></label>
+          <button class="btn btn-primary" data-compare-run ${
+            compareView.from && toValue ? '' : 'disabled'
+          }><span class="mcw-hide-mobile">开始</span>比对</button>
         </div>
       </div>
-      <div data-compare-results>${compareView.data ? '' : '<div class="mcw-empty"><h3>选择版本后开始比对</h3><p>比对结果会按新增、修改、移除分类展示。</p></div>'}</div>
+      <div data-compare-results>${compareView.data ? '' : '<div class="mcw-empty"><h3>先选前项，再选后项</h3><p>后项只能选择比前项更新的已导入版本。</p></div>'}</div>
     `;
     view.querySelector('[data-compare-from]').addEventListener('change', (event) => {
       compareView.from = event.target.value;
+      compareView.to = '';
       compareView.data = null;
+      paintCompareShell();
     });
-    view.querySelector('[data-compare-to]').addEventListener('change', (event) => {
+    const toSelect = view.querySelector('[data-compare-to]');
+    const runButton = view.querySelector('[data-compare-run]');
+    toSelect.addEventListener('change', (event) => {
       compareView.to = event.target.value;
       compareView.data = null;
+      runButton.disabled = !compareView.to;
     });
     view.querySelector('[data-compare-run]').addEventListener('click', runCompare);
   }
 
   async function runCompare() {
-    if (compareView.from === compareView.to) {
-      toast('请选择两个不同的版本', 'error');
+    if (!compareView.from) {
+      toast('请先选择前项版本', 'error');
+      return;
+    }
+    if (!compareView.to) {
+      toast('请选择比前项更新的后项版本', 'error');
       return;
     }
     const host = view.querySelector('[data-compare-results]');
@@ -1582,7 +1696,7 @@ export async function mount(root, ctx) {
         <button class="btn btn-ghost btn-sm" data-compare-page="${compareView.page - 1}" ${
       compareView.page <= 1 ? 'disabled' : ''
     }>上一页</button>
-        <span>第 ${compareView.page} / ${totalPages} 页 · 共 ${rows.length} 项</span>
+        <span class="mcw-pager-info">第 ${compareView.page} / ${totalPages} 页<span class="mcw-pager-total"> · 共 ${rows.length} 项</span></span>
         <button class="btn btn-ghost btn-sm" data-compare-page="${compareView.page + 1}" ${
       compareView.page >= totalPages ? 'disabled' : ''
     }>下一页</button>
@@ -1604,27 +1718,29 @@ export async function mount(root, ctx) {
     const id = isItem ? row.namespacedId : row.recipeId;
     const label = { added: '新增', modified: '修改', removed: '删除' }[compareView.filter] || '';
     const badgeClass = { added: 'is-passed', modified: 'is-pending', removed: 'is-failed' }[compareView.filter] || '';
-    const fromContent = isItem
-      ? itemCompareSide(row.from, row, false)
-      : recipeCompareSide(row.from, false);
-    const toContent = isItem ? itemCompareSide(row.to, row, true) : recipeCompareSide(row.to, true);
+    const hasFrom = row.from && Object.keys(row.from).length > 0;
+    const hasTo = row.to && Object.keys(row.to).length > 0;
+    const fromContent = isItem ? itemCompareSide(row.from, row) : recipeCompareSide(row.from, data.from);
+    const toContent = isItem ? itemCompareSide(row.to, row) : recipeCompareSide(row.to, data.to);
+    const fromBlock = `<div class="mcw-diff-side ${hasFrom ? 'is-present' : ''}">
+        <span class="mcw-diff-side-label">${esc(data.from)}</span>
+        ${fromContent}
+      </div>`;
+    const toBlock = `<div class="mcw-diff-side is-target ${hasTo ? 'is-present' : ''}">
+        <span class="mcw-diff-side-label">${esc(data.to)}</span>
+        ${toContent}
+      </div>`;
+    const body =
+      hasFrom && hasTo
+        ? `<div class="mcw-diff-body">${fromBlock}<span class="mcw-diff-arrow">→</span>${toBlock}</div>`
+        : `<div class="mcw-diff-body is-single">${hasTo ? toBlock : fromBlock}</div>`;
     return `
       <article class="mcw-diff-card">
         <div class="mcw-diff-card-head">
           <span class="mcw-badge ${badgeClass}">${label}</span>
           <code>${esc(id)}</code>
         </div>
-        <div class="mcw-diff-body">
-          <div class="mcw-diff-side ${row.from && Object.keys(row.from).length ? 'is-present' : ''}">
-            <span class="mcw-diff-side-label">${esc(data.from)}</span>
-            ${fromContent}
-          </div>
-          <span class="mcw-diff-arrow">→</span>
-          <div class="mcw-diff-side is-target ${row.to && Object.keys(row.to).length ? 'is-present' : ''}">
-            <span class="mcw-diff-side-label">${esc(data.to)}</span>
-            ${toContent}
-          </div>
-        </div>
+        ${body}
       </article>`;
   }
 
@@ -1640,31 +1756,41 @@ export async function mount(root, ctx) {
       <small>${esc(row.namespacedId)}</small>`;
   }
 
-  function recipeCompareSide(side, target) {
+  function recipeCompareSide(side, sideVersion) {
     if (!side || !side.resultId) return '<span class="mcw-diff-side-empty">该版本中不存在</span>';
     const cells = Array.isArray(side.gridDetail) ? side.gridDetail.slice(0, 9) : [];
     while (cells.length < 9) cells.push(null);
     const grid = cells
       .map((cell) =>
         cell
-          ? `<span class="mcw-cell" data-hover-id="${esc(cell.id)}" data-hover-name="${esc(
+          ? `<span class="mcw-cell ${cell.tag ? 'is-tag' : ''}" data-hover-id="${esc(cell.id)}" data-hover-name="${esc(
               cell.nameZh || ''
-            )}" data-hover-en="" data-hover-kind="item" data-hover-icon="${esc(
-              cell.icon || ''
-            )}">${detailIconHtml(cell.id, cell.nameZh, cell.icon)}</span>`
+            )}" data-hover-en="${esc(cell.nameEn || '')}" data-hover-kind="${esc(
+              cell.kind || 'item'
+            )}" data-hover-icon="${esc(cell.icon || '')}" data-hover-tag="${esc(
+              cell.tag || ''
+            )}" data-hover-version="${esc(sideVersion)}">${detailIconHtml(
+              cell.id,
+              cell.nameZh,
+              cell.icon
+            )}${cell.tag ? '<span class="mcw-tag-mark">#</span>' : ''}</span>`
           : '<span class="mcw-cell is-empty"></span>'
       )
       .join('');
     return `
-      <div class="mcw-grid3">${grid}</div>
-      <div class="mcw-diff-side-head" style="margin-top:6px">
-        ${iconHtml({ namespacedId: side.resultId, nameZh: side.resultNameZh, icon: side.resultIcon })}
-        <strong>${esc(side.resultNameZh || side.resultNameEn || side.resultId)}</strong>
-      </div>
-      <small>${esc(side.resultId)} × ${Number(side.resultCount) || 1}</small>
-      <small>${esc(String(side.type || '').replace('minecraft:', ''))} · 原料 ${(
+      <div class="mcw-compare-recipe">
+        <div class="mcw-grid3">${grid}</div>
+        <div class="mcw-compare-recipe-info">
+          <div class="mcw-diff-side-head">
+            ${iconHtml({ namespacedId: side.resultId, nameZh: side.resultNameZh, icon: side.resultIcon })}
+            <strong>${esc(side.resultNameZh || side.resultNameEn || side.resultId)}</strong>
+          </div>
+          <small>${esc(side.resultId)} × ${Number(side.resultCount) || 1}</small>
+          <small>${esc(String(side.type || '').replace('minecraft:', ''))} · 原料 ${(
       side.ingredients || []
-    ).length} 项</small>`;
+    ).length} 项</small>
+        </div>
+      </div>`;
   }
 
   // ---------------- 任务中心 ----------------
@@ -2012,15 +2138,46 @@ export async function mount(root, ctx) {
     return () => {
       disposed = true;
       stopPolling();
+      window.removeEventListener('scroll', hideHoverCard);
       hideHoverCard();
       if (hoverCardEl) hoverCardEl.remove();
       hoverCardEl = null;
     };
   }
+  let resizeTimer = null;
+  const onResize = () => {
+    const next = compactLayout();
+    if (next === lastCompact) return;
+    lastCompact = next;
+    applyPageSizes();
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (disposed) return;
+      if (tab === 'items') {
+        itemView.page = 1;
+        loadItems();
+      } else if (tab === 'recipes') {
+        recipeView.page = 1;
+        loadRecipes();
+      } else if (tab === 'admin') {
+        adminView.page = 1;
+        loadAdmin();
+      } else if (tab === 'compare' && compareView.data) {
+        compareView.page = 1;
+        paintCompareList();
+      }
+    }, 250);
+  };
+  window.addEventListener('resize', onResize);
+  window.addEventListener('scroll', hideHoverCard, { passive: true });
+
   renderView();
 
   return () => {
     disposed = true;
+    window.removeEventListener('resize', onResize);
+    window.removeEventListener('scroll', hideHoverCard);
+    clearTimeout(resizeTimer);
     stopPolling();
     clearTimeout(searchTimer);
     hideHoverCard();

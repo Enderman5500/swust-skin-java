@@ -150,6 +150,9 @@ final class ClientJarExtractor {
         List<String> ingredients = new ArrayList<>();
         node.path("ingredients").forEach(v -> ingredients.add(ingredient(v)));
         if (node.has("ingredient")) ingredients.add(ingredient(node.get("ingredient")));
+        for (String field : List.of("input", "material", "template", "base", "addition")) {
+            if (node.has(field)) ingredients.add(ingredient(node.get(field)));
+        }
         node.path("key").fields().forEachRemaining(e -> ingredients.add(ingredient(e.getValue())));
         GridResult grid = grid(node, tagMembers);
         return new RecipeRecord(path.substring(path.lastIndexOf('/') + 1, path.length() - 5), type(node),
@@ -176,8 +179,10 @@ final class ClientJarExtractor {
             }
         } else {
             List<JsonNode> flat = new ArrayList<>();
-            if (node.has("template") || node.has("base") || node.has("addition")) {
-                for (String field : List.of("template", "base", "addition")) {
+            List<String> specialFields = List.of("template", "base", "addition", "input", "material");
+            boolean special = specialFields.stream().anyMatch(node::has);
+            if (special) {
+                for (String field : specialFields) {
                     if (node.has(field)) flat.add(node.get(field));
                 }
             } else {

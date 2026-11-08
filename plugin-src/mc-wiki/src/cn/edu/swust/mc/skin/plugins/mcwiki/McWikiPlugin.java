@@ -57,8 +57,13 @@ public final class McWikiPlugin implements SkinPlugin {
         query = new WikiQuery(store, catalog, renders, mojang);
         WikiImporter importer = new WikiImporter(store, mojang, catalog);
         jobs = new JobService(store, (version, control) -> {
-            if (RenderAssets.JOB_VERSION.equals(version)) renders.update(control);
-            else importer.run(version, control);
+            if (RenderAssets.JOB_VERSION.equals(version)) {
+                renders.update(control);
+            } else {
+                importer.run(version, control);
+                query.publish(version);
+                control.log("INFO", "已自动发布版本 " + version);
+            }
         });
 
         ctx.info("数据目录：" + dataDir);
