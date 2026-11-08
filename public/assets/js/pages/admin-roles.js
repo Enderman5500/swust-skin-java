@@ -7,7 +7,7 @@ function pagerHtml(data) {
   if (!data || data.pages <= 1) return '';
   return `
     <nav class="pagination admin-pager" data-pager aria-label="分页">
-      <button class="pager-btn" data-page="${data.page - 1}" ${data.page <= 1 ? 'disabled' : ''}>${icon('chevron')}</button>
+       <button class="pager-btn" data-page="${data.page - 1}" ${data.page <= 1 ? 'disabled' : ''} aria-label="上一页">${icon('chevron')}</button>
       <span class="pager-label">第 ${data.page} / ${data.pages} 页 · 共 ${data.total} 条</span>
       <button class="pager-btn pager-next" data-page="${data.page + 1}" ${data.page >= data.pages ? 'disabled' : ''}>${icon('chevron')}</button>
     </nav>

@@ -5,7 +5,7 @@ export function pagerHtml(page, pages, total) {
   const current = Math.max(1, Math.min(pages, page));
   return `
     <nav class="pagination admin-pager" data-pager aria-label="分页">
-      <button class="pager-btn" data-page="${current - 1}" ${current <= 1 ? 'disabled' : ''}>${icon('chevron')}</button>
+       <button class="pager-btn" data-page="${current - 1}" ${current <= 1 ? 'disabled' : ''} aria-label="上一页">${icon('chevron')}</button>
       <span class="pager-label">第 ${current} / ${pages} 页 · 共 ${total} 条</span>
       <button class="pager-btn pager-next" data-page="${current + 1}" ${current >= pages ? 'disabled' : ''}>${icon('chevron')}</button>
     </nav>

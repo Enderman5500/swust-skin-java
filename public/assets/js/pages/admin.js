@@ -45,7 +45,7 @@ function pagerHtml(data) {
   if (!data || data.pages <= 1) return '';
   return `
     <nav class="pagination admin-pager" data-pager aria-label="分页">
-      <button class="pager-btn" data-page="${data.page - 1}" ${data.page <= 1 ? 'disabled' : ''}>${icon('chevron')}</button>
+       <button class="pager-btn" data-page="${data.page - 1}" ${data.page <= 1 ? 'disabled' : ''} aria-label="上一页">${icon('chevron')}</button>
       <span class="pager-label">第 ${data.page} / ${data.pages} 页 · 共 ${data.total} 条</span>
       <button class="pager-btn pager-next" data-page="${data.page + 1}" ${data.page >= data.pages ? 'disabled' : ''}>${icon('chevron')}</button>
     </nav>
@@ -765,7 +765,7 @@ async function renderPlugins(main, ctx) {
   const listHost = main.querySelector('[data-plugin-list]');
   const pagerHost = main.querySelector('[data-plugin-pager]');
   const fileInput = main.querySelector('[data-plugin-file]');
-  const PAGE_SIZE = 3;
+  const PAGE_SIZE = 6;
   let items = [];
   let scanErrors = [];
   let page = 1;

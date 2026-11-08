@@ -112,7 +112,7 @@ export async function render(root, ctx) {
       return;
     }
     pager.innerHTML = `
-      <button class="pager-btn" data-page="${data.page - 1}" ${data.page <= 1 ? 'disabled' : ''}>${icon('chevron')}</button>
+       <button class="pager-btn" data-page="${data.page - 1}" ${data.page <= 1 ? 'disabled' : ''} aria-label="上一页">${icon('chevron')}</button>
       <span class="pager-label">${data.page} / ${data.pages}</span>
       <button class="pager-btn pager-next" data-page="${data.page + 1}" ${data.page >= data.pages ? 'disabled' : ''}>${icon('chevron')}</button>
     `;
