@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { bindPager, pagerHtml } from '../admin-pagination.js';
 import { icon } from '../icons.js';
 import * as ui from '../ui.js';
 
@@ -72,6 +73,7 @@ export async function renderLogs(main, ctx) {
       <div class="table-panel" data-log-archives>
         ${ui.loadingBlock('正在读取日志存档…')}
       </div>
+      <div data-log-pager></div>
     </section>
   `;
 
@@ -80,7 +82,10 @@ export async function renderLogs(main, ctx) {
   const sourceBar = main.querySelector('[data-log-sources]');
   const title = main.querySelector('[data-log-title]');
   const archiveHost = main.querySelector('[data-log-archives]');
+  const logPagerHost = main.querySelector('[data-log-pager]');
   const countLabel = main.querySelector('[data-log-count]');
+  const PAGE_SIZE = 10;
+  let archivePage = 1;
   const downloadCurrent = main.querySelector('[data-action="download-current"]');
   const toggleButton = main.querySelector('[data-action="toggle-scroll"]');
   let data = null;
@@ -165,6 +170,7 @@ export async function renderLogs(main, ctx) {
 
   const renderJournals = () => {
     countLabel.textContent = 'journald 持续记录';
+    logPagerHost.innerHTML = '';
     archiveHost.innerHTML = `
       <div class="log-journal-note">
         <p>系统日志由 systemd journald 持续保存，可按时间范围导出。应用日志和 Nginx 轮转文件请切换到对应来源下载。</p>
@@ -229,12 +235,21 @@ export async function renderLogs(main, ctx) {
     }
 
     countLabel.textContent = `${group.archives?.length || 0} 个存档`;
+    const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+    archivePage = Math.min(Math.max(1, archivePage), pages);
+    const start = (archivePage - 1) * PAGE_SIZE;
+    const visibleRows = rows.slice(start, start + PAGE_SIZE);
     archiveHost.innerHTML = rows.length
       ? `<table class="data-table log-archive-table">
           <thead><tr><th>文件</th><th>类型</th><th>大小</th><th>更新时间</th><th>操作</th></tr></thead>
-          <tbody>${rows.join('')}</tbody>
+          <tbody>${visibleRows.join('')}</tbody>
         </table>`
       : '<div class="empty-state compact"><p>当前来源还没有可下载的历史文件。</p></div>';
+    logPagerHost.innerHTML = pagerHtml(archivePage, pages, rows.length);
+    bindPager(logPagerHost, (next) => {
+      archivePage = next;
+      renderArchives();
+    });
   };
 
   const connect = () => {
@@ -260,6 +275,7 @@ export async function renderLogs(main, ctx) {
   const switchSource = (next) => {
     if (!available(next) || next === source) return;
     source = next;
+    archivePage = 1;
     try {
       localStorage.setItem(SOURCE_KEY, source);
     } catch {

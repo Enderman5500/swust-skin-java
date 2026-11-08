@@ -742,6 +742,7 @@ async function renderPlugins(main, ctx) {
       </div>
     </section>
     <div class="plugin-admin-grid" data-plugin-list>${ui.loadingBlock('正在读取插件…')}</div>
+    <div data-plugin-pager></div>
     <div class="panel plugin-help">
       <div class="panel-head"><div><p class="eyebrow">DEVELOPER</p><h3>插件包结构</h3></div></div>
       <p>插件包根目录放置 <code>plugin.json</code>，<code>mainClass</code> 指向实现 <code>SkinPlugin</code> 的 Java 类，可选 <code>client.mjs</code> 提供前端页面模块。启停与重载即时生效。</p>
@@ -758,88 +759,96 @@ async function renderPlugins(main, ctx) {
   `;
 
   const listHost = main.querySelector('[data-plugin-list]');
+  const pagerHost = main.querySelector('[data-plugin-pager]');
   const fileInput = main.querySelector('[data-plugin-file]');
+  const PAGE_SIZE = 3;
+  let items = [];
+  let scanErrors = [];
+  let page = 1;
+
+  function cardHtml(plugin) {
+    return `
+      <article class="plugin-card ${plugin.error ? 'has-error' : ''}">
+        <div class="plugin-card-head">
+          <div>
+            <div class="plugin-card-title">
+              <h3>${ui.escapeHtml(plugin.name)}</h3>
+              <span class="role-chip muted">v${ui.escapeHtml(plugin.version)}</span>
+            </div>
+            <p class="plugin-card-description">${ui.escapeHtml(plugin.description || '没有描述')}</p>
+          </div>
+          ${statusPill(plugin.enabled && plugin.loaded, plugin.loaded ? '运行中' : '已启用', '已停用')}
+        </div>
+        <div class="plugin-card-meta">
+          <span>作者：${ui.escapeHtml(plugin.author || '未知')}</span>
+          <span>${plugin.hasServer ? '服务端模块' : '纯前端'}</span>
+          ${plugin.nav ? `<span>导航：${ui.escapeHtml(plugin.nav.title)}</span>` : ''}
+        </div>
+        ${plugin.error ? `<p class="plugin-error">${ui.escapeHtml(plugin.error)}</p>` : ''}
+        <div class="plugin-card-actions">
+          <button class="btn ${plugin.enabled ? 'btn-ghost' : 'btn-primary'} btn-sm" data-action="toggle-plugin" data-id="${plugin.id}" data-enabled="${plugin.enabled}">
+            ${icon(plugin.enabled ? 'close' : 'check')}${plugin.enabled ? '停用' : '启用'}
+          </button>
+          ${
+            plugin.enabled
+              ? `<button class="btn btn-ghost btn-sm" data-action="reload-plugin" data-id="${plugin.id}">${icon(
+                  'refresh'
+                )}重载</button>`
+              : ''
+          }
+          ${
+            plugin.clientUrl && plugin.nav && plugin.enabled
+              ? `<a class="btn btn-ghost btn-sm" href="#/plugin/${plugin.id}">${icon('external')}打开页面</a>`
+              : ''
+          }
+          <button class="btn btn-ghost btn-sm danger-text" data-action="delete-plugin" data-id="${plugin.id}">${icon(
+            'trash'
+          )}卸载</button>
+        </div>
+      </article>
+    `;
+  }
+
+  function renderPage() {
+    const pages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+    page = Math.min(Math.max(1, page), pages);
+    const start = (page - 1) * PAGE_SIZE;
+    const visible = items.slice(start, start + PAGE_SIZE);
+    listHost.innerHTML = `${
+      visible.length
+        ? visible.map(cardHtml).join('')
+        : emptyTable('还没有安装插件')
+    }${
+      scanErrors.length
+        ? `<div class="scan-errors">
+            <strong>扫描警告</strong>
+            ${scanErrors
+              .map(
+                (error) =>
+                  `<p><code>${ui.escapeHtml(error.directory)}</code> ${ui.escapeHtml(error.error)}</p>`
+              )
+              .join('')}
+          </div>`
+        : ''
+    }`;
+    pagerHost.innerHTML = pagerHtml({ page, pages, total: items.length });
+    bindPager(pagerHost, (next) => {
+      page = next;
+      renderPage();
+      main.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
 
   async function load() {
     listHost.innerHTML = ui.loadingBlock('正在读取插件…');
     try {
       const data = await api.get('/admin/plugins');
-      listHost.innerHTML = `
-        ${data.items
-          .map(
-            (plugin) => `
-          <article class="plugin-card ${plugin.error ? 'has-error' : ''}">
-            <div class="plugin-card-head">
-              <div>
-                <div class="plugin-card-title">
-                  <h3>${ui.escapeHtml(plugin.name)}</h3>
-                  <span class="role-chip muted">v${ui.escapeHtml(plugin.version)}</span>
-                </div>
-                <p>${ui.escapeHtml(plugin.description || '没有描述')}</p>
-              </div>
-              ${statusPill(plugin.enabled && plugin.loaded, plugin.loaded ? '运行中' : '已启用', '已停用')}
-            </div>
-            <div class="plugin-card-meta">
-              <span>作者：${ui.escapeHtml(plugin.author || '未知')}</span>
-              <span>${plugin.hasServer ? '服务端模块' : '纯前端'}</span>
-              ${plugin.nav ? `<span>导航：${ui.escapeHtml(plugin.nav.title)}</span>` : ''}
-            </div>
-            ${
-              plugin.routes.length
-                ? `<div class="plugin-chips">${plugin.routes
-                    .map((route) => `<code>${ui.escapeHtml(route)}</code>`)
-                    .join('')}</div>`
-                : ''
-            }
-            ${
-              plugin.hooks.length
-                ? `<div class="plugin-chips">${plugin.hooks
-                    .map((hook) => `<code>on ${ui.escapeHtml(hook)}</code>`)
-                    .join('')}</div>`
-                : ''
-            }
-            ${plugin.error ? `<p class="plugin-error">${ui.escapeHtml(plugin.error)}</p>` : ''}
-            <div class="plugin-card-actions">
-              <button class="btn ${plugin.enabled ? 'btn-ghost' : 'btn-primary'} btn-sm" data-action="toggle-plugin" data-id="${plugin.id}" data-enabled="${plugin.enabled}">
-                ${icon(plugin.enabled ? 'close' : 'check')}${plugin.enabled ? '停用' : '启用'}
-              </button>
-              ${
-                plugin.enabled
-                  ? `<button class="btn btn-ghost btn-sm" data-action="reload-plugin" data-id="${plugin.id}">${icon(
-                      'refresh'
-                    )}重载</button>`
-                  : ''
-              }
-              ${
-                plugin.clientUrl && plugin.nav && plugin.enabled
-                  ? `<a class="btn btn-ghost btn-sm" href="#/plugin/${plugin.id}">${icon('external')}打开页面</a>`
-                  : ''
-              }
-              <button class="btn btn-ghost btn-sm danger-text" data-action="delete-plugin" data-id="${plugin.id}">${icon(
-                'trash'
-              )}卸载</button>
-            </div>
-          </article>
-        `
-          )
-          .join('')}
-        ${data.items.length ? '' : emptyTable('还没有安装插件')}
-        ${
-          data.scanErrors?.length
-            ? `<div class="scan-errors">
-                <strong>扫描警告</strong>
-                ${data.scanErrors
-                  .map(
-                    (error) =>
-                      `<p><code>${ui.escapeHtml(error.directory)}</code> ${ui.escapeHtml(error.error)}</p>`
-                  )
-                  .join('')}
-              </div>`
-            : ''
-        }
-      `;
+      items = data.items || [];
+      scanErrors = data.scanErrors || [];
+      renderPage();
     } catch (error) {
       listHost.innerHTML = emptyTable(error.message);
+      pagerHost.innerHTML = '';
     }
   }
 

@@ -1,5 +1,6 @@
 import { api } from '../api.js';
 import { can } from '../authz-client.js';
+import { bindPager, pagerHtml } from '../admin-pagination.js';
 import { icon } from '../icons.js';
 import * as ui from '../ui.js';
 
@@ -60,6 +61,9 @@ export async function renderApiKeys(main, ctx) {
     return;
   }
   const canEdit = can(ctx.user, 'system:user:edit');
+  const PAGE_SIZE = 10;
+  let page = 1;
+  let items = data.items || [];
   main.innerHTML = `
     <section class="admin-page-head">
       <div><p class="eyebrow">API KEYS</p><h2>API 密钥</h2><p>为外部服务或插件签发受限密钥。密钥只在创建时显示一次，请妥善保存。</p></div>
@@ -68,41 +72,12 @@ export async function renderApiKeys(main, ctx) {
       </div>
     </section>
     <div class="panel table-panel">
-      ${
-        data.items.length
-          ? `<table class="data-table api-key-table">
-              <thead><tr><th>名称</th><th>所有者</th><th>密钥前缀</th><th>权限</th><th>最近使用</th><th>有效期</th><th>操作</th></tr></thead>
-              <tbody>
-                ${data.items
-                  .map(
-                    (item) => `
-                  <tr>
-                    <td data-label="名称"><strong>${ui.escapeHtml(item.name)}</strong></td>
-                    <td data-label="所有者">${ui.escapeHtml(
-                      item.owner?.nickname || item.owner?.username || '已注销用户'
-                    )}<small class="field-hint"> @${ui.escapeHtml(item.owner?.username || '')}</small></td>
-                    <td data-label="密钥前缀"><code>${ui.escapeHtml(item.prefix)}…</code></td>
-                    <td data-label="权限">${item.permissions.length} 项</td>
-                    <td data-label="最近使用">${item.lastUsedAt ? ui.formatDate(item.lastUsedAt, { time: true }) : '从未使用'}</td>
-                    <td data-label="有效期">${ui.escapeHtml(expiryLabel(item.expiresAt))}</td>
-                    <td data-label="操作" class="table-actions">
-                      ${
-                        canEdit
-                          ? `<button class="btn btn-ghost btn-sm danger-text" data-revoke="${ui.escapeHtml(
-                              item.id
-                            )}">${icon('trash')}撤销</button>`
-                          : ''
-                      }
-                    </td>
-                  </tr>
-                `
-                  )
-                  .join('')}
-              </tbody>
-            </table>`
-          : emptyState('还没有 API 密钥')
-      }
+      <table class="data-table api-key-table">
+        <thead><tr><th>名称</th><th>所有者</th><th>密钥前缀</th><th>权限</th><th>最近使用</th><th>有效期</th><th>操作</th></tr></thead>
+        <tbody data-api-key-rows></tbody>
+      </table>
     </div>
+    <div data-api-key-pager></div>
     <div class="panel api-key-help">
       <div class="panel-head"><div><p class="eyebrow">USAGE</p><h3>如何使用</h3></div></div>
       <p class="panel-lead">请求时携带以下任一请求头：</p>
@@ -111,6 +86,69 @@ X-API-Key: sk_xxxxxxxxx</pre>
       <p class="field-hint">API 密钥按创建时勾选的权限访问对应接口，包括管理接口与插件接口。插件安装后会自动出现新的插件权限；密钥不能访问账号安全设置或代表其他用户操作。</p>
     </div>
   `;
+
+  const rowsHost = main.querySelector('[data-api-key-rows]');
+  const pagerHost = main.querySelector('[data-api-key-pager]');
+
+  function renderRows() {
+    const pages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+    page = Math.min(Math.max(1, page), pages);
+    const start = (page - 1) * PAGE_SIZE;
+    const visible = items.slice(start, start + PAGE_SIZE);
+    rowsHost.innerHTML = visible.length
+      ? visible
+          .map(
+            (item) => `
+          <tr>
+            <td data-label="名称"><strong>${ui.escapeHtml(item.name)}</strong></td>
+            <td data-label="所有者">${ui.escapeHtml(
+              item.owner?.nickname || item.owner?.username || '已注销用户'
+            )}<small class="field-hint"> @${ui.escapeHtml(item.owner?.username || '')}</small></td>
+            <td data-label="密钥前缀"><code>${ui.escapeHtml(item.prefix)}…</code></td>
+            <td data-label="权限">${item.permissions.length} 项</td>
+            <td data-label="最近使用">${item.lastUsedAt ? ui.formatDate(item.lastUsedAt, { time: true }) : '从未使用'}</td>
+            <td data-label="有效期">${ui.escapeHtml(expiryLabel(item.expiresAt))}</td>
+            <td data-label="操作" class="table-actions">
+              ${
+                canEdit
+                  ? `<button class="btn btn-ghost btn-sm danger-text" data-revoke="${ui.escapeHtml(
+                      item.id
+                    )}">${icon('trash')}撤销</button>`
+                  : ''
+              }
+            </td>
+          </tr>
+        `
+          )
+          .join('')
+      : `<tr><td colspan="7">${emptyState('还没有 API 密钥')}</td></tr>`;
+
+    pagerHost.innerHTML = pagerHtml(page, pages, items.length);
+    bindPager(pagerHost, (next) => {
+      page = next;
+      renderRows();
+    });
+    rowsHost.querySelectorAll('[data-revoke]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const confirmed = await ui.confirmDialog({
+          title: '撤销 API 密钥',
+          message: '撤销后使用该密钥的外部服务会立即失效，确定继续吗？',
+          confirmText: '撤销',
+          danger: true,
+        });
+        if (!confirmed) return;
+        try {
+          await api.del(`/admin/api-keys/${encodeURIComponent(button.dataset.revoke)}`);
+          ui.toast('API 密钥已撤销', 'success');
+          await renderApiKeys(main, ctx);
+        } catch (error) {
+          ui.toast(error.message, 'error');
+        }
+      });
+    });
+  }
+
+  renderRows();
 
   async function openCreate() {
     let users = [];
@@ -285,22 +323,4 @@ X-API-Key: sk_xxxxxxxxx</pre>
   }
 
   main.querySelector('[data-action="create-key"]')?.addEventListener('click', openCreate);
-  main.querySelectorAll('[data-revoke]').forEach((button) => {
-    button.addEventListener('click', async () => {
-      const confirmed = await ui.confirmDialog({
-        title: '撤销 API 密钥',
-        message: '撤销后使用该密钥的外部服务会立即失效，确定继续吗？',
-        confirmText: '撤销',
-        danger: true,
-      });
-      if (!confirmed) return;
-      try {
-        await api.del(`/admin/api-keys/${encodeURIComponent(button.dataset.revoke)}`);
-        ui.toast('API 密钥已撤销', 'success');
-        await renderApiKeys(main, ctx);
-      } catch (error) {
-        ui.toast(error.message, 'error');
-      }
-    });
-  });
 }
