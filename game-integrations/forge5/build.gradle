@@ -1,0 +1,62 @@
+plugins {
+    id 'net.minecraftforge.gradle' version '5.1.77'
+    id 'java'
+}
+
+group = 'cn.edu.swust.mc'
+version = project.mod_version
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+repositories {
+    maven { url = uri("${rootDir}/../target/local-maven") }
+    maven { url = 'https://maven.creeperhost.net' }
+    mavenCentral()
+    maven { url = 'https://maven.minecraftforge.net/' }
+}
+
+minecraft {
+    mappings channel: 'official', version: project.minecraft_version
+}
+
+sourceSets {
+    main {
+        java { srcDirs = ['../forge/src/main/java'] }
+        resources { srcDirs = ['../forge/src/main/resources'] }
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${project.minecraft_version}-${project.forge_version}"
+    implementation files('../core/target/minecraft-server-report-core-1.0.0.jar')
+}
+
+processResources {
+    inputs.property 'version', project.mod_version
+    inputs.property 'minecraft_range', project.minecraft_range
+    filesMatching('META-INF/mods.toml') {
+        expand(
+            'mod_version': project.mod_version,
+            'forge_loader_range': project.forge_loader_range,
+            'forge_range': project.forge_range,
+            'mc_range': project.minecraft_range
+        )
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = project.java_version.toInteger()
+    options.encoding = 'UTF-8'
+}
+
+tasks.named('jar', Jar) {
+    from { zipTree(file('../core/target/minecraft-server-report-core-1.0.0.jar')) }
+}
+
+base {
+    archivesName = "minecraft-server-report-forge-${minecraft_family}"
+}
