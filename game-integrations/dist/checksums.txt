@@ -6,5 +6,5 @@ fc65b83ca9581785f72ab0542c118d4176bb5ae9434e6ca244490ae41408d363 *dist/fabric/1.
 aa12751030be911a01dbbb0eec1fb711acf50ea48845de03a1709879b1d1a35c *dist/forge/1.18/minecraft-server-report-forge-1.18-1.0.0.jar
 f2201dfcfb4ebfea2e9c70ef3e248fa59d3809aaa6f14b6f4e81e7b3582fa2c9 *dist/forge/1.19/minecraft-server-report-forge-1.19-1.0.0.jar
 e3197c6fa9ec132fa0ff149e34c6e284455d506a6187640b90a342a386d5f32f *dist/forge/1.20/minecraft-server-report-forge-1.20-1.0.0.jar
-f51e6434ea4cda0cb4a19fc1730d353b5d1cd2021798a3ecab4e80979bf275df *dist/neoforge/1.21/minecraft-server-report-neoforge-1.21-1.0.0.jar
+bbf37dcc1421e11ec316a12ead27c14869401ff4ab11caad1ff85220e92eebe2 *dist/neoforge/1.21/minecraft-server-report-neoforge-1.21-1.0.0.jar
 5e352466a6ccce24539fd6ebbe00bdec3aadb22750336912cba455e8a9465838 *dist/paper/universal/minecraft-server-report-paper.jar

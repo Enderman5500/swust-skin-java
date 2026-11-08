@@ -111,12 +111,12 @@
     },
     {
       "family": "1.21",
-      "compile": "latest-1.21",
-      "range": "[1.21,26)",
+      "compile": "1.21.1",
+      "range": "[1.21.1,1.21.2)",
       "java": 21,
-      "neoforge": "auto",
-      "loaderRange": "[21.0,)",
-      "neoforgeRange": "[21.0,26)",
+      "neoforge": "21.1.80",
+      "loaderRange": "[4,)",
+      "neoforgeRange": "[21.1,21.2)",
       "available": true
     },
     {

@@ -67,6 +67,8 @@ NeoForge 1.21 代表产物：
 game-integrations/dist/neoforge/1.21/minecraft-server-report-neoforge-1.21-1.0.0.jar
 ```
 
+当前 NeoForge 产物只针对 **NeoForge 21.1.x / Minecraft 1.21.1**。NeoForge 20.2–20.6、其他 1.21.x 小版本和 26.x 需要按对应 NeoForge 版本单独构建，不能共用一个 JAR。
+
 Fabric 26.x 使用 `fabric26/` 的 official-name 适配源；1.18–1.21 使用 Yarn 映射。Fabric 构建需要可访问的 Fabric Maven；受限网络可将 `maven.fabricmc.net` 替换为 CreeperHost 镜像。Forge 1.18 / 1.19 在 Windows 上可能触发 ForgeGradle 的映射产物注册问题，推荐在 Linux/WSL 中使用 `forge5/`、Gradle 7.6.4 和 JDK 17 构建；Forge 1.20 可直接使用 `forge/`。NeoForge 1.21 使用 JDK 21。受限网络下 Forge / NeoForge 依赖可通过 `https://maven.creeperhost.net` 获取。
 
 安装到 `plugins/`，首次启动会生成：
