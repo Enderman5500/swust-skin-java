@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { bindPager, pagerHtml } from '../admin-pagination.js';
 import {
   bindTextureCards,
   mountTextureCards,
@@ -39,27 +40,6 @@ function displayName(user) {
 
 function statusLabel(status) {
   return status === 'ACTIVE' ? '正常' : status === 'DISABLED' ? '已停用' : status;
-}
-
-function pagerHtml(data) {
-  if (!data || data.pages <= 1) return '';
-  return `
-    <nav class="pagination admin-pager" data-pager aria-label="分页">
-       <button class="pager-btn" data-page="${data.page - 1}" ${data.page <= 1 ? 'disabled' : ''} aria-label="上一页">${icon('chevron')}</button>
-      <span class="pager-label">第 ${data.page} / ${data.pages} 页 · 共 ${data.total} 条</span>
-      <button class="pager-btn pager-next" data-page="${data.page + 1}" ${data.page >= data.pages ? 'disabled' : ''}>${icon('chevron')}</button>
-    </nav>
-  `;
-}
-
-function bindPager(container, handler) {
-  container.querySelectorAll('.pagination').forEach((pager) => {
-    pager.addEventListener('click', (event) => {
-      const button = event.target.closest('[data-page]');
-      if (!button || button.disabled) return;
-      handler(Number(button.dataset.page));
-    });
-  });
 }
 
 function statusPill(active, activeText = '正常', inactiveText = '已停用') {
@@ -399,7 +379,7 @@ async function renderOverview(main, ctx) {
 }
 
 async function renderPlayers(main, ctx) {
-  const state = { q: '', page: 1 };
+  const state = { q: '', page: 1, pageSize: 10 };
   main.innerHTML = `
     <section class="admin-page-head">
       <div><p class="eyebrow">PLAYERS</p><h2>角色管理</h2><p>查看全部角色、所属社员与装备情况。</p></div>
@@ -416,7 +396,7 @@ async function renderPlayers(main, ctx) {
   async function load() {
     tableHost.innerHTML = ui.loadingBlock('正在加载角色…');
     try {
-      const data = await api.get('/admin/players', { q: state.q, page: state.page, perPage: 30 });
+      const data = await api.get('/admin/players', { q: state.q, page: state.page, perPage: state.pageSize });
       rows = data.items;
       tableHost.innerHTML = `
         <table class="data-table player-table">
@@ -451,11 +431,19 @@ async function renderPlayers(main, ctx) {
         </table>
         ${data.items.length ? '' : emptyTable('没有找到角色')}
       `;
-      pagerHost.innerHTML = pagerHtml(data);
-      bindPager(pagerHost, (page) => {
-        state.page = page;
-        load();
-      });
+      pagerHost.innerHTML = pagerHtml(data.page, data.pages, data.total, state.pageSize);
+      bindPager(
+        pagerHost,
+        (page) => {
+          state.page = page;
+          load();
+        },
+        (size) => {
+          state.pageSize = size;
+          state.page = 1;
+          load();
+        }
+      );
     } catch (error) {
       tableHost.innerHTML = emptyTable(error.message);
     }
@@ -596,7 +584,7 @@ async function renderPlayers(main, ctx) {
 }
 
 async function renderTextures(main, ctx) {
-  const state = { q: '', type: 'all', page: 1 };
+  const state = { q: '', type: 'all', page: 1, pageSize: 10 };
   main.innerHTML = `
     <section class="admin-page-head">
       <div><p class="eyebrow">TEXTURES</p><h2>材质管理</h2><p>审核公开状态、查看归属并清理不合适的材质。</p></div>
@@ -626,7 +614,7 @@ async function renderTextures(main, ctx) {
         q: state.q,
         type: state.type === 'all' ? '' : state.type,
         page: state.page,
-        perPage: 30,
+        perPage: state.pageSize,
       });
       rows = data.items;
       tableHost.innerHTML = `
@@ -671,11 +659,19 @@ async function renderTextures(main, ctx) {
         ${data.items.length ? '' : emptyTable('没有找到材质')}
       `;
       await mountTextureCards(tableHost);
-      pagerHost.innerHTML = pagerHtml(data);
-      bindPager(pagerHost, (page) => {
-        state.page = page;
-        load();
-      });
+      pagerHost.innerHTML = pagerHtml(data.page, data.pages, data.total, state.pageSize);
+      bindPager(
+        pagerHost,
+        (page) => {
+          state.page = page;
+          load();
+        },
+        (size) => {
+          state.pageSize = size;
+          state.page = 1;
+          load();
+        }
+      );
     } catch (error) {
       tableHost.innerHTML = emptyTable(error.message);
     }
@@ -745,6 +741,10 @@ async function renderPlugins(main, ctx) {
         <label class="btn btn-primary upload-button">${icon('upload')}安装 Java 插件 JAR / ZIP<input type="file" accept=".jar,.zip,application/java-archive,application/zip" hidden data-plugin-file /></label>
       </div>
     </section>
+    <div class="toolbar plugin-toolbar">
+      <label class="search-box">${icon('search')}<input type="search" placeholder="搜索插件名称、作者或 ID" data-plugin-search /></label>
+      <span class="plugin-search-count" data-plugin-count></span>
+    </div>
     <div class="plugin-admin-grid" data-plugin-list>${ui.loadingBlock('正在读取插件…')}</div>
     <div data-plugin-pager></div>
     <div class="panel plugin-help">
@@ -765,9 +765,12 @@ async function renderPlugins(main, ctx) {
   const listHost = main.querySelector('[data-plugin-list]');
   const pagerHost = main.querySelector('[data-plugin-pager]');
   const fileInput = main.querySelector('[data-plugin-file]');
-  const PAGE_SIZE = 6;
+  const searchInput = main.querySelector('[data-plugin-search]');
+  const countLabel = main.querySelector('[data-plugin-count]');
+  let pageSize = 10;
   let items = [];
   let scanErrors = [];
+  let query = '';
   let page = 1;
 
   function cardHtml(plugin) {
@@ -813,15 +816,29 @@ async function renderPlugins(main, ctx) {
     `;
   }
 
+  function filteredItems() {
+    const keyword = query.trim().toLowerCase();
+    if (!keyword) return items;
+    return items.filter((plugin) =>
+      [plugin.name, plugin.id, plugin.description, plugin.author, plugin.version, plugin.nav?.title]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(keyword))
+    );
+  }
+
   function renderPage() {
-    const pages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+    const filtered = filteredItems();
+    const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
     page = Math.min(Math.max(1, page), pages);
-    const start = (page - 1) * PAGE_SIZE;
-    const visible = items.slice(start, start + PAGE_SIZE);
+    const start = (page - 1) * pageSize;
+    const visible = filtered.slice(start, start + pageSize);
+    countLabel.textContent = query
+      ? `找到 ${filtered.length} / ${items.length} 个插件`
+      : `共 ${items.length} 个插件`;
     listHost.innerHTML = `${
       visible.length
         ? visible.map(cardHtml).join('')
-        : emptyTable('还没有安装插件')
+        : emptyTable(query ? '没有匹配的插件' : '还没有安装插件')
     }${
       scanErrors.length
         ? `<div class="scan-errors">
@@ -835,13 +852,31 @@ async function renderPlugins(main, ctx) {
           </div>`
         : ''
     }`;
-    pagerHost.innerHTML = pagerHtml({ page, pages, total: items.length });
-    bindPager(pagerHost, (next) => {
-      page = next;
-      renderPage();
-      main.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
+    pagerHost.innerHTML = pagerHtml(page, pages, filtered.length, pageSize);
+    bindPager(
+      pagerHost,
+      (next) => {
+        page = next;
+        renderPage();
+        main.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      },
+      (size) => {
+        pageSize = size;
+        page = 1;
+        renderPage();
+        main.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    );
   }
+
+  searchInput?.addEventListener(
+    'input',
+    ui.debounce(() => {
+      query = searchInput.value.trim();
+      page = 1;
+      renderPage();
+    }, 250)
+  );
 
   async function load() {
     listHost.innerHTML = ui.loadingBlock('正在读取插件…');
@@ -853,6 +888,7 @@ async function renderPlugins(main, ctx) {
     } catch (error) {
       listHost.innerHTML = emptyTable(error.message);
       pagerHost.innerHTML = '';
+      countLabel.textContent = '';
     }
   }
 

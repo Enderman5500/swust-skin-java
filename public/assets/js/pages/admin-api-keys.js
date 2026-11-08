@@ -61,7 +61,7 @@ export async function renderApiKeys(main, ctx) {
     return;
   }
   const canEdit = can(ctx.user, 'system:user:edit');
-  const PAGE_SIZE = 10;
+  let pageSize = 10;
   let page = 1;
   let items = data.items || [];
   main.innerHTML = `
@@ -91,10 +91,10 @@ X-API-Key: sk_xxxxxxxxx</pre>
   const pagerHost = main.querySelector('[data-api-key-pager]');
 
   function renderRows() {
-    const pages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+    const pages = Math.max(1, Math.ceil(items.length / pageSize));
     page = Math.min(Math.max(1, page), pages);
-    const start = (page - 1) * PAGE_SIZE;
-    const visible = items.slice(start, start + PAGE_SIZE);
+    const start = (page - 1) * pageSize;
+    const visible = items.slice(start, start + pageSize);
     rowsHost.innerHTML = visible.length
       ? visible
           .map(
@@ -123,11 +123,19 @@ X-API-Key: sk_xxxxxxxxx</pre>
           .join('')
       : `<tr><td colspan="7">${emptyState('还没有 API 密钥')}</td></tr>`;
 
-    pagerHost.innerHTML = pagerHtml(page, pages, items.length);
-    bindPager(pagerHost, (next) => {
-      page = next;
-      renderRows();
-    });
+    pagerHost.innerHTML = pagerHtml(page, pages, items.length, pageSize);
+    bindPager(
+      pagerHost,
+      (next) => {
+        page = next;
+        renderRows();
+      },
+      (size) => {
+        pageSize = size;
+        page = 1;
+        renderRows();
+      }
+    );
     rowsHost.querySelectorAll('[data-revoke]').forEach((button) => {
       button.addEventListener('click', async () => {
         const confirmed = await ui.confirmDialog({

@@ -112,7 +112,7 @@ public final class Players {
 
     public static Map<String, Object> adminPage(Database db, Map<String, String> query) {
         int page = Math.max(1, Users.parseInt(query.get("page"), 1));
-        int perPage = Math.max(1, Math.min(60, Users.parseInt(
+        int perPage = Math.max(1, Math.min(100, Users.parseInt(
                 query.containsKey("perPage") ? query.get("perPage") : query.get("size"), 30)));
         int offset = (page - 1) * perPage;
         String q = query.getOrDefault("q", "").trim();

@@ -1,4 +1,5 @@
 import { api, buildQuery } from '../api.js';
+import { PAGE_SIZES } from '../admin-pagination.js';
 import {
   bindTextureCards,
   mountTextureCards,
@@ -9,13 +10,14 @@ import { icon } from '../icons.js';
 import * as ui from '../ui.js';
 
 export async function render(root, ctx) {
+  const initialPerPage = Number.parseInt(ctx.query.perPage, 10);
   const state = {
     type: ['skin', 'cape'].includes(ctx.query.type) ? ctx.query.type : 'all',
     q: ctx.query.q || '',
     sort: ['latest', 'popular', 'random'].includes(ctx.query.sort) ? ctx.query.sort : 'latest',
     scope: ctx.query.scope === 'mine' && ctx.user ? 'mine' : 'library',
     page: Math.max(1, Number.parseInt(ctx.query.page, 10) || 1),
-    perPage: 24,
+    perPage: PAGE_SIZES.includes(initialPerPage) ? initialPerPage : 20,
   };
   let lastData = null;
   let deepLinkOpened = false;
@@ -82,18 +84,15 @@ export async function render(root, ctx) {
       sort: state.sort === 'latest' ? '' : state.sort,
       scope: state.scope === 'mine' ? 'mine' : '',
       page: state.page > 1 ? state.page : '',
+      perPage: state.perPage !== 20 ? state.perPage : '',
     };
     history.replaceState(null, '', `#/library${buildQuery(query)}`);
   }
 
   function renderPager(data) {
-    if (data.pages <= 1) {
-      pager.innerHTML = '';
-      return;
-    }
     const pages = [];
     const current = data.page;
-    const total = data.pages;
+    const total = Math.max(1, data.pages);
     const push = (page) => pages.push(page);
     push(1);
     if (current > 3) pages.push('…');
@@ -113,6 +112,14 @@ export async function render(root, ctx) {
         )
         .join('')}
       <button class="pager-btn pager-next" data-page="${current + 1}" ${current >= total ? 'disabled' : ''} aria-label="下一页">${icon('chevron')}</button>
+      <label class="pager-size">
+        <span>每页</span>
+        <select data-page-size aria-label="每页显示数量">
+          ${PAGE_SIZES.map(
+            (value) => `<option value="${value}" ${value === state.perPage ? 'selected' : ''}>${value}</option>`
+          ).join('')}
+        </select>
+      </label>
     `;
   }
 
@@ -209,6 +216,17 @@ export async function render(root, ctx) {
     load({ scroll: true });
   });
 
+  pager.addEventListener('change', (event) => {
+    const select = event.target.closest('[data-page-size]');
+    if (!select) return;
+    const size = Number(select.value);
+    if (!PAGE_SIZES.includes(size)) return;
+    state.perPage = size;
+    state.page = 1;
+    syncUrl();
+    load({ scroll: true });
+  });
+
   await load();
 
   const deepLink = Number.parseInt(ctx.query.texture, 10);
@@ -221,6 +239,7 @@ export async function render(root, ctx) {
       sort: state.sort === 'latest' ? '' : state.sort,
       scope: state.scope === 'mine' ? 'mine' : '',
       page: state.page > 1 ? state.page : '',
+      perPage: state.perPage !== 20 ? state.perPage : '',
     };
     history.replaceState(null, '', `#/library${buildQuery(query)}`);
   }

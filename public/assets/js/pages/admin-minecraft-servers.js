@@ -3,8 +3,9 @@ import { bindPager, pagerHtml } from '../admin-pagination.js';
 import { icon } from '../icons.js';
 import * as ui from '../ui.js';
 
-const PAGE_SIZE = 8;
+let listPageSize = 10;
 let listPage = 1;
+let detailPageSize = 10;
 let detailPage = 1;
 let detailServerId = '';
 
@@ -133,10 +134,10 @@ function openEditor(main, ctx, server = null) {
 function renderList(main, ctx, servers, totals) {
   const publicCount = servers.filter((server) => server.visible).length;
   const hiddenCount = servers.length - publicCount;
-  const pages = Math.max(1, Math.ceil(servers.length / PAGE_SIZE));
+  const pages = Math.max(1, Math.ceil(servers.length / listPageSize));
   listPage = Math.min(Math.max(1, listPage), pages);
-  const start = (listPage - 1) * PAGE_SIZE;
-  const visibleServers = servers.slice(start, start + PAGE_SIZE);
+  const start = (listPage - 1) * listPageSize;
+  const visibleServers = servers.slice(start, start + listPageSize);
   main.innerHTML = `
     <section class="admin-page-head">
       <div>
@@ -289,12 +290,21 @@ api-key  = sk_...（需要 plugin:minecraft-server:use 权限）</pre>
   });
 
   const pagerHost = main.querySelector('[data-server-pager]');
-  pagerHost.innerHTML = pagerHtml(listPage, pages, servers.length);
-  bindPager(pagerHost, (next) => {
-    listPage = next;
-    renderList(main, ctx, servers, totals);
-    main.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
+  pagerHost.innerHTML = pagerHtml(listPage, pages, servers.length, listPageSize);
+  bindPager(
+    pagerHost,
+    (next) => {
+      listPage = next;
+      renderList(main, ctx, servers, totals);
+      main.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    },
+    (size) => {
+      listPageSize = size;
+      listPage = 1;
+      renderList(main, ctx, servers, totals);
+      main.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  );
 }
 
 function renderDetail(main, ctx, servers, players, serverId) {
@@ -311,10 +321,10 @@ function renderDetail(main, ctx, servers, players, serverId) {
   const totalMillis = rows.reduce((sum, player) => sum + Number(player.totalMillis || 0), 0);
   const afkMillis = rows.reduce((sum, player) => sum + Number(player.afkMillis || 0), 0);
   const activeMillis = totalMillis - afkMillis;
-  const detailPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const detailPages = Math.max(1, Math.ceil(rows.length / detailPageSize));
   detailPage = Math.min(Math.max(1, detailPage), detailPages);
-  const detailStart = (detailPage - 1) * PAGE_SIZE;
-  const visibleRows = rows.slice(detailStart, detailStart + PAGE_SIZE);
+  const detailStart = (detailPage - 1) * detailPageSize;
+  const visibleRows = rows.slice(detailStart, detailStart + detailPageSize);
 
   main.innerHTML = `
     <section class="admin-page-head">
@@ -399,10 +409,19 @@ function renderDetail(main, ctx, servers, players, serverId) {
 
   main.querySelector('[data-action="edit-server"]')?.addEventListener('click', () => openEditor(main, ctx, server));
   const pagerHost = main.querySelector('[data-detail-pager]');
-  pagerHost.innerHTML = pagerHtml(detailPage, detailPages, rows.length);
-  bindPager(pagerHost, (next) => {
-    detailPage = next;
-    renderDetail(main, ctx, servers, players, serverId);
-    main.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
+  pagerHost.innerHTML = pagerHtml(detailPage, detailPages, rows.length, detailPageSize);
+  bindPager(
+    pagerHost,
+    (next) => {
+      detailPage = next;
+      renderDetail(main, ctx, servers, players, serverId);
+      main.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    },
+    (size) => {
+      detailPageSize = size;
+      detailPage = 1;
+      renderDetail(main, ctx, servers, players, serverId);
+      main.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  );
 }

@@ -1,18 +1,8 @@
 import { api } from '../api.js';
+import { bindPager, pagerHtml } from '../admin-pagination.js';
 import { can, roleLevelLabel, roleStatusLabel } from '../authz-client.js';
 import { icon } from '../icons.js';
 import * as ui from '../ui.js';
-
-function pagerHtml(data) {
-  if (!data || data.pages <= 1) return '';
-  return `
-    <nav class="pagination admin-pager" data-pager aria-label="分页">
-       <button class="pager-btn" data-page="${data.page - 1}" ${data.page <= 1 ? 'disabled' : ''} aria-label="上一页">${icon('chevron')}</button>
-      <span class="pager-label">第 ${data.page} / ${data.pages} 页 · 共 ${data.total} 条</span>
-      <button class="pager-btn pager-next" data-page="${data.page + 1}" ${data.page >= data.pages ? 'disabled' : ''}>${icon('chevron')}</button>
-    </nav>
-  `;
-}
 
 function statusPill(status) {
   return `<span class="status-pill ${status === 'ACTIVE' ? 'online' : 'offline'}"><span class="status-dot"></span>${roleStatusLabel(
@@ -32,7 +22,7 @@ const LEVELS = [
 ];
 
 export async function renderRoles(main, ctx) {
-  const state = { q: '', status: '', deptId: '', page: 1 };
+  const state = { q: '', status: '', deptId: '', page: 1, pageSize: 10 };
   let rows = [];
   let permissions = [];
   let departments = [];
@@ -91,7 +81,7 @@ export async function renderRoles(main, ctx) {
         status: state.status,
         deptId: state.deptId,
         page: state.page,
-        size: 30,
+        size: state.pageSize,
       });
       rows = data.items;
       tableHost.innerHTML = `
@@ -138,7 +128,19 @@ export async function renderRoles(main, ctx) {
         </table>
         ${data.items.length ? '' : `<div class="empty-state compact"><span class="empty-icon">${icon('shield')}</span><p>没有找到匹配的角色</p></div>`}
       `;
-      pagerHost.innerHTML = pagerHtml(data);
+      pagerHost.innerHTML = pagerHtml(data.page, data.pages, data.total, state.pageSize);
+      bindPager(
+        pagerHost,
+        (page) => {
+          state.page = page;
+          load();
+        },
+        (size) => {
+          state.pageSize = size;
+          state.page = 1;
+          load();
+        }
+      );
     } catch (error) {
       tableHost.innerHTML = `<div class="empty-state compact"><p>${ui.escapeHtml(error.message)}</p></div>`;
     }
@@ -321,12 +323,6 @@ export async function renderRoles(main, ctx) {
   });
 
   async function onMainClick(event) {
-    const pageButton = event.target.closest('[data-page]');
-    if (pageButton && !pageButton.disabled) {
-      state.page = Number(pageButton.dataset.page);
-      await load();
-      return;
-    }
     const button = event.target.closest('[data-action]');
     if (!button) return;
     if (button.dataset.action === 'create-role') {

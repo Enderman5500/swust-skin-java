@@ -1,4 +1,5 @@
 import { api, buildQuery } from '../api.js';
+import { PAGE_SIZES } from '../admin-pagination.js';
 import {
   mountTextureCards,
   openEquipDialog,
@@ -16,10 +17,12 @@ function displayName(texture) {
 }
 
 export async function render(root, ctx) {
+  const initialPerPage = Number.parseInt(ctx.query.perPage, 10);
   const state = {
     type: ['skin', 'cape'].includes(ctx.query.type) ? ctx.query.type : 'all',
     q: ctx.query.q || '',
     page: Math.max(1, Number.parseInt(ctx.query.page, 10) || 1),
+    perPage: PAGE_SIZES.includes(initialPerPage) ? initialPerPage : 20,
   };
   let items = [];
   let itemsById = new Map();
@@ -66,6 +69,7 @@ export async function render(root, ctx) {
         type: state.type === 'all' ? '' : state.type,
         q: state.q,
         page: state.page > 1 ? state.page : '',
+        perPage: state.perPage !== 20 ? state.perPage : '',
       })}`
     );
   }
@@ -107,14 +111,19 @@ export async function render(root, ctx) {
   }
 
   function renderPager(data) {
-    if (data.pages <= 1) {
-      pager.innerHTML = '';
-      return;
-    }
+    const total = Math.max(1, data.pages);
     pager.innerHTML = `
-       <button class="pager-btn" data-page="${data.page - 1}" ${data.page <= 1 ? 'disabled' : ''} aria-label="上一页">${icon('chevron')}</button>
-      <span class="pager-label">${data.page} / ${data.pages}</span>
-      <button class="pager-btn pager-next" data-page="${data.page + 1}" ${data.page >= data.pages ? 'disabled' : ''}>${icon('chevron')}</button>
+      <button class="pager-btn" data-page="${data.page - 1}" ${data.page <= 1 ? 'disabled' : ''} aria-label="上一页">${icon('chevron')}</button>
+      <span class="pager-label">第 ${data.page} / ${total} 页 · 共 ${data.total} 条</span>
+      <button class="pager-btn pager-next" data-page="${data.page + 1}" ${data.page >= total ? 'disabled' : ''} aria-label="下一页">${icon('chevron')}</button>
+      <label class="pager-size">
+        <span>每页</span>
+        <select data-page-size aria-label="每页显示数量">
+          ${PAGE_SIZES.map(
+            (value) => `<option value="${value}" ${value === state.perPage ? 'selected' : ''}>${value}</option>`
+          ).join('')}
+        </select>
+      </label>
     `;
   }
 
@@ -125,7 +134,7 @@ export async function render(root, ctx) {
         type: state.type === 'all' ? '' : state.type,
         q: state.q,
         page: state.page,
-        perPage: 24,
+        perPage: state.perPage,
       });
       if (state.page > data.pages) {
         state.page = data.pages;
@@ -222,6 +231,17 @@ export async function render(root, ctx) {
     const button = event.target.closest('[data-page]');
     if (!button || button.disabled) return;
     state.page = Number(button.dataset.page);
+    syncUrl();
+    load();
+  });
+
+  pager.addEventListener('change', (event) => {
+    const select = event.target.closest('[data-page-size]');
+    if (!select) return;
+    const size = Number(select.value);
+    if (!PAGE_SIZES.includes(size)) return;
+    state.perPage = size;
+    state.page = 1;
     syncUrl();
     load();
   });

@@ -17,7 +17,7 @@ public final class Users {
 
     public static Map<String, Object> page(Database db, Map<String, String> query) {
         int page = Math.max(1, parseInt(query.get("page"), 1));
-        int perPage = Math.max(1, Math.min(60, parseInt(first(query, "perPage", "size"), 30)));
+        int perPage = Math.max(1, Math.min(100, parseInt(first(query, "perPage", "size"), 30)));
         int offset = (page - 1) * perPage;
         List<String> conditions = new ArrayList<>();
         List<Object> params = new ArrayList<>();

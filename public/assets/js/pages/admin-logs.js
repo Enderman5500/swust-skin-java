@@ -84,7 +84,7 @@ export async function renderLogs(main, ctx) {
   const archiveHost = main.querySelector('[data-log-archives]');
   const logPagerHost = main.querySelector('[data-log-pager]');
   const countLabel = main.querySelector('[data-log-count]');
-  const PAGE_SIZE = 10;
+  let archivePageSize = 10;
   let archivePage = 1;
   const downloadCurrent = main.querySelector('[data-action="download-current"]');
   const toggleButton = main.querySelector('[data-action="toggle-scroll"]');
@@ -235,21 +235,29 @@ export async function renderLogs(main, ctx) {
     }
 
     countLabel.textContent = `${group.archives?.length || 0} 个存档`;
-    const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+    const pages = Math.max(1, Math.ceil(rows.length / archivePageSize));
     archivePage = Math.min(Math.max(1, archivePage), pages);
-    const start = (archivePage - 1) * PAGE_SIZE;
-    const visibleRows = rows.slice(start, start + PAGE_SIZE);
+    const start = (archivePage - 1) * archivePageSize;
+    const visibleRows = rows.slice(start, start + archivePageSize);
     archiveHost.innerHTML = rows.length
       ? `<table class="data-table log-archive-table">
           <thead><tr><th>文件</th><th>类型</th><th>大小</th><th>更新时间</th><th>操作</th></tr></thead>
           <tbody>${visibleRows.join('')}</tbody>
         </table>`
       : '<div class="empty-state compact"><p>当前来源还没有可下载的历史文件。</p></div>';
-    logPagerHost.innerHTML = pagerHtml(archivePage, pages, rows.length);
-    bindPager(logPagerHost, (next) => {
-      archivePage = next;
-      renderArchives();
-    });
+    logPagerHost.innerHTML = pagerHtml(archivePage, pages, rows.length, archivePageSize);
+    bindPager(
+      logPagerHost,
+      (next) => {
+        archivePage = next;
+        renderArchives();
+      },
+      (size) => {
+        archivePageSize = size;
+        archivePage = 1;
+        renderArchives();
+      }
+    );
   };
 
   const connect = () => {

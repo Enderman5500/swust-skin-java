@@ -47,6 +47,76 @@
 html {
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
+  /* Reserve the scrollbar gutter so pages with different heights don't shift the layout. */
+  scrollbar-gutter: stable;
+  /* Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: #b9c3cf rgba(19, 43, 64, 0.05);
+}
+
+/* Chromium / Edge / Safari */
+html::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+html::-webkit-scrollbar-track {
+  background: rgba(19, 43, 64, 0.05);
+}
+
+html::-webkit-scrollbar-thumb {
+  background-color: #b9c3cf;
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+}
+
+html::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b2;
+}
+
+/* Fallback for browsers without scrollbar-gutter (older Safari): keep the gutter reserved. */
+@supports not (scrollbar-gutter: stable) {
+  html {
+    overflow-y: scroll;
+  }
+}
+
+/* Inner scroll areas: same thin look across Firefox and WebKit browsers. */
+.yd-admin-menu,
+.modal-body,
+.picker-grid,
+.log-output {
+  scrollbar-width: thin;
+  scrollbar-color: #b9c3cf transparent;
+}
+
+.yd-admin-menu::-webkit-scrollbar,
+.modal-body::-webkit-scrollbar,
+.picker-grid::-webkit-scrollbar,
+.log-output::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.yd-admin-menu::-webkit-scrollbar-thumb,
+.modal-body::-webkit-scrollbar-thumb,
+.picker-grid::-webkit-scrollbar-thumb {
+  background-color: #b9c3cf;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+}
+
+.log-output {
+  scrollbar-color: #475569 transparent;
+}
+
+.log-output::-webkit-scrollbar-thumb {
+  background-color: #475569;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
 }
 
 body {
@@ -1894,6 +1964,32 @@ pre {
   font-size: 12px;
 }
 
+.pager-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 10px;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.pager-size select {
+  height: 32px;
+  padding: 0 26px 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background-color: #fff;
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 13px) 50%, calc(100% - 9px) 50%;
+  background-size: 4px 4px, 4px 4px;
+  background-repeat: no-repeat;
+  color: var(--navy);
+  font-size: 11.5px;
+  font-weight: 600;
+  appearance: none;
+}
+
 /* =========================================================
    Features / join
    ========================================================= */
@@ -3684,6 +3780,16 @@ pre {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.plugin-toolbar {
+  padding-top: 0;
+}
+
+.plugin-search-count {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .plugin-card {
