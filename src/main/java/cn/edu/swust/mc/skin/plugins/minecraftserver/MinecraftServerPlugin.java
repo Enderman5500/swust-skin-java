@@ -27,9 +27,11 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -242,11 +244,23 @@ public final class MinecraftServerPlugin implements SkinPlugin {
                 return data;
             }
 
+            Map<String, String> previousPlayers = new LinkedHashMap<>();
+            try (PreparedStatement previous = db.prepareStatement(
+                    "SELECT uuid, name FROM online_players WHERE server_id = ?")) {
+                previous.setString(1, serverId);
+                try (ResultSet result = previous.executeQuery()) {
+                    while (result.next()) {
+                        previousPlayers.put(result.getString("uuid"), result.getString("name"));
+                    }
+                }
+            }
+
             try (PreparedStatement clear = db.prepareStatement("DELETE FROM online_players WHERE server_id = ?")) {
                 clear.setString(1, serverId);
                 clear.executeUpdate();
             }
             int accepted = 0;
+            Map<String, String> currentPlayers = new LinkedHashMap<>();
             try (PreparedStatement insert = db.prepareStatement("""
                     INSERT INTO online_players
                     (server_id, uuid, name, afk, session_started_at, last_seen_at)
@@ -263,6 +277,7 @@ public final class MinecraftServerPlugin implements SkinPlugin {
                     insert.setString(5, isoTime(player.get("sessionStartedAt"), observedAt));
                     insert.setString(6, observedAt);
                     insert.executeUpdate();
+                    currentPlayers.put(uuid, name);
                     accepted++;
                 }
             }
@@ -338,6 +353,18 @@ public final class MinecraftServerPlugin implements SkinPlugin {
                 upsert.executeUpdate();
             }
             db.commit();
+
+            Set<String> joined = new LinkedHashSet<>(currentPlayers.keySet());
+            joined.removeAll(previousPlayers.keySet());
+            Set<String> left = new LinkedHashSet<>(previousPlayers.keySet());
+            left.removeAll(currentPlayers.keySet());
+            String serverName = Authz.str(server.get("name"));
+            for (String key : joined) {
+                context.info("[" + serverName + "] 玩家上线：" + currentPlayers.get(key));
+            }
+            for (String key : left) {
+                context.info("[" + serverName + "] 玩家离线：" + previousPlayers.get(key));
+            }
 
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("accepted", accepted);

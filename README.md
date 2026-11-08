@@ -98,14 +98,28 @@ BASE_URL=http://192.168.1.20:3000
 
 ## 系统日志
 
-管理后台的「系统 → 系统日志」可以实时查看服务终端输出，并下载当前或历史存档日志。实时日志通过 SSE 推送，页面支持暂停滚动和清屏。
+管理后台的「系统 → 系统日志」可以实时查看并下载以下日志：
 
-日志文件存放在 `data/logs/`：
+- **全部系统日志**：systemd journald 中的全部系统日志。
+- **本站服务**：仅 `swust-skin` 服务的 journald 输出，包含 JVM 与插件终端输出。
+- **应用日志**：`data/logs/` 下的应用日志文件。
+- **Nginx 访问 / 错误日志**：当前文件及轮转文件；`.gz` 归档可直接下载。
+- journald 日志支持按最近 1 小时、24 小时、7 天导出。
+- 游戏端心跳不会逐条记录玩家明细，只在玩家上线、离线时写一条日志。
+
+应用日志文件存放在 `data/logs/`：
 
 - `swust-skin.log`：当前运行日志，每行写入后立即刷新。
 - `swust-skin-YYYYMMDD-HHmmss.log`：每日、超过 8MB 或服务重启时自动归档的历史日志。
 - 存档默认保留 30 天，最多保留 100 个文件。
 - 日志目录和当前日志在 Linux 上使用仅服务账号可读写的权限。
+
+在 Linux 上读取 journald 与 Nginx 日志需要给服务账号授权：
+
+```bash
+sudo usermod -aG systemd-journal,adm swust
+sudo systemctl restart swust-skin
+```
 
 ## 环境变量
 
@@ -122,6 +136,8 @@ BASE_URL=http://192.168.1.20:3000
 | `SNOWFLAKE_DATA_CENTER_ID` | `1` | 雪花 ID 数据中心号（0–31） |
 | `SNOWFLAKE_MACHINE_ID` | `1` | 雪花 ID 机器号（0–31）；多实例部署时需保证组合唯一 |
 | `TRUST_PROXY` | `0` | 位于 Nginx / Caddy 后时设为 `1`，读取 `X-Forwarded-For` |
+| `SYSTEMD_UNIT` | `swust-skin` | 系统日志页面「本站服务」使用的 systemd 单元名 |
+| `NGINX_LOG_DIR` | `/var/log/nginx` | Nginx 访问 / 错误日志目录 |
 | `MAIL_ENABLED` | `0` | 设为 `1` 后注册必须完成邮箱验证码 |
 | `MAIL_HOST` | 空 | SMTP 服务器，例如 `smtpdm.aliyun.com` |
 | `MAIL_PORT` | `465` | SMTP 端口 |

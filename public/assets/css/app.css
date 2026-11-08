@@ -6717,6 +6717,56 @@ body.is-admin .site-main {
   pointer-events: none;
 }
 
+.log-source-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.log-source-tab {
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  transition: color 0.2s, border-color 0.2s, background 0.2s;
+}
+
+.log-source-tab:hover {
+  color: var(--navy);
+  border-color: var(--line-strong);
+}
+
+.log-source-tab.is-active {
+  color: #fff;
+  border-color: var(--navy-deep);
+  background: linear-gradient(135deg, var(--navy-soft), var(--navy-deep));
+}
+
+.log-source-tab:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.log-journal-note {
+  padding: 18px 16px;
+}
+
+.log-journal-note p {
+  margin-bottom: 14px;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.8;
+}
+
+.log-export-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .yd-admin-content .log-terminal-panel {
   padding: 0;
   overflow: hidden;
