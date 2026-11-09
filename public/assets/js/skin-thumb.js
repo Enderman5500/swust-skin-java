@@ -57,6 +57,11 @@ export function drawSkin3DCard(target, texture, { maxWidth = 220 } = {}) {
       target.height = pixelHeight;
     }
     const ctx = target.getContext('2d');
+    // The 2D pass left a device-pixel transform on this context. Resetting the
+    // canvas size only happens when the buffer changes, so reset it explicitly;
+    // otherwise at zoom levels with dpr > 1 the 3D image is scaled twice and
+    // clipped at the right/bottom edges.
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, target.width, target.height);
     ctx.drawImage(canvas, 0, 0, target.width, target.height);
     return true;
