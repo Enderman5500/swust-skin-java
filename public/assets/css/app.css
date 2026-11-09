@@ -423,8 +423,12 @@ pre {
 .nav-more-chevron {
   width: 14px;
   height: 14px;
-  transform: rotate(90deg);
+  transform: rotate(0deg);
   transition: transform 0.2s var(--ease);
+}
+
+.nav-more[data-open="true"] .nav-more-chevron {
+  transform: rotate(90deg);
 }
 
 /* Shared dropdown surface: nav "more" and the account menu. */
@@ -585,13 +589,13 @@ pre {
 .user-chevron {
   width: 14px;
   height: 14px;
-  transform: rotate(90deg);
+  transform: rotate(0deg);
   color: rgba(255, 255, 255, 0.5);
   transition: transform 0.2s var(--ease);
 }
 
 .user-menu.is-open .user-chevron {
-  transform: rotate(-90deg);
+  transform: rotate(90deg);
 }
 
 .user-panel {
@@ -1407,6 +1411,30 @@ pre {
   font-size: 13px;
 }
 
+.select-box {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.select-box::after {
+  content: "";
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  pointer-events: none;
+  transform: translateY(-50%) rotate(-45deg);
+  transition: transform 0.2s var(--ease);
+}
+
+.select-box:focus-within::after {
+  transform: translateY(-50%) rotate(45deg);
+}
+
 .select-box select {
   height: 44px;
   padding: 0 36px 0 15px;
@@ -1414,10 +1442,6 @@ pre {
   border-radius: 999px;
   background-color: #fff;
   appearance: none;
-  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
-  background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%;
-  background-size: 5px 5px, 5px 5px;
-  background-repeat: no-repeat;
   font-size: 12.5px;
   color: var(--navy);
   font-weight: 600;
@@ -2063,6 +2087,7 @@ pre {
 }
 
 .pager-size {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -2072,16 +2097,30 @@ pre {
   white-space: nowrap;
 }
 
+.pager-size::after {
+  content: "";
+  position: absolute;
+  right: 11px;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  border-right: 1.5px solid var(--navy);
+  border-bottom: 1.5px solid var(--navy);
+  pointer-events: none;
+  transform: translateY(-50%) rotate(-45deg);
+  transition: transform 0.2s var(--ease);
+}
+
+.pager-size:focus-within::after {
+  transform: translateY(-50%) rotate(45deg);
+}
+
 .pager-size select {
   height: 32px;
   padding: 0 26px 0 10px;
   border: 1px solid var(--line);
   border-radius: 9px;
   background-color: #fff;
-  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
-  background-position: calc(100% - 13px) 50%, calc(100% - 9px) 50%;
-  background-size: 4px 4px, 4px 4px;
-  background-repeat: no-repeat;
   color: var(--navy);
   font-size: 11.5px;
   font-weight: 600;
