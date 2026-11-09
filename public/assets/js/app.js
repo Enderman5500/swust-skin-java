@@ -1,4 +1,5 @@
 import { api, setCsrf } from './api.js';
+import { initCustomSelects } from './custom-select.js';
 import { icon } from './icons.js';
 import { drawCapePreview, drawSkinCard, placeholderSkinCanvas } from './skin2d.js';
 import * as ui from './ui.js';
@@ -724,4 +725,5 @@ async function bootstrap() {
   }
 }
 
+initCustomSelects();
 bootstrap();
