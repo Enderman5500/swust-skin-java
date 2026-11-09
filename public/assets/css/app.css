@@ -338,12 +338,15 @@ pre {
   display: flex;
   align-items: center;
   gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
   margin-left: 12px;
 }
 
 .nav-link {
   position: relative;
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 7px;
   padding: 9px 13px;
@@ -382,9 +385,102 @@ pre {
   transform: translateX(-50%);
 }
 
+.nav-more {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.nav-more[hidden] {
+  display: none;
+}
+
+.nav-more-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.65);
+  font: inherit;
+  font-size: 13.5px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.2s var(--ease), background 0.2s var(--ease);
+}
+
+.nav-more-toggle:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.nav-more-toggle.is-active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.nav-more-chevron {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.2s var(--ease);
+}
+
+.nav-more[data-open="true"] .nav-more-chevron {
+  transform: rotate(180deg);
+}
+
+.nav-more-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 12px);
+  min-width: 190px;
+  padding: 8px;
+  border-radius: 16px;
+  background: #fff;
+  color: var(--text);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-lg);
+  z-index: 70;
+}
+
+.nav-more-panel[hidden] {
+  display: none;
+}
+
+.nav-more-panel .nav-link {
+  display: flex;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.nav-more-panel .nav-link:hover {
+  background: var(--paper);
+  color: var(--navy);
+}
+
+.nav-more-panel .nav-link.is-active {
+  background: var(--ice-soft);
+  color: var(--navy);
+  font-weight: 600;
+}
+
+.nav-more-panel .nav-link.is-active::after {
+  display: none;
+}
+
+.nav-more-panel .nav-link .nav-icon {
+  width: 15px;
+  height: 15px;
+}
+
 .header-actions {
   margin-left: auto;
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 10px;
 }
@@ -4912,9 +5008,9 @@ pre {
   }
 }
 
-/* Narrow desktop / split-screen: compact the top navigation instead of pushing
-   the header actions out of the viewport. */
-@media (min-width: 1121px) and (max-width: 1340px) {
+/* Narrow desktop / split-screen: compact the top navigation so more leading
+   items stay visible before the overflow menu is needed. */
+@media (min-width: 641px) and (max-width: 1340px) {
   .header-inner {
     gap: 20px;
   }
@@ -4931,49 +5027,46 @@ pre {
   }
 }
 
-/* Let the navigation shrink (and scroll horizontally) when plugins add many
-   entries, so it never pushes the account actions off-screen. */
-@media (min-width: 1121px) {
-  .main-nav {
-    min-width: 0;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-  .main-nav::-webkit-scrollbar {
-    display: none;
-  }
+/* Not even the first item plus the overflow button fits: use the hamburger. */
+.site-header.is-nav-compact .main-nav {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: var(--header-height);
+  display: none;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  padding: 12px 20px 18px;
+  background: #0d1926;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 20px 40px rgba(4, 12, 21, 0.4);
+  max-height: calc(100vh - var(--header-height));
+  overflow-y: auto;
+}
+
+.site-header.is-nav-compact.nav-open .main-nav {
+  display: flex;
+}
+
+.site-header.is-nav-compact .nav-link {
+  padding: 12px 14px;
+  border-radius: 10px;
+}
+
+.site-header.is-nav-compact .mobile-toggle {
+  display: inline-flex;
+}
+
+.site-header.is-nav-compact .header-actions {
+  margin-left: 0;
+}
+
+.site-header.is-nav-compact .header-inner {
+  gap: 14px;
 }
 
 @media (max-width: 1120px) {
-  .main-nav {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: var(--header-height);
-    display: none;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 2px;
-    padding: 12px 20px 18px;
-    background: #0d1926;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 20px 40px rgba(4, 12, 21, 0.4);
-    max-height: calc(100vh - var(--header-height));
-    overflow-y: auto;
-  }
-  .site-header.nav-open .main-nav {
-    display: flex;
-  }
-  .nav-link {
-    padding: 12px 14px;
-    border-radius: 10px;
-  }
-  .site-header .mobile-toggle {
-    display: inline-flex;
-  }
-  .header-actions {
-    margin-left: 0;
-  }
   .header-inner {
     gap: 14px;
   }
