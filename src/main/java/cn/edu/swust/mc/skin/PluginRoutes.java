@@ -19,7 +19,7 @@ public final class PluginRoutes {
         router.post("/api/admin/plugins/install", ctx -> {
             Auth.requirePermission(ctx, "skin:plugin:install");
             byte[] buffer = ctx.body((int) app.config.pluginLimit);
-            Map<String, Object> result = app.plugins.install(buffer);
+            Map<String, Object> result = app.plugins.install(buffer, ctx.query("expectId"));
             String installedId = String.valueOf(result.get("installedId"));
             @SuppressWarnings("unchecked")
             var items = (java.util.List<Map<String, Object>>) result.get("items");
@@ -28,7 +28,10 @@ public final class PluginRoutes {
                     .findFirst().orElse(null);
             Map<String, Object> data = new java.util.LinkedHashMap<>();
             data.put("plugin", installed);
-            ctx.ok(data, 201);
+            data.put("updated", result.get("updated"));
+            data.put("previousVersion", result.get("previousVersion"));
+            data.put("version", result.get("version"));
+            ctx.ok(data, Boolean.TRUE.equals(result.get("updated")) ? 200 : 201);
         });
 
         router.post("/api/admin/plugins/rescan", ctx -> {

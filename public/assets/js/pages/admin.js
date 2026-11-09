@@ -738,7 +738,8 @@ async function renderPlugins(main, ctx) {
       <div><p class="eyebrow">PLUGINS</p><h2>插件管理</h2><p>热加载服务端扩展与前端页面。插件拥有服务端执行权限，请只安装可信来源。</p></div>
       <div class="admin-head-actions">
         <button class="btn btn-ghost" data-action="rescan">${icon('refresh')}重新扫描</button>
-        <label class="btn btn-primary upload-button">${icon('upload')}安装 Java 插件 JAR / ZIP<input type="file" accept=".jar,.zip,application/java-archive,application/zip" hidden data-plugin-file /></label>
+        <label class="btn btn-primary upload-button">${icon('upload')}安装 / 更新 Java 插件 JAR / ZIP<input type="file" accept=".jar,.zip,application/java-archive,application/zip" hidden data-plugin-file /></label>
+        <input type="file" accept=".jar,.zip,application/java-archive,application/zip" hidden data-plugin-update-file />
       </div>
     </section>
     <div class="toolbar plugin-toolbar">
@@ -750,6 +751,7 @@ async function renderPlugins(main, ctx) {
     <div class="panel plugin-help">
       <div class="panel-head"><div><p class="eyebrow">DEVELOPER</p><h3>插件包结构</h3></div></div>
       <p>插件包根目录放置 <code>plugin.json</code>，<code>mainClass</code> 指向实现 <code>SkinPlugin</code> 的 Java 类，可选 <code>client.mjs</code> 提供前端页面模块。启停与重载即时生效。</p>
+      <p class="field-hint">上传相同插件 ID 的新版本会原地更新，保留插件私有数据、权限、API 密钥与启用状态；新版本加载失败会自动回滚到旧版本。</p>
       <p class="field-hint">服务端插件以 JAR 形式运行在 Java 宿主内，可直接使用站点 API 与数据库；请只安装可信来源的插件。</p>
       <pre class="code-block small">{
   "id": "my-plugin",
@@ -765,6 +767,7 @@ async function renderPlugins(main, ctx) {
   const listHost = main.querySelector('[data-plugin-list]');
   const pagerHost = main.querySelector('[data-plugin-pager]');
   const fileInput = main.querySelector('[data-plugin-file]');
+  const updateFileInput = main.querySelector('[data-plugin-update-file]');
   const searchInput = main.querySelector('[data-plugin-search]');
   const countLabel = main.querySelector('[data-plugin-count]');
   let pageSize = 10;
@@ -772,6 +775,7 @@ async function renderPlugins(main, ctx) {
   let scanErrors = [];
   let query = '';
   let page = 1;
+  let updateTargetId = '';
 
   function rowHtml(plugin) {
     return `
@@ -796,6 +800,9 @@ async function renderPlugins(main, ctx) {
           </div>
         </td>
         <td data-label="操作" class="table-actions">
+          <button class="btn btn-ghost btn-sm" data-action="update-plugin" data-id="${ui.escapeHtml(
+            plugin.id
+          )}">${icon('upload')}更新</button>
           <button class="btn ${plugin.enabled ? 'btn-ghost' : 'btn-primary'} btn-sm" data-action="toggle-plugin" data-id="${ui.escapeHtml(
             plugin.id
           )}" data-enabled="${plugin.enabled}">
@@ -909,28 +916,45 @@ async function renderPlugins(main, ctx) {
     }
   }
 
-  fileInput.addEventListener('change', async () => {
-    const file = fileInput.files[0];
+  async function uploadPackage(file, expectedId = '') {
     if (!file) return;
     if (!/\.(zip|jar)$/i.test(file.name)) {
       ui.toast('请选择 JAR 或 ZIP 插件包', 'error');
-      fileInput.value = '';
       return;
     }
-    ui.toast('正在安装插件…', 'info');
+    ui.toast(expectedId ? '正在更新插件…' : '正在安装或更新插件…', 'info');
     try {
       const contentType = file.name.toLowerCase().endsWith('.jar')
         ? 'application/java-archive'
         : 'application/zip';
-      await api.upload('/api/admin/plugins/install', file, contentType);
-      ui.toast('插件已安装并启用', 'success');
-      fileInput.value = '';
+      const query = expectedId ? `?expectId=${encodeURIComponent(expectedId)}` : '';
+      const result = await api.upload(`/api/admin/plugins/install${query}`, file, contentType);
+      if (result?.updated) {
+        const from = result.previousVersion ? `v${result.previousVersion} → ` : '';
+        ui.toast(`插件已更新：${from}v${result.version}，数据与权限已保留`, 'success');
+      } else {
+        ui.toast('插件已安装并启用', 'success');
+      }
       await load();
       await ctx.refreshPlugins();
     } catch (error) {
       ui.toast(error.message, 'error');
-      fileInput.value = '';
     }
+  }
+
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files[0];
+    fileInput.value = '';
+    await uploadPackage(file);
+  });
+
+  updateFileInput.addEventListener('change', async () => {
+    const file = updateFileInput.files[0];
+    const expectedId = updateTargetId;
+    updateTargetId = '';
+    updateFileInput.value = '';
+    if (!file || !expectedId) return;
+    await uploadPackage(file, expectedId);
   });
 
   async function onMainClick(event) {
@@ -950,6 +974,12 @@ async function renderPlugins(main, ctx) {
       return;
     }
     const id = button.dataset.id;
+    if (action === 'update-plugin') {
+      updateTargetId = id || '';
+      updateFileInput.value = '';
+      updateFileInput.click();
+      return;
+    }
     if (action === 'toggle-plugin') {
       try {
         await api.post(`/admin/plugins/${id}/${button.dataset.enabled === 'true' ? 'disable' : 'enable'}`);
