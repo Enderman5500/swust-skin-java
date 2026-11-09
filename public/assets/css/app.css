@@ -423,18 +423,15 @@ pre {
 .nav-more-chevron {
   width: 14px;
   height: 14px;
+  transform: rotate(90deg);
   transition: transform 0.2s var(--ease);
 }
 
-.nav-more[data-open="true"] .nav-more-chevron {
-  transform: rotate(180deg);
-}
-
-.nav-more-panel {
+/* Shared dropdown surface: nav "more" and the account menu. */
+.dropdown-panel {
   position: absolute;
   right: 0;
   top: calc(100% + 12px);
-  min-width: 190px;
   padding: 8px;
   border-radius: 16px;
   background: #fff;
@@ -442,24 +439,56 @@ pre {
   border: 1px solid var(--line);
   box-shadow: var(--shadow-lg);
   z-index: 70;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-8px) scale(0.98);
+  transform-origin: top right;
+  transition: opacity 0.18s var(--ease), transform 0.18s var(--ease),
+    visibility 0s linear 0.18s;
 }
 
-.nav-more-panel[hidden] {
-  display: none;
+.dropdown-panel.is-open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: none;
+  transition: opacity 0.18s var(--ease), transform 0.18s var(--ease), visibility 0s;
 }
 
-.nav-more-panel .nav-link {
-  display: flex;
+.dropdown-panel a,
+.dropdown-panel button {
   width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   padding: 10px 12px;
+  border: 0;
   border-radius: 10px;
+  background: transparent;
   color: var(--text);
+  font: inherit;
   font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s var(--ease), color 0.15s var(--ease);
 }
 
-.nav-more-panel .nav-link:hover {
+.dropdown-panel a:hover,
+.dropdown-panel button:hover {
   background: var(--paper);
   color: var(--navy);
+}
+
+.dropdown-panel a .icon,
+.dropdown-panel button .icon {
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
+}
+
+.nav-more-panel {
+  min-width: 190px;
 }
 
 .nav-more-panel .nav-link.is-active {
@@ -475,6 +504,14 @@ pre {
 .nav-more-panel .nav-link .nav-icon {
   width: 15px;
   height: 15px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dropdown-panel,
+  .user-chevron,
+  .nav-more-chevron {
+    transition: none;
+  }
 }
 
 .header-actions {
@@ -514,14 +551,6 @@ pre {
   display: none;
 }
 
-.user-menu summary {
-  list-style: none;
-}
-
-.user-menu summary::-webkit-details-marker {
-  display: none;
-}
-
 .user-summary {
   display: flex;
   align-items: center;
@@ -530,7 +559,12 @@ pre {
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.05);
+  color: inherit;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
   transition: background 0.2s;
 }
 
@@ -553,24 +587,15 @@ pre {
   height: 14px;
   transform: rotate(90deg);
   color: rgba(255, 255, 255, 0.5);
+  transition: transform 0.2s var(--ease);
 }
 
-.user-menu[open] .user-chevron {
+.user-menu.is-open .user-chevron {
   transform: rotate(-90deg);
 }
 
 .user-panel {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 12px);
   width: 250px;
-  padding: 8px;
-  border-radius: 16px;
-  background: #ffffff;
-  color: var(--text);
-  border: 1px solid var(--line);
-  box-shadow: var(--shadow-lg);
-  z-index: 70;
 }
 
 .user-panel-head {
@@ -600,39 +625,16 @@ pre {
   white-space: nowrap;
 }
 
-.user-panel a,
-.user-panel button {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border: 0;
-  border-radius: 10px;
-  background: transparent;
-  color: var(--text);
-  font-size: 13.5px;
-  text-align: left;
-  transition: background 0.18s;
-}
-
-.user-panel a .icon,
-.user-panel button .icon {
-  width: 16px;
-  height: 16px;
-  color: var(--muted);
-}
-
-.user-panel a:hover,
-.user-panel button:hover {
-  background: var(--paper);
-}
-
 .user-panel .menu-danger {
   color: var(--danger);
   border-top: 1px solid var(--line);
   border-radius: 0 0 10px 10px;
   margin-top: 4px;
+}
+
+.user-panel .menu-danger:hover {
+  color: var(--danger);
+  background: rgba(180, 75, 75, 0.08);
 }
 
 .user-panel .menu-danger .icon {

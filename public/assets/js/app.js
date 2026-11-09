@@ -150,6 +150,27 @@ function displayName(user) {
   return user?.nickname || user?.username || '社员';
 }
 
+function setUserMenuOpen(open) {
+  const menu = headerEl.querySelector('[data-user-menu]');
+  const toggle = headerEl.querySelector('[data-action="toggle-user-menu"]');
+  const panel = headerEl.querySelector('[data-user-panel]');
+  menu?.classList.toggle('is-open', open);
+  toggle?.setAttribute('aria-expanded', String(open));
+  panel?.classList.toggle('is-open', open);
+  panel?.setAttribute('aria-hidden', String(!open));
+}
+
+function setNavMoreOpen(open) {
+  const more = headerEl.querySelector('[data-nav-more]');
+  const toggle = headerEl.querySelector('[data-action="toggle-nav-more"]');
+  const panel = headerEl.querySelector('[data-nav-more-panel]');
+  if (!more) return;
+  more.dataset.open = open ? 'true' : 'false';
+  toggle?.setAttribute('aria-expanded', String(open));
+  panel?.classList.toggle('is-open', open);
+  panel?.setAttribute('aria-hidden', String(!open));
+}
+
 function setupHeaderNav() {
   const nav = headerEl.querySelector('.main-nav');
   const navMore = headerEl.querySelector('[data-nav-more]');
@@ -161,18 +182,12 @@ function setupHeaderNav() {
   let frame = 0;
   let disposed = false;
 
-  const setMoreOpen = (open) => {
-    navMore.dataset.open = open ? 'true' : 'false';
-    navMoreToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-    navMorePanel.hidden = !open;
-  };
-
   function layout() {
     frame = 0;
     if (disposed) return;
     headerEl.classList.remove('is-nav-compact');
     navMore.hidden = true;
-    setMoreOpen(false);
+    setNavMoreOpen(false);
 
     const fragment = document.createDocumentFragment();
     for (const link of links) {
@@ -233,17 +248,22 @@ function setupHeaderNav() {
   };
 
   const onDocumentClick = (event) => {
-    if (!navMore.contains(event.target)) setMoreOpen(false);
+    if (!navMore.contains(event.target)) setNavMoreOpen(false);
   };
   const onKeyDown = (event) => {
-    if (event.key === 'Escape') setMoreOpen(false);
+    if (event.key === 'Escape') {
+      setNavMoreOpen(false);
+      setUserMenuOpen(false);
+    }
   };
 
   navMoreToggle.addEventListener('click', (event) => {
     event.stopPropagation();
-    setMoreOpen(navMore.dataset.open !== 'true');
+    const open = navMore.dataset.open !== 'true';
+    if (open) setUserMenuOpen(false);
+    setNavMoreOpen(open);
   });
-  navMorePanel.addEventListener('click', () => setMoreOpen(false));
+  navMorePanel.addEventListener('click', () => setNavMoreOpen(false));
   document.addEventListener('click', onDocumentClick);
   document.addEventListener('keydown', onKeyDown);
   window.addEventListener('resize', schedule);
@@ -280,13 +300,13 @@ function renderHeader() {
 
   const authArea = state.user
     ? `
-      <details class="user-menu">
-        <summary class="user-summary" aria-label="账号菜单">
+      <div class="user-menu" data-user-menu>
+        <button type="button" class="user-summary" data-action="toggle-user-menu" aria-label="账号菜单" aria-expanded="false" aria-haspopup="true">
           ${ui.avatarHtml(displayName(state.user), { size: 'sm', avatar: state.user.avatar })}
           <span class="user-name">${ui.escapeHtml(displayName(state.user))}</span>
           ${icon('chevron', 'icon user-chevron')}
-        </summary>
-        <div class="user-panel">
+        </button>
+        <div class="user-panel dropdown-panel" data-user-panel aria-hidden="true">
           <div class="user-panel-head">
             ${ui.avatarHtml(displayName(state.user), { size: 'md', avatar: state.user.avatar })}
             <div>
@@ -301,7 +321,7 @@ function renderHeader() {
           ${state.user.isAdmin ? `<a href="#/admin">${icon('admin')}管理后台</a>` : ''}
           <button type="button" class="menu-danger" data-action="logout">${icon('logout')}退出登录</button>
         </div>
-      </details>
+      </div>
     `
     : `
       <a class="btn btn-ghost btn-sm header-login" href="#/login">登录</a>
@@ -326,7 +346,7 @@ function renderHeader() {
           <button class="nav-more-toggle" type="button" data-action="toggle-nav-more" aria-expanded="false" aria-haspopup="true">
             <span>更多</span>${icon('chevron', 'nav-more-chevron')}
           </button>
-          <div class="nav-more-panel" data-nav-more-panel hidden></div>
+          <div class="nav-more-panel dropdown-panel" data-nav-more-panel aria-hidden="true"></div>
         </div>
       </nav>
       <div class="header-actions">${authArea}</div>
@@ -342,7 +362,18 @@ function renderHeader() {
   });
   nav?.addEventListener('click', () => headerEl.classList.remove('nav-open'));
 
+  const userMenu = headerEl.querySelector('[data-user-menu]');
+  const userPanel = headerEl.querySelector('[data-user-panel]');
+  headerEl.querySelector('[data-action="toggle-user-menu"]')?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const open = !userMenu?.classList.contains('is-open');
+    if (open) setNavMoreOpen(false);
+    setUserMenuOpen(open);
+  });
+  userPanel?.addEventListener('click', () => setUserMenuOpen(false));
+
   headerEl.querySelector('[data-action="logout"]')?.addEventListener('click', async () => {
+    setUserMenuOpen(false);
     try {
       await api.post('/auth/logout');
     } catch {
@@ -353,14 +384,13 @@ function renderHeader() {
     ui.toast('已退出登录，星空会记得你', 'info');
   });
 
-  const menu = headerEl.querySelector('.user-menu');
   if (headerOutsideHandler) {
     document.removeEventListener('click', headerOutsideHandler);
     headerOutsideHandler = null;
   }
-  if (menu) {
+  if (userMenu) {
     headerOutsideHandler = (event) => {
-      if (!menu.contains(event.target)) menu.removeAttribute('open');
+      if (!userMenu.contains(event.target)) setUserMenuOpen(false);
     };
     document.addEventListener('click', headerOutsideHandler);
   }
