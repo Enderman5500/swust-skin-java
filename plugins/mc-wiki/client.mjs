@@ -72,6 +72,8 @@ const STYLE = `
 .mcw-recipe-grid .mcw-grid3 { grid-template-columns: repeat(3, 32px); grid-template-rows: repeat(3, 32px); gap: 3px; padding: 6px; }
 .mcw-recipe-grid .mcw-arrow { font-size: 16px; }
 .mcw-recipe footer { grid-column: 1 / -1; display: flex; justify-content: space-between; gap: 8px; padding-top: 6px; border-top: 1px dashed var(--line); font-size: 10.5px; color: var(--muted); }
+.mcw-recipe footer > span:first-child { flex: 0 0 auto; white-space: nowrap; }
+.mcw-recipe-foot-name { flex: 1 1 auto; min-width: 0; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mcw-recipe footer code { flex: 1 1 auto; min-width: 0; text-align: right; font-family: var(--font-mono); font-size: 10px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mcw-grid3 { display: grid; grid-template-columns: repeat(3, 38px); grid-template-rows: repeat(3, 38px); gap: 4px; padding: 8px; border-radius: 12px; background: #fff; border: 1px solid var(--line-strong); }
 .mcw-cell { display: flex; align-items: center; justify-content: center; border-radius: 7px; background: var(--paper); border: 1px solid rgba(19,43,64,.09); position: relative; }
@@ -94,6 +96,11 @@ const STYLE = `
 .mcw-page-jump input::-webkit-outer-spin-button,
 .mcw-page-jump input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .mcw-page-jump input:focus { outline: none; border-color: rgba(44, 76, 102, 0.35); box-shadow: 0 0 0 3px rgba(44, 76, 102, 0.08); }
+.mcw-pager-current { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.mcw-pager-current input { width: 46px; height: 28px; padding: 0 4px; border: 1px solid var(--line); border-radius: 8px; background: #fff; font-size: 12px; text-align: center; color: var(--text); appearance: textfield; -moz-appearance: textfield; }
+.mcw-pager-current input::-webkit-outer-spin-button,
+.mcw-pager-current input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.mcw-pager-current input:focus { outline: none; border-color: rgba(44, 76, 102, 0.35); box-shadow: 0 0 0 3px rgba(44, 76, 102, 0.08); }
 .mcw-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-radius: var(--radius); border: 1px solid var(--line); background: rgba(255,255,255,.8); overflow: hidden; }
 .mcw-stat { padding: 16px 18px; border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .mcw-stat:last-child { border-right: 0; }
@@ -199,6 +206,26 @@ const STYLE = `
 .mcw-diff-card { border-radius: var(--radius); border: 1px solid var(--line); background: rgba(255,255,255,.88); overflow: hidden; }
 .mcw-diff-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--line); background: var(--paper); font-size: 11px; color: var(--muted); }
 .mcw-diff-card-head code { flex: 1 1 auto; min-width: 0; text-align: right; font-family: var(--font-mono); font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mcw-diff-card-name { flex: 1 1 auto; min-width: 0; text-align: right; font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mcw-icon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+.mcw-icon-card { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; width: 100%; height: 100%; padding: 12px 14px 10px; border-radius: var(--radius); border: 1px solid var(--line); background: rgba(255,255,255,.88); min-width: 0; transition: border-color .18s, box-shadow .18s, transform .18s; }
+.mcw-icon-card:hover { border-color: var(--line-strong); box-shadow: var(--shadow-sm); transform: translateY(-1px); }
+.mcw-icon-card.is-hidden { background: rgba(244,246,249,.8); }
+.mcw-icon-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-width: 0; }
+.mcw-icon-head strong { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; color: var(--navy); }
+.mcw-icon-card > small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; color: var(--muted); }
+.mcw-icon-check { flex: 0 0 auto; width: 16px; height: 16px; margin: 0; accent-color: var(--navy); cursor: pointer; }
+.mcw-icon-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; margin-top: auto; padding-top: 6px; }
+.mcw-icon-kind { padding: 1px 7px; border-radius: 999px; border: 1px solid rgba(44,76,102,.14); background: rgba(220,232,243,.55); color: var(--navy); font-size: 9px; letter-spacing: .04em; white-space: nowrap; }
+.mcw-icon-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }
+.mcw-icon-actions { display: flex; flex: 0 0 auto; justify-content: flex-end; }
+.mcw-icon-selectall { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); white-space: nowrap; }
+.mcw-icon-selectall input { accent-color: var(--navy); }
+@media (max-width: 640px) {
+  .mcw-icon-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .mcw-icon-card { padding: 10px; }
+  .mcw-icon-head strong { font-size: 12px; }
+}
 .mcw-diff-body { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 6px; padding: 8px; align-items: stretch; }
 .mcw-diff-body.is-single { grid-template-columns: minmax(0, 1fr); }
 .mcw-compare-recipe { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
@@ -319,6 +346,26 @@ const STYLE = `
 .mcw-diff-card { border-radius: var(--radius); border: 1px solid var(--line); background: rgba(255,255,255,.88); overflow: hidden; }
 .mcw-diff-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--line); background: var(--paper); font-size: 11px; color: var(--muted); }
 .mcw-diff-card-head code { flex: 1 1 auto; min-width: 0; text-align: right; font-family: var(--font-mono); font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mcw-diff-card-name { flex: 1 1 auto; min-width: 0; text-align: right; font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mcw-icon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+.mcw-icon-card { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; width: 100%; height: 100%; padding: 12px 14px 10px; border-radius: var(--radius); border: 1px solid var(--line); background: rgba(255,255,255,.88); min-width: 0; transition: border-color .18s, box-shadow .18s, transform .18s; }
+.mcw-icon-card:hover { border-color: var(--line-strong); box-shadow: var(--shadow-sm); transform: translateY(-1px); }
+.mcw-icon-card.is-hidden { background: rgba(244,246,249,.8); }
+.mcw-icon-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-width: 0; }
+.mcw-icon-head strong { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; color: var(--navy); }
+.mcw-icon-card > small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; color: var(--muted); }
+.mcw-icon-check { flex: 0 0 auto; width: 16px; height: 16px; margin: 0; accent-color: var(--navy); cursor: pointer; }
+.mcw-icon-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; margin-top: auto; padding-top: 6px; }
+.mcw-icon-kind { padding: 1px 7px; border-radius: 999px; border: 1px solid rgba(44,76,102,.14); background: rgba(220,232,243,.55); color: var(--navy); font-size: 9px; letter-spacing: .04em; white-space: nowrap; }
+.mcw-icon-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }
+.mcw-icon-actions { display: flex; flex: 0 0 auto; justify-content: flex-end; }
+.mcw-icon-selectall { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); white-space: nowrap; }
+.mcw-icon-selectall input { accent-color: var(--navy); }
+@media (max-width: 640px) {
+  .mcw-icon-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .mcw-icon-card { padding: 10px; }
+  .mcw-icon-head strong { font-size: 12px; }
+}
 .mcw-diff-body { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 6px; padding: 8px; align-items: stretch; }
 .mcw-diff-body.is-single { grid-template-columns: minmax(0, 1fr); }
 .mcw-compare-recipe { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
@@ -389,9 +436,13 @@ const STYLE = `
   .mcw-compare-summary { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
   .mcw-compare-summary::-webkit-scrollbar { display: none; }
   .mcw-compare-group { flex: 0 0 auto; }
-  .mcw-page-jump, .mcw-jump-btn { display: none; }
-  .mcw-pager { flex-wrap: nowrap; gap: 6px; font-size: 10.5px; }
-  .mcw-pager .btn { min-height: 30px; padding: 0 10px; }
+  .mcw-page-jump { display: inline-flex; gap: 4px; }
+  .mcw-page-jump input { width: 40px; height: 28px; padding: 0 4px; font-size: 11px; }
+  .mcw-pager-current { gap: 3px; }
+  .mcw-pager-current input { width: 38px; height: 27px; font-size: 11px; }
+  .mcw-pager { flex-wrap: nowrap; gap: 4px; font-size: 10.5px; max-width: 100%; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+  .mcw-pager::-webkit-scrollbar { display: none; }
+  .mcw-pager .btn { min-height: 30px; padding: 0 8px; }
   .mcw-pager-total { display: none; }
   .mcw-dialog-body { padding: 16px; }
 }
@@ -427,7 +478,9 @@ export async function mount(root, ctx) {
 
   let disposed = false;
   let tab =
-    ctx.query?.tab === 'admin' && isAdmin ? 'admin' : ctx.query?.tab === 'jobs' && isAdmin ? 'jobs' : 'items';
+    ctx.query?.tab === 'admin' && isAdmin ? 'admin'
+      : ctx.query?.tab === 'icons' && isAdmin ? 'icons'
+      : ctx.query?.tab === 'jobs' && isAdmin ? 'jobs' : 'items';
   let meta = null;
   let version = '';
   const compactLayout = () => window.matchMedia?.('(max-width: 640px)').matches === true;
@@ -451,6 +504,7 @@ export async function mount(root, ctx) {
   let itemView = { keyword: '', kind: '', page: 1, size: 18, loading: false };
   let recipeView = { keyword: '', page: 1, size: 12, loading: false };
   const adminView = { keyword: '', type: '', status: '', page: 1, size: 15, data: null, loading: false };
+  const iconManageView = { keyword: '', kind: '', status: '', page: 1, size: 20, data: null, loading: false, selected: new Set() };
   const expandedGroups = new Set();
   const compareView = { from: '', to: '', data: null, kind: 'items', filter: 'added', itemKind: 'item', keyword: '', page: 1, size: 20, versions: [] };
   const jobView = {
@@ -463,6 +517,7 @@ export async function mount(root, ctx) {
     jobs: [],
   };
   let searchTimer = null;
+  let iconSearchTimer = null;
 
   injectStyle();
   root.innerHTML = `
@@ -479,6 +534,7 @@ export async function mount(root, ctx) {
             <button class="chip" data-tab="recipes" role="tab">合成配方</button>
             <button class="chip" data-tab="compare" role="tab">版本比对</button>
             ${isAdmin ? '<button class="chip" data-tab="admin" role="tab">版本管理</button>' : ''}
+            ${isAdmin ? '<button class="chip" data-tab="icons" role="tab">图标管理</button>' : ''}
             ${isAdmin ? '<button class="chip" data-tab="jobs" role="tab">任务中心</button>' : ''}
           </div>
         </div>
@@ -718,6 +774,7 @@ export async function mount(root, ctx) {
       button.classList.toggle('is-active', button.dataset.tab === tab);
     });
     if (tab === 'admin') return renderAdmin();
+    if (tab === 'icons') return renderIconManage();
     if (tab === 'compare') return renderCompare();
     if (tab === 'jobs') return renderJobs();
     if (tab === 'recipes') return renderRecipes();
@@ -830,9 +887,7 @@ export async function mount(root, ctx) {
           <button class="btn btn-ghost btn-sm" data-item-page="${itemView.page - 1}" ${
         itemView.page <= 1 ? 'disabled' : ''
       }>上一页</button>
-          <span class="mcw-pager-info">第 ${itemView.page} / ${totalPages} 页<span class="mcw-pager-total"> · 共 ${data.total} 个条目</span></span>
-          <label class="mcw-page-jump">跳至 <input type="number" min="1" max="${totalPages}" data-item-jump-input aria-label="跳转页码" inputmode="numeric" /> 页</label>
-          <button class="btn btn-ghost btn-sm mcw-jump-btn" data-item-jump disabled>跳转</button>
+          <label class="mcw-pager-current">第 <input type="number" min="1" max="${totalPages}" data-item-jump-input value="${itemView.page}" aria-label="当前页码" inputmode="numeric" /> / ${totalPages} 页<span class="mcw-pager-total"> · 共 ${data.total} 个条目</span></label>
           <button class="btn btn-ghost btn-sm" data-item-page="${itemView.page + 1}" ${
         itemView.page >= totalPages ? 'disabled' : ''
       }>下一页</button>
@@ -850,20 +905,25 @@ export async function mount(root, ctx) {
         });
       });
       const itemJump = body.querySelector('[data-item-jump-input]');
-      const itemJumpButton = body.querySelector('[data-item-jump]');
       const jumpItems = () => {
-        if (!itemJump.value.trim()) return;
-        const value = Math.trunc(Number(itemJump.value));
-        if (!Number.isFinite(value)) return;
-        itemView.page = Math.min(totalPages, Math.max(1, value));
+        const raw = itemJump.value.trim();
+        const value = Math.trunc(Number(raw));
+        if (!raw || !Number.isFinite(value)) {
+          itemJump.value = itemView.page;
+          return;
+        }
+        const next = Math.min(totalPages, Math.max(1, value));
+        itemJump.value = next;
+        if (next === itemView.page) return;
+        itemView.page = next;
         loadItems({ keep: true });
       };
-      itemJumpButton.addEventListener('click', jumpItems);
-      itemJump.addEventListener('input', () => {
-        itemJumpButton.disabled = !itemJump.value.trim();
-      });
+      itemJump.addEventListener('change', jumpItems);
       itemJump.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') jumpItems();
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          itemJump.blur();
+        }
       });
     } catch (error) {
       body.classList.remove('mcw-list-loading');
@@ -1027,9 +1087,7 @@ export async function mount(root, ctx) {
           <button class="btn btn-ghost btn-sm" data-recipe-page="${recipeView.page - 1}" ${
         recipeView.page <= 1 ? 'disabled' : ''
       }>上一页</button>
-          <span class="mcw-pager-info">第 ${recipeView.page} / ${totalPages} 页<span class="mcw-pager-total"> · 共 ${data.total} 个配方</span></span>
-          <label class="mcw-page-jump">跳至 <input type="number" min="1" max="${totalPages}" data-recipe-jump-input aria-label="跳转页码" inputmode="numeric" /> 页</label>
-          <button class="btn btn-ghost btn-sm mcw-jump-btn" data-recipe-jump disabled>跳转</button>
+          <label class="mcw-pager-current">第 <input type="number" min="1" max="${totalPages}" data-recipe-jump-input value="${recipeView.page}" aria-label="当前页码" inputmode="numeric" /> / ${totalPages} 页<span class="mcw-pager-total"> · 共 ${data.total} 个配方</span></label>
           <button class="btn btn-ghost btn-sm" data-recipe-page="${recipeView.page + 1}" ${
         recipeView.page >= totalPages ? 'disabled' : ''
       }>下一页</button>
@@ -1045,20 +1103,25 @@ export async function mount(root, ctx) {
         });
       });
       const recipeJump = body.querySelector('[data-recipe-jump-input]');
-      const recipeJumpButton = body.querySelector('[data-recipe-jump]');
       const jumpRecipes = () => {
-        if (!recipeJump.value.trim()) return;
-        const value = Math.trunc(Number(recipeJump.value));
-        if (!Number.isFinite(value)) return;
-        recipeView.page = Math.min(totalPages, Math.max(1, value));
+        const raw = recipeJump.value.trim();
+        const value = Math.trunc(Number(raw));
+        if (!raw || !Number.isFinite(value)) {
+          recipeJump.value = recipeView.page;
+          return;
+        }
+        const next = Math.min(totalPages, Math.max(1, value));
+        recipeJump.value = next;
+        if (next === recipeView.page) return;
+        recipeView.page = next;
         loadRecipes({ keep: true });
       };
-      recipeJumpButton.addEventListener('click', jumpRecipes);
-      recipeJump.addEventListener('input', () => {
-        recipeJumpButton.disabled = !recipeJump.value.trim();
-      });
+      recipeJump.addEventListener('change', jumpRecipes);
       recipeJump.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') jumpRecipes();
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          recipeJump.blur();
+        }
       });
     } catch (error) {
       body.classList.remove('mcw-list-loading');
@@ -1089,7 +1152,7 @@ export async function mount(root, ctx) {
         ${detailIconHtml(recipe.resultId, recipe.resultNameZh, recipe.resultIcon)}
         <div>
           <strong>${esc(recipe.resultNameZh || recipe.resultNameEn || recipe.resultId)}</strong>
-          <small>${esc(recipe.resultId)} × ${Number(recipe.resultCount) || 1}</small>
+          <small>${esc(recipe.resultNameEn || recipe.resultId)}</small>
         </div>
       </div>`;
     return `
@@ -1099,7 +1162,9 @@ export async function mount(root, ctx) {
         ${result}
         <footer>
           <span>${esc(recipeLabel(recipe.type))}</span>
-          ${compact ? '' : `<code>${esc(recipe.recipeId || '')}</code>`}
+          ${compact ? '' : `<span class="mcw-recipe-foot-name">${esc(
+            recipe.resultNameZh || recipe.resultNameEn || recipe.resultId
+          )} × ${Number(recipe.resultCount) || 1}</span>`}
         </footer>
       </article>`;
   }
@@ -1190,11 +1255,9 @@ export async function mount(root, ctx) {
           <button class="btn btn-ghost btn-sm" data-admin-page="${adminView.page - 1}" ${
       adminView.page <= 1 ? 'disabled' : ''
     }>上一页</button>
-          <span class="mcw-pager-info">第 ${adminView.page} / ${totalPages} 页<span class="mcw-pager-total"> · 共 ${data.total} ${
+          <label class="mcw-pager-current">第 <input type="number" min="1" max="${totalPages}" data-admin-jump-input value="${adminView.page}" aria-label="当前页码" inputmode="numeric" /> / ${totalPages} 页<span class="mcw-pager-total"> · 共 ${data.total} ${
       data.grouped ? `组 · ${data.snapshotCount} 个快照` : '个版本'
-    }</span></span>
-          <label class="mcw-page-jump">跳至 <input type="number" min="1" max="${totalPages}" data-admin-jump-input aria-label="跳转页码" inputmode="numeric" /> 页</label>
-          <button class="btn btn-ghost btn-sm mcw-jump-btn" data-admin-jump disabled>跳转</button>
+    }</span></label>
           <button class="btn btn-ghost btn-sm" data-admin-page="${adminView.page + 1}" ${
       adminView.page >= totalPages ? 'disabled' : ''
     }>下一页</button>
@@ -1213,20 +1276,25 @@ export async function mount(root, ctx) {
       });
     });
     const adminJump = view.querySelector('[data-admin-jump-input]');
-    const adminJumpButton = view.querySelector('[data-admin-jump]');
     const jumpAdmin = () => {
-      if (!adminJump.value.trim()) return;
-      const value = Math.trunc(Number(adminJump.value));
-      if (!Number.isFinite(value)) return;
-      adminView.page = Math.min(totalPages, Math.max(1, value));
+      const raw = adminJump.value.trim();
+      const value = Math.trunc(Number(raw));
+      if (!raw || !Number.isFinite(value)) {
+        adminJump.value = adminView.page;
+        return;
+      }
+      const next = Math.min(totalPages, Math.max(1, value));
+      adminJump.value = next;
+      if (next === adminView.page) return;
+      adminView.page = next;
       loadAdmin().then(() => animateElement(view.querySelector('.mcw-table-wrap')));
     };
-    adminJumpButton.addEventListener('click', jumpAdmin);
-    adminJump.addEventListener('input', () => {
-      adminJumpButton.disabled = !adminJump.value.trim();
-    });
+    adminJump.addEventListener('change', jumpAdmin);
     adminJump.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') jumpAdmin();
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        adminJump.blur();
+      }
     });
     view.querySelectorAll('[data-version-action]').forEach((button) => {
       button.addEventListener('click', () => versionAction(button.dataset.versionAction, button.dataset.version));
@@ -1259,6 +1327,289 @@ export async function mount(root, ctx) {
       adminView.page = 1;
       expandedGroups.clear();
       loadAdmin();
+    });
+  }
+
+  async function renderIconManage() {
+    if (!isAdmin) return;
+    await loadIconManage(false);
+  }
+
+  async function loadIconManage(keep = false) {
+    if (keep) view.classList.add('mcw-list-loading');
+    else view.innerHTML = '<div class="plugin-loading">正在读取缺图物品…</div>';
+    try {
+      const data = await api.get(`${base}/admin/icons`, {
+        keyword: iconManageView.keyword,
+        kind: iconManageView.kind,
+        status: iconManageView.status,
+        page: iconManageView.page,
+        size: iconManageView.size,
+      });
+      if (disposed || tab !== 'icons') return;
+      iconManageView.data = data;
+      paintIconManage();
+    } catch (error) {
+      view.innerHTML = `<div class="mcw-empty"><h3>缺图物品读取失败</h3><p>${esc(
+        error.message || '未知错误'
+      )}</p></div>`;
+    } finally {
+      view.classList.remove('mcw-list-loading');
+    }
+  }
+
+  function paintIconManage() {
+    const data = iconManageView.data;
+    if (!data) return;
+    const records = data.records || [];
+    const totalPages = Math.max(1, Math.ceil(data.total / data.size));
+    iconManageView.page = Math.min(iconManageView.page, totalPages);
+    const selected = iconManageView.selected;
+    const kinds = [
+      ['', '全部类型'],
+      ['item', '物品'],
+      ['block', '方块'],
+      ['entity', '生物'],
+    ];
+    const statuses = [
+      ['', '全部'],
+      ['visible', '未隐藏'],
+      ['hidden', '已隐藏'],
+    ];
+    const cards = records
+      .map((row) => {
+        const badges = [
+          !row.missing ? '<span class="mcw-badge is-published">图标已恢复</span>' : '',
+          row.hidden ? '<span class="mcw-badge is-failed">已隐藏</span>' : '',
+        ]
+          .filter(Boolean)
+          .join(' ');
+        const checked = selected.has(row.namespacedId);
+        return `<article class="mcw-icon-card ${row.hidden ? 'is-hidden' : ''}" data-icon-card="${esc(
+          row.namespacedId
+        )}">
+          <div class="mcw-icon-head">
+            <strong>${esc(row.nameZh || row.nameEn || row.namespacedId)}</strong>
+            <input type="checkbox" class="mcw-icon-check" data-icon-select="${esc(row.namespacedId)}" ${
+          checked ? 'checked' : ''
+        } aria-label="选择 ${esc(row.nameZh || row.namespacedId)}" />
+          </div>
+          <small>${esc(row.nameEn || '')}</small>
+          <div class="mcw-icon-foot">
+            <div class="mcw-icon-badges"><span class="mcw-icon-kind">${esc(kindLabel(row.kind))}</span>${badges}</div>
+            <div class="mcw-icon-actions">
+              <button class="btn ${row.hidden ? 'btn-primary' : 'btn-ghost'} btn-sm" data-icon-toggle data-icon-id="${esc(
+          row.namespacedId
+        )}" data-icon-hidden="${row.hidden ? 'true' : 'false'}">${row.hidden ? '恢复显示' : '隐藏'}</button>
+            </div>
+          </div>
+        </article>`;
+      })
+      .join('');
+    view.innerHTML = `
+      <section class="mcw-panel">
+        <div class="mcw-panel-head">
+          <div>
+            <h2>缺图物品</h2>
+            <p>渲染资产中缺少图标的物品、方块与生物。隐藏后不会出现在前台图鉴、标签悬浮和版本比对中；更新渲染资产后可在此恢复显示。</p>
+          </div>
+          <div class="mcw-row-actions">
+            <button class="btn btn-ghost btn-sm" data-icon-bulk="hide-missing">隐藏全部缺图</button>
+            <button class="btn btn-ghost btn-sm" data-icon-bulk="clear">恢复全部显示</button>
+          </div>
+        </div>
+        <div class="mcw-toolbar" style="margin-bottom:14px">
+          <div class="filter-chips">
+            <span class="mcw-muted">缺图 ${data.missingCount || 0} 个 · 已隐藏 ${data.hiddenCount || 0} 个</span>
+            <span class="mcw-muted" data-icon-selected-count>已选 ${selected.size} 个</span>
+            <label class="mcw-icon-selectall">
+              <input type="checkbox" data-icon-select-all ${
+                records.length > 0 && records.every((row) => selected.has(row.namespacedId)) ? 'checked' : ''
+              } /> 全选本页
+            </label>
+            <button class="btn btn-ghost btn-sm" data-icon-selected-action="hide" ${
+              selected.size ? '' : 'disabled'
+            }>隐藏选中</button>
+            <button class="btn btn-ghost btn-sm" data-icon-selected-action="show" ${
+              selected.size ? '' : 'disabled'
+            }>恢复选中</button>
+          </div>
+          <div class="mcw-toolbar-right">
+            <label class="search-box"><input type="search" data-icon-search placeholder="搜索名称或 id" value="${esc(
+              iconManageView.keyword
+            )}" /></label>
+            <label class="select-box"><select data-icon-kind>${kinds
+              .map(
+                ([value, label]) =>
+                  `<option value="${value}" ${iconManageView.kind === value ? 'selected' : ''}>${label}</option>`
+              )
+              .join('')}</select></label>
+            <label class="select-box"><select data-icon-status>${statuses
+              .map(
+                ([value, label]) =>
+                  `<option value="${value}" ${iconManageView.status === value ? 'selected' : ''}>${label}</option>`
+              )
+              .join('')}</select></label>
+          </div>
+        </div>
+        <div class="mcw-icon-grid">${
+          cards || '<div class="mcw-empty" style="grid-column:1/-1"><h3>没有需要管理的物品</h3><p>当前筛选条件下没有缺图或已隐藏的物品。</p></div>'
+        }</div>
+        <div class="mcw-pager" style="margin-top:18px">
+          <button class="btn btn-ghost btn-sm" data-icon-page="${iconManageView.page - 1}" ${
+      iconManageView.page <= 1 ? 'disabled' : ''
+    }>上一页</button>
+          <label class="mcw-pager-current">第 <input type="number" min="1" max="${totalPages}" data-icon-jump-input value="${iconManageView.page}" aria-label="当前页码" inputmode="numeric" /> / ${totalPages} 页<span class="mcw-pager-total"> · 共 ${
+      data.total || 0
+    } 个</span></label>
+          <button class="btn btn-ghost btn-sm" data-icon-page="${iconManageView.page + 1}" ${
+      iconManageView.page >= totalPages ? 'disabled' : ''
+    }>下一页</button>
+        </div>
+      </section>
+    `;
+
+    const refreshSelection = () => {
+      const count = selected.size;
+      view.querySelector('[data-icon-selected-count]').textContent = `已选 ${count} 个`;
+      view.querySelectorAll('[data-icon-selected-action]').forEach((button) => {
+        button.disabled = count === 0;
+      });
+      const all = records.length > 0 && records.every((row) => selected.has(row.namespacedId));
+      const selectAll = view.querySelector('[data-icon-select-all]');
+      if (selectAll) {
+        selectAll.checked = all;
+        selectAll.indeterminate = !all && records.some((row) => selected.has(row.namespacedId));
+      }
+    };
+
+    view.querySelectorAll('[data-icon-select]').forEach((input) => {
+      input.addEventListener('change', () => {
+        if (input.checked) selected.add(input.dataset.iconSelect);
+        else selected.delete(input.dataset.iconSelect);
+        refreshSelection();
+      });
+    });
+    view.querySelectorAll('[data-icon-card]').forEach((card) => {
+      card.addEventListener('click', (event) => {
+        if (event.target.closest('button, input')) return;
+        const input = card.querySelector('[data-icon-select]');
+        input.checked = !input.checked;
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    });
+    view.querySelector('[data-icon-select-all]')?.addEventListener('change', (event) => {
+      const checked = event.target.checked;
+      records.forEach((row) => {
+        if (checked) selected.add(row.namespacedId);
+        else selected.delete(row.namespacedId);
+      });
+      view.querySelectorAll('[data-icon-select]').forEach((input) => {
+        input.checked = checked;
+      });
+      refreshSelection();
+    });
+    view.querySelectorAll('[data-icon-selected-action]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        if (!selected.size) return;
+        const hide = button.dataset.iconSelectedAction === 'hide';
+        try {
+          await api.post(`${base}/admin/icons/hide-batch`, { ids: [...selected], hidden: hide });
+          toast(hide ? `已隐藏 ${selected.size} 个物品` : `已恢复 ${selected.size} 个物品`, 'success');
+          selected.clear();
+          iconManageView.page = 1;
+          await loadIconManage(true);
+        } catch (error) {
+          toast(error.message || '操作失败', 'error');
+        }
+      });
+    });
+    view.querySelector('[data-icon-search]')?.addEventListener('input', (event) => {
+      clearTimeout(iconSearchTimer);
+      const value = event.target.value.trim();
+      iconSearchTimer = setTimeout(() => {
+        iconManageView.keyword = value;
+        iconManageView.page = 1;
+        selected.clear();
+        loadIconManage(true);
+      }, 300);
+    });
+    view.querySelector('[data-icon-kind]')?.addEventListener('change', (event) => {
+      iconManageView.kind = event.target.value;
+      iconManageView.page = 1;
+      selected.clear();
+      loadIconManage(true);
+    });
+    view.querySelector('[data-icon-status]')?.addEventListener('change', (event) => {
+      iconManageView.status = event.target.value;
+      iconManageView.page = 1;
+      selected.clear();
+      loadIconManage(true);
+    });
+    const iconJump = view.querySelector('[data-icon-jump-input]');
+    const jumpIcons = () => {
+      const raw = iconJump.value.trim();
+      const value = Math.trunc(Number(raw));
+      if (!raw || !Number.isFinite(value)) {
+        iconJump.value = iconManageView.page;
+        return;
+      }
+      const next = Math.min(totalPages, Math.max(1, value));
+      iconJump.value = next;
+      if (next === iconManageView.page) return;
+      iconManageView.page = next;
+      loadIconManage(true);
+    };
+    iconJump.addEventListener('change', jumpIcons);
+    iconJump.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        iconJump.blur();
+      }
+    });
+    view.querySelectorAll('[data-icon-page]').forEach((button) => {
+      button.addEventListener('click', () => {
+        iconManageView.page = Number(button.dataset.iconPage);
+        loadIconManage(true);
+      });
+    });
+    view.querySelectorAll('[data-icon-toggle]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        try {
+          const hidden = button.dataset.iconHidden !== 'true';
+          await api.post(`${base}/admin/icons/hide`, { id: button.dataset.iconId, hidden });
+          toast(hidden ? '已隐藏该物品' : '已恢复该物品', 'success');
+          selected.clear();
+          iconManageView.page = 1;
+          await loadIconManage(true);
+        } catch (error) {
+          toast(error.message || '操作失败', 'error');
+        }
+      });
+    });
+    view.querySelectorAll('[data-icon-bulk]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const action = button.dataset.iconBulk;
+        const ok = await confirm({
+          title: action === 'clear' ? '恢复全部显示' : '隐藏全部缺图物品',
+          message:
+            action === 'clear'
+              ? '将把所有已隐藏的物品恢复为前台可见。'
+              : '将隐藏当前渲染资产中所有缺少图标的物品、方块与生物，前台图鉴将不再展示它们。',
+          confirmText: action === 'clear' ? '恢复' : '隐藏',
+          danger: action !== 'clear',
+        });
+        if (!ok) return;
+        try {
+          await api.post(`${base}/admin/icons/bulk`, { action });
+          toast(action === 'clear' ? '已恢复全部显示' : '已隐藏全部缺图物品', 'success');
+          selected.clear();
+          iconManageView.page = 1;
+          await loadIconManage(true);
+        } catch (error) {
+          toast(error.message || '操作失败', 'error');
+        }
+      });
     });
   }
 
@@ -1762,7 +2113,7 @@ export async function mount(root, ctx) {
         <button class="btn btn-ghost btn-sm" data-compare-page="${compareView.page - 1}" ${
       compareView.page <= 1 ? 'disabled' : ''
     }>上一页</button>
-        <span class="mcw-pager-info">第 ${compareView.page} / ${totalPages} 页<span class="mcw-pager-total"> · 共 ${rows.length} 项</span></span>
+        <label class="mcw-pager-current">第 <input type="number" min="1" max="${totalPages}" data-compare-jump-input value="${compareView.page}" aria-label="当前页码" inputmode="numeric" /> / ${totalPages} 页<span class="mcw-pager-total"> · 共 ${rows.length} 项</span></label>
         <button class="btn btn-ghost btn-sm" data-compare-page="${compareView.page + 1}" ${
       compareView.page >= totalPages ? 'disabled' : ''
     }>下一页</button>
@@ -1770,6 +2121,27 @@ export async function mount(root, ctx) {
     bindIcons(host);
     bindRecipeHover(host);
     if (animate) animateElement(host.querySelector('.mcw-diff-list') || host, 'mcw-page-enter');
+    const compareJump = host.querySelector('[data-compare-jump-input]');
+    const jumpCompare = () => {
+      const raw = compareJump.value.trim();
+      const value = Math.trunc(Number(raw));
+      if (!raw || !Number.isFinite(value)) {
+        compareJump.value = compareView.page;
+        return;
+      }
+      const next = Math.min(totalPages, Math.max(1, value));
+      compareJump.value = next;
+      if (next === compareView.page) return;
+      compareView.page = next;
+      paintCompareList({ animate: false });
+    };
+    compareJump.addEventListener('change', jumpCompare);
+    compareJump.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        compareJump.blur();
+      }
+    });
     host.querySelectorAll('[data-compare-page]').forEach((button) => {
       button.addEventListener('click', () => {
         compareView.page = Number(button.dataset.comparePage);
@@ -1804,7 +2176,13 @@ export async function mount(root, ctx) {
       <article class="mcw-diff-card">
         <div class="mcw-diff-card-head">
           <span class="mcw-badge ${badgeClass}">${label}</span>
-          <code>${esc(id)}</code>
+          ${
+            isItem
+              ? `<code>${esc(id)}</code>`
+              : `<span class="mcw-diff-card-name">${esc(
+                  row.resultNameZh || row.to?.resultNameZh || row.from?.resultNameZh || id
+                )}</span>`
+          }
         </div>
         ${body}
       </article>`;
@@ -1851,7 +2229,7 @@ export async function mount(root, ctx) {
             ${iconHtml({ namespacedId: side.resultId, nameZh: side.resultNameZh, icon: side.resultIcon })}
             <strong>${esc(side.resultNameZh || side.resultNameEn || side.resultId)}</strong>
           </div>
-          <small>${esc(side.resultId)} × ${Number(side.resultCount) || 1}</small>
+          <small>${esc(side.resultNameEn || side.resultId)} × ${Number(side.resultCount) || 1}</small>
           <small>${esc(String(side.type || '').replace('minecraft:', ''))} · 原料 ${(
       side.ingredients || []
     ).length} 项</small>

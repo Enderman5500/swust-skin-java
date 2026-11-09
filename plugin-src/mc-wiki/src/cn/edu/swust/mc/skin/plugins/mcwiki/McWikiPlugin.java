@@ -93,6 +93,26 @@ public final class McWikiPlugin implements SkinPlugin {
         ctx.registerAdminRoute("GET", "/admin/state", request -> query.adminState(
                 request.query("keyword"), request.query("type"), request.query("status"),
                 number(request, "page", 1), number(request, "size", 20)));
+        ctx.registerAdminRoute("GET", "/admin/icons", request -> query.adminIcons(
+                request.query("keyword"), request.query("kind"), request.query("status"),
+                number(request, "page", 1), number(request, "size", 20)));
+        ctx.registerAdminRoute("POST", "/admin/icons/hide", request -> {
+            String id = required(text(request.json().get("id")), "id");
+            Object value = request.json().get("hidden");
+            boolean hidden = value instanceof Boolean flag ? flag : true;
+            return query.setIconHidden(id, hidden);
+        });
+        ctx.registerAdminRoute("POST", "/admin/icons/hide-batch", request -> {
+            List<String> ids = new java.util.ArrayList<>();
+            Object value = request.json().get("ids");
+            if (value instanceof List<?> list) {
+                for (Object id : list) if (id != null) ids.add(String.valueOf(id));
+            }
+            boolean hidden = Boolean.TRUE.equals(request.json().get("hidden"));
+            return query.setIconsHidden(ids, hidden);
+        });
+        ctx.registerAdminRoute("POST", "/admin/icons/bulk", request -> query.bulkIconHidden(
+                required(text(request.json().get("action")), "action")));
         ctx.registerAdminRoute("POST", "/admin/refresh", request -> {
             int count = query.refreshVersions();
             return Map.of("count", count, "message", "已刷新 " + count + " 个版本");

@@ -11,8 +11,10 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 插件自己的文件存储。宿主只提供键值 plugin_data，百科数据量按版本计算较大，
@@ -152,6 +154,17 @@ final class WikiStore {
         }
         if (removedTotal > 0) writeJson(dataDir.resolve("imports.json"), imports);
         return removedTotal;
+    }
+
+    /** 对外隐藏的物品/方块/生物 id（渲染资产缺图时由管理员维护）。 */
+    synchronized Set<String> hiddenItems() {
+        List<String> ids = read(dataDir.resolve("hidden-items.json"), new TypeReference<List<String>>() {
+        }, new ArrayList<>());
+        return new LinkedHashSet<>(ids);
+    }
+
+    synchronized void writeHiddenItems(Set<String> ids) {
+        writeJson(dataDir.resolve("hidden-items.json"), new ArrayList<>(ids));
     }
 
     synchronized Map<String, Object> publication() {

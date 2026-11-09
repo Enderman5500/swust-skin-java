@@ -3,11 +3,14 @@ package cn.edu.swust.mc.skin.plugins.mcwiki;
 import cn.edu.swust.mc.skin.Web;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /** 公开百科与后台的查询/发布逻辑。公开接口只允许读取已发布版本。 */
 final class WikiQuery {
@@ -111,9 +114,18 @@ final class WikiQuery {
             return meta;
         }
         WikiCatalog.Index index = catalog.get(selected);
-        meta.put("items", index.items().size());
+        java.util.Set<String> hidden = store.hiddenItems();
+        long visibleItems = 0;
+        Map<String, Long> kinds = new LinkedHashMap<>();
+        for (Map<String, Object> item : index.items()) {
+            if (hidden.contains(String.valueOf(item.get("namespacedId")))) continue;
+            visibleItems++;
+            String kind = String.valueOf(item.getOrDefault("kind", "item"));
+            kinds.merge(kind, 1L, Long::sum);
+        }
+        meta.put("items", visibleItems);
         meta.put("recipes", index.recipes().size());
-        meta.put("kinds", catalog.kindCounts(index));
+        meta.put("kinds", kinds);
         return meta;
     }
 
@@ -134,9 +146,14 @@ final class WikiQuery {
         Optional<String> selected = select(version);
         if (selected.isEmpty()) return page(List.of(), 0, page, size);
         WikiCatalog.Index index = catalog.get(selected.get());
-        List<Map<String, Object>> rows = catalog.search(index, keyword, kind, page, size).stream()
+        java.util.Set<String> hidden = store.hiddenItems();
+        List<Map<String, Object>> filtered = catalog.filtered(index, keyword, kind).stream()
+                .filter(item -> !hidden.contains(String.valueOf(item.get("namespacedId")))).toList();
+        int capped = Math.min(Math.max(size, 1), 200);
+        int from = Math.min((Math.max(page, 1) - 1) * capped, filtered.size());
+        List<Map<String, Object>> rows = filtered.stream().skip(from).limit(capped)
                 .map(item -> itemRow(selected.get(), item)).toList();
-        return page(rows, catalog.count(index, keyword, kind), page, size);
+        return page(rows, filtered.size(), page, size);
     }
 
     Map<String, Object> recipes(String version, String keyword, int page, int size) {
@@ -161,7 +178,7 @@ final class WikiQuery {
         String v = selected.get();
         WikiCatalog.Index index = catalog.get(v);
         Map<String, Object> item = index.itemsById().get(id);
-        if (item == null) throw Web.notFound("物品不存在：" + id);
+        if (item == null || store.hiddenItems().contains(id)) throw Web.notFound("物品不存在：" + id);
         Map<String, Object> detail = new LinkedHashMap<>();
         detail.put("item", itemRow(v, item));
         detail.put("producing", index.recipesByResult().getOrDefault(id, List.of()).stream()
@@ -275,7 +292,9 @@ final class WikiQuery {
         if (selected.isEmpty()) return Map.of("tag", id, "total", 0, "members", List.of());
         String v = selected.get();
         WikiCatalog.Index index = catalog.get(v);
-        List<String> members = store.tags(v).getOrDefault(id, List.of());
+        java.util.Set<String> hidden = store.hiddenItems();
+        List<String> members = store.tags(v).getOrDefault(id, List.of()).stream()
+                .filter(member -> !hidden.contains(member)).toList();
         if (members.isEmpty() && "minecraft:dyes".equals(id)) {
             List<String> colors = List.of("white", "orange", "magenta", "light_blue", "yellow", "lime",
                     "pink", "gray", "light_gray", "cyan", "purple", "blue", "brown", "green", "red", "black");
@@ -345,8 +364,10 @@ final class WikiQuery {
         List<Map<String, Object>> itemsAdded = new ArrayList<>();
         List<Map<String, Object>> itemsRemoved = new ArrayList<>();
         List<Map<String, Object>> itemsModified = new ArrayList<>();
+        java.util.Set<String> hidden = store.hiddenItems();
         for (Map.Entry<String, Map<String, Object>> entry : toItems.entrySet()) {
             String id = entry.getKey();
+            if (hidden.contains(id)) continue;
             Map<String, Object> next = entry.getValue();
             Map<String, Object> previous = fromItems.get(id);
             if (previous == null) {
@@ -368,7 +389,7 @@ final class WikiQuery {
             }
         }
         for (Map.Entry<String, Map<String, Object>> entry : fromItems.entrySet()) {
-            if (toItems.containsKey(entry.getKey())) continue;
+            if (toItems.containsKey(entry.getKey()) || hidden.contains(entry.getKey())) continue;
             Map<String, Object> previous = entry.getValue();
             if (blank(previous.get("nameZh")) && blank(previous.get("nameEn"))) continue;
             itemsRemoved.add(compareItem(from, to, entry.getKey(), previous, null));
@@ -415,8 +436,10 @@ final class WikiQuery {
         result.put("from", from);
         result.put("to", to);
         result.put("itemKindCounts", itemKindCounts);
-        result.put("fromStats", Map.of("items", fromIndex.items().size(), "recipes", fromIndex.recipes().size()));
-        result.put("toStats", Map.of("items", toIndex.items().size(), "recipes", toIndex.recipes().size()));
+        result.put("fromStats", Map.of("items", visibleItemCount(fromIndex, hidden),
+                "recipes", fromIndex.recipes().size()));
+        result.put("toStats", Map.of("items", visibleItemCount(toIndex, hidden),
+                "recipes", toIndex.recipes().size()));
         Map<String, Object> counts = new LinkedHashMap<>();
         counts.put("itemsAdded", itemsAdded.size());
         counts.put("itemsRemoved", itemsRemoved.size());
@@ -428,6 +451,14 @@ final class WikiQuery {
         result.put("items", diffBlock(itemsAdded, itemsRemoved, itemsModified));
         result.put("recipes", diffBlock(recipesAdded, recipesRemoved, recipesModified));
         return result;
+    }
+
+    private static int visibleItemCount(WikiCatalog.Index index, java.util.Set<String> hidden) {
+        int count = 0;
+        for (Map<String, Object> item : index.items()) {
+            if (!hidden.contains(String.valueOf(item.get("namespacedId")))) count++;
+        }
+        return count;
     }
 
     private static void countKinds(Map<String, Map<String, Integer>> counts, List<Map<String, Object>> rows,
@@ -631,6 +662,110 @@ final class WikiQuery {
         result.put("total", entries.size());
         result.put("snapshotCount", snapshots);
         return result;
+    }
+
+    /** 渲染资产缺图或已被隐藏的物品，供后台统一管理。 */
+    Map<String, Object> adminIcons(String keyword, String kind, String status, int page, int size) {
+        List<Map<String, Object>> all = iconRows();
+        long missingCount = all.stream().filter(row -> Boolean.TRUE.equals(row.get("missing"))).count();
+        long hiddenCount = all.stream().filter(row -> Boolean.TRUE.equals(row.get("hidden"))).count();
+        String query = keyword == null ? "" : keyword.trim().toLowerCase(Locale.ROOT);
+        String statusFilter = status == null ? "" : status;
+        List<Map<String, Object>> filtered = new ArrayList<>();
+        for (Map<String, Object> row : all) {
+            if (!query.isEmpty()) {
+                String haystack = (row.get("namespacedId") + " " + row.get("nameZh") + " " + row.get("nameEn"))
+                        .toLowerCase(Locale.ROOT);
+                if (!haystack.contains(query)) continue;
+            }
+            if (kind != null && !kind.isBlank() && !kind.equals(String.valueOf(row.get("kind")))) continue;
+            if ("hidden".equals(statusFilter) && !Boolean.TRUE.equals(row.get("hidden"))) continue;
+            if ("visible".equals(statusFilter) && Boolean.TRUE.equals(row.get("hidden"))) continue;
+            filtered.add(row);
+        }
+        int capped = Math.min(Math.max(size, 1), 100);
+        int from = Math.min((Math.max(page, 1) - 1) * capped, filtered.size());
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("records", filtered.stream().skip(from).limit(capped).toList());
+        result.put("total", filtered.size());
+        result.put("missingCount", missingCount);
+        result.put("hiddenCount", hiddenCount);
+        result.put("page", Math.max(page, 1));
+        result.put("size", capped);
+        return result;
+    }
+
+    Map<String, Object> setIconHidden(String id, boolean hidden) {
+        String target = id == null ? "" : id.trim();
+        if (target.isBlank()) throw Web.badRequest("缺少物品 id");
+        boolean known = iconRows().stream().anyMatch(row -> target.equals(row.get("namespacedId")));
+        if (!known) throw Web.badRequest("该物品不在缺图或隐藏列表中");
+        Set<String> hiddenIds = new LinkedHashSet<>(store.hiddenItems());
+        if (hidden) hiddenIds.add(target);
+        else hiddenIds.remove(target);
+        store.writeHiddenItems(hiddenIds);
+        return Map.of("id", target, "hidden", hidden, "count", hiddenIds.size());
+    }
+
+    Map<String, Object> setIconsHidden(List<String> ids, boolean hidden) {
+        if (ids == null || ids.isEmpty()) throw Web.badRequest("请选择物品");
+        Set<String> known = new LinkedHashSet<>();
+        for (Map<String, Object> row : iconRows()) known.add(String.valueOf(row.get("namespacedId")));
+        Set<String> hiddenIds = new LinkedHashSet<>(store.hiddenItems());
+        int changed = 0;
+        for (String raw : ids) {
+            String id = raw == null ? "" : raw.trim();
+            if (id.isBlank() || !known.contains(id)) continue;
+            if (hidden ? hiddenIds.add(id) : hiddenIds.remove(id)) changed++;
+        }
+        store.writeHiddenItems(hiddenIds);
+        return Map.of("count", hiddenIds.size(), "changed", changed);
+    }
+
+    Map<String, Object> bulkIconHidden(String action) {
+        Set<String> hiddenIds = new LinkedHashSet<>(store.hiddenItems());
+        if ("hide-missing".equals(action)) {
+            for (Map<String, Object> row : iconRows()) {
+                if (Boolean.TRUE.equals(row.get("missing"))) hiddenIds.add(String.valueOf(row.get("namespacedId")));
+            }
+        } else if ("clear".equals(action)) {
+            hiddenIds.clear();
+        } else {
+            throw Web.badRequest("未知操作：" + action);
+        }
+        store.writeHiddenItems(hiddenIds);
+        return Map.of("count", hiddenIds.size());
+    }
+
+    /** 汇总所有已导入版本中缺图或被隐藏的物品。 */
+    private List<Map<String, Object>> iconRows() {
+        Set<String> hidden = store.hiddenItems();
+        Map<String, Map<String, Object>> byId = new LinkedHashMap<>();
+        Map<String, Map<String, Object>> imports = store.imports();
+        for (Map<String, Object> version : store.versions()) {
+            String versionId = String.valueOf(version.get("id"));
+            if (!imports.containsKey(versionId)) continue;
+            for (Map<String, Object> item : catalog.get(versionId).items()) {
+                String id = String.valueOf(item.get("namespacedId"));
+                if (byId.containsKey(id)) continue;
+                String itemKind = String.valueOf(item.getOrDefault("kind", "item"));
+                boolean isHidden = hidden.contains(id);
+                boolean missing = renders.iconPath(id, itemKind) == null;
+                if (!missing && !isHidden) continue;
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("namespacedId", id);
+                row.put("kind", itemKind);
+                row.put("nameZh", item.getOrDefault("nameZh", ""));
+                row.put("nameEn", item.getOrDefault("nameEn", ""));
+                row.put("missing", missing);
+                row.put("hidden", isHidden);
+                byId.put(id, row);
+            }
+        }
+        List<Map<String, Object>> rows = new ArrayList<>(byId.values());
+        rows.sort(Comparator.comparing((Map<String, Object> row) -> String.valueOf(row.get("kind")))
+                .thenComparing(row -> String.valueOf(row.get("namespacedId"))));
+        return rows;
     }
 
     private Map<String, Object> adminRow(Map<String, Object> version, Map<String, Map<String, Object>> imports,
