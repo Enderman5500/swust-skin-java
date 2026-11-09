@@ -11,6 +11,8 @@ const RECIPE_LABELS = {
   'minecraft:smithing_transform': '锻造',
   'minecraft:smithing_trim': '锻造纹饰',
   'minecraft:crafting_transmute': '染色转换',
+  'minecraft:crafting_dye': '装备染色',
+  'minecraft:crafting_imbue': '药箭',
   'minecraft:crafting_special_armordye': '盔甲染色',
   'minecraft:crafting_special_bannerduplicate': '旗帜复制',
   'minecraft:crafting_special_bookcloning': '成书复制',
@@ -55,12 +57,22 @@ const STYLE = `
 .mcw-icon-wrap img { max-width: 100%; max-height: 100%; image-rendering: pixelated; }
 .mcw-icon-wrap.is-empty::after { content: attr(data-initial); display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; border-radius: 10px; background: linear-gradient(140deg, var(--ice-soft), #fff); color: var(--navy); font-family: var(--font-display); font-size: 20px; }
 .mcw-list { display: flex; flex-direction: column; gap: 12px; }
-.mcw-recipe-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-.mcw-recipe { display: grid; grid-template-columns: auto 28px auto; align-items: center; gap: 14px; padding: 14px 16px; border-radius: var(--radius); border: 1px solid var(--line); background: rgba(255,255,255,.9); }
-.mcw-recipe-grid .mcw-recipe { grid-template-columns: auto 22px minmax(0, 1fr); gap: 12px; }
-.mcw-recipe-grid .mcw-result { min-width: 0; }
-.mcw-recipe footer { grid-column: 1 / -1; display: flex; justify-content: space-between; gap: 12px; padding-top: 8px; border-top: 1px dashed var(--line); font-size: 10.5px; color: var(--muted); }
-.mcw-recipe footer code { font-family: var(--font-mono); font-size: 10px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mcw-recipe-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 860px) {
+  .mcw-recipe-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.mcw-recipe { display: grid; grid-template-columns: auto 28px auto; align-items: center; gap: 8px; padding: 10px 12px; border-radius: var(--radius); border: 1px solid var(--line); background: rgba(255,255,255,.9); }
+.mcw-recipe-grid .mcw-recipe { grid-template-columns: auto 18px minmax(0, 1fr); gap: 6px; }
+.mcw-recipe-grid .mcw-result { min-width: 0; gap: 6px; }
+.mcw-recipe-grid .mcw-result > div { min-width: 0; }
+.mcw-recipe-grid .mcw-result small { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mcw-recipe-grid .mcw-result .mcw-icon-wrap { width: 34px; height: 34px; }
+.mcw-recipe-grid .mcw-result strong { font-size: 12.5px; line-height: 1.35; }
+.mcw-recipe-grid .mcw-result small { font-size: 9.5px; }
+.mcw-recipe-grid .mcw-grid3 { grid-template-columns: repeat(3, 32px); grid-template-rows: repeat(3, 32px); gap: 3px; padding: 6px; }
+.mcw-recipe-grid .mcw-arrow { font-size: 16px; }
+.mcw-recipe footer { grid-column: 1 / -1; display: flex; justify-content: space-between; gap: 8px; padding-top: 6px; border-top: 1px dashed var(--line); font-size: 10.5px; color: var(--muted); }
+.mcw-recipe footer code { flex: 1 1 auto; min-width: 0; text-align: right; font-family: var(--font-mono); font-size: 10px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mcw-grid3 { display: grid; grid-template-columns: repeat(3, 38px); grid-template-rows: repeat(3, 38px); gap: 4px; padding: 8px; border-radius: 12px; background: #fff; border: 1px solid var(--line-strong); }
 .mcw-cell { display: flex; align-items: center; justify-content: center; border-radius: 7px; background: var(--paper); border: 1px solid rgba(19,43,64,.09); position: relative; }
 .mcw-cell.is-empty { background: transparent; border: 1px dashed rgba(19,43,64,.2); }
@@ -172,8 +184,8 @@ const STYLE = `
 .mcw-compare-arrow { align-self: center; color: var(--muted); font-size: 18px; }
 .mcw-compare-summary { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
 .mcw-diff-list { display: flex; flex-direction: column; gap: 10px; }
-.mcw-diff-list.is-items { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.mcw-diff-list.is-recipes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.mcw-diff-list.is-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 10px; }
+.mcw-diff-list.is-recipes { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 10px; }
 .mcw-diff-card { position: relative; }
 .mcw-diff-side { position: relative; }
 .mcw-diff-side-badge { top: 10px; right: 10px; position: absolute; z-index: 1; }
@@ -185,23 +197,31 @@ const STYLE = `
 .mcw-compare-group button.mcw-badge.is-active { border-color: var(--navy); box-shadow: 0 0 0 2px rgba(44,76,102,.14); }
 .mcw-diff-side .mcw-grid3 { align-self: flex-start; }
 .mcw-diff-card { border-radius: var(--radius); border: 1px solid var(--line); background: rgba(255,255,255,.88); overflow: hidden; }
-.mcw-diff-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 14px; border-bottom: 1px solid var(--line); background: var(--paper); font-size: 11px; color: var(--muted); }
-.mcw-diff-card-head code { font-family: var(--font-mono); font-size: 10.5px; overflow-wrap: anywhere; }
-.mcw-diff-body { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 12px; padding: 12px; align-items: stretch; }
+.mcw-diff-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--line); background: var(--paper); font-size: 11px; color: var(--muted); }
+.mcw-diff-card-head code { flex: 1 1 auto; min-width: 0; text-align: right; font-family: var(--font-mono); font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mcw-diff-body { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 6px; padding: 8px; align-items: stretch; }
 .mcw-diff-body.is-single { grid-template-columns: minmax(0, 1fr); }
-.mcw-compare-recipe { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mcw-compare-recipe { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.mcw-compare-recipe .mcw-grid3 { grid-template-columns: repeat(3, 26px); grid-template-rows: repeat(3, 26px); gap: 3px; padding: 5px; }
+.mcw-compare-recipe .mcw-cell img { max-width: 22px; max-height: 22px; }
+.mcw-compare-recipe .mcw-cell .mcw-icon-wrap { width: 22px; height: 22px; }
+.mcw-compare-recipe .mcw-diff-side-head .mcw-icon-wrap { width: 24px; height: 24px; }
+.mcw-compare-recipe-info .mcw-diff-side-head { gap: 4px; padding-right: 0; }
+.mcw-compare-recipe-info .mcw-diff-side-head strong { flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mcw-compare-recipe-info strong { font-size: 11px; line-height: 1.35; }
+.mcw-compare-recipe-info small { display: block; font-size: 9px; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mcw-compare-recipe-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.mcw-diff-side { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 8px 10px; border-radius: 10px; border: 1px dashed var(--line-strong); }
+.mcw-diff-side { display: flex; flex-direction: column; gap: 3px; min-width: 0; padding: 5px 6px; border-radius: 10px; border: 1px dashed var(--line-strong); }
 .mcw-diff-side.is-present { border-style: solid; background: rgba(244,246,249,.55); }
 .mcw-diff-side.is-target { border-color: rgba(60,122,91,.28); background: rgba(60,122,91,.05); }
 .mcw-diff-side-label { font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
-.mcw-diff-side-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.mcw-diff-side-head .mcw-icon-wrap { width: 34px; height: 34px; flex: 0 0 auto; }
-.mcw-diff-side-head strong { font-size: 12.5px; color: var(--navy); overflow-wrap: anywhere; }
-.mcw-diff-side small { font-size: 10.5px; color: var(--muted); overflow-wrap: anywhere; }
+.mcw-diff-side-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.mcw-diff-side-head .mcw-icon-wrap { width: 30px; height: 30px; flex: 0 0 auto; }
+.mcw-diff-side-head strong { font-size: 12px; color: var(--navy); overflow-wrap: anywhere; }
+.mcw-diff-side small { display: block; font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mcw-diff-side-empty { color: var(--muted); font-size: 12px; }
 .mcw-diff-arrow { align-self: center; color: var(--muted); font-size: 16px; }
-@media (max-width: 900px) {
+@media (max-width: 720px) {
   .mcw-diff-list.is-items, .mcw-diff-list.is-recipes { grid-template-columns: 1fr; }
 }
 @media (max-width: 640px) {
@@ -223,9 +243,11 @@ const STYLE = `
 @media (max-width: 900px) {
   .mcw-job-layout { grid-template-columns: 1fr; }
   .mcw-jobs-list { max-height: 260px; }
-  .mcw-recipe-grid { grid-template-columns: 1fr; }
   .mcw-jobdetail { min-height: 420px; }
   .mcw-jobdetail .mcw-log { min-height: 260px; }
+}
+@media (max-width: 720px) {
+  .mcw-recipe-grid { grid-template-columns: 1fr; }
 }
 .mcw-job-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border-radius: 9px; border: 1px solid var(--line); background: #fff; font-size: 11.5px; }
 @keyframes mcw-view-in { from { opacity: 0.55; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -282,8 +304,8 @@ const STYLE = `
 .mcw-compare-arrow { align-self: center; color: var(--muted); font-size: 18px; }
 .mcw-compare-summary { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
 .mcw-diff-list { display: flex; flex-direction: column; gap: 10px; }
-.mcw-diff-list.is-items { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.mcw-diff-list.is-recipes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.mcw-diff-list.is-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 10px; }
+.mcw-diff-list.is-recipes { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 10px; }
 .mcw-diff-card { position: relative; }
 .mcw-diff-side { position: relative; }
 .mcw-diff-side-badge { top: 10px; right: 10px; position: absolute; z-index: 1; }
@@ -295,23 +317,31 @@ const STYLE = `
 .mcw-compare-group button.mcw-badge.is-active { border-color: var(--navy); box-shadow: 0 0 0 2px rgba(44,76,102,.14); }
 .mcw-diff-side .mcw-grid3 { align-self: flex-start; }
 .mcw-diff-card { border-radius: var(--radius); border: 1px solid var(--line); background: rgba(255,255,255,.88); overflow: hidden; }
-.mcw-diff-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 14px; border-bottom: 1px solid var(--line); background: var(--paper); font-size: 11px; color: var(--muted); }
-.mcw-diff-card-head code { font-family: var(--font-mono); font-size: 10.5px; overflow-wrap: anywhere; }
-.mcw-diff-body { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 12px; padding: 12px; align-items: stretch; }
+.mcw-diff-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--line); background: var(--paper); font-size: 11px; color: var(--muted); }
+.mcw-diff-card-head code { flex: 1 1 auto; min-width: 0; text-align: right; font-family: var(--font-mono); font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mcw-diff-body { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 6px; padding: 8px; align-items: stretch; }
 .mcw-diff-body.is-single { grid-template-columns: minmax(0, 1fr); }
-.mcw-compare-recipe { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mcw-compare-recipe { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.mcw-compare-recipe .mcw-grid3 { grid-template-columns: repeat(3, 26px); grid-template-rows: repeat(3, 26px); gap: 3px; padding: 5px; }
+.mcw-compare-recipe .mcw-cell img { max-width: 22px; max-height: 22px; }
+.mcw-compare-recipe .mcw-cell .mcw-icon-wrap { width: 22px; height: 22px; }
+.mcw-compare-recipe .mcw-diff-side-head .mcw-icon-wrap { width: 24px; height: 24px; }
+.mcw-compare-recipe-info .mcw-diff-side-head { gap: 4px; padding-right: 0; }
+.mcw-compare-recipe-info .mcw-diff-side-head strong { flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mcw-compare-recipe-info strong { font-size: 11px; line-height: 1.35; }
+.mcw-compare-recipe-info small { display: block; font-size: 9px; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mcw-compare-recipe-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.mcw-diff-side { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 8px 10px; border-radius: 10px; border: 1px dashed var(--line-strong); }
+.mcw-diff-side { display: flex; flex-direction: column; gap: 3px; min-width: 0; padding: 5px 6px; border-radius: 10px; border: 1px dashed var(--line-strong); }
 .mcw-diff-side.is-present { border-style: solid; background: rgba(244,246,249,.55); }
 .mcw-diff-side.is-target { border-color: rgba(60,122,91,.28); background: rgba(60,122,91,.05); }
 .mcw-diff-side-label { font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
-.mcw-diff-side-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.mcw-diff-side-head .mcw-icon-wrap { width: 34px; height: 34px; flex: 0 0 auto; }
-.mcw-diff-side-head strong { font-size: 12.5px; color: var(--navy); overflow-wrap: anywhere; }
-.mcw-diff-side small { font-size: 10.5px; color: var(--muted); overflow-wrap: anywhere; }
+.mcw-diff-side-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.mcw-diff-side-head .mcw-icon-wrap { width: 30px; height: 30px; flex: 0 0 auto; }
+.mcw-diff-side-head strong { font-size: 12px; color: var(--navy); overflow-wrap: anywhere; }
+.mcw-diff-side small { display: block; font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mcw-diff-side-empty { color: var(--muted); font-size: 12px; }
 .mcw-diff-arrow { align-self: center; color: var(--muted); font-size: 16px; }
-@media (max-width: 900px) {
+@media (max-width: 720px) {
   .mcw-diff-list.is-items, .mcw-diff-list.is-recipes { grid-template-columns: 1fr; }
 }
 @media (max-width: 640px) {
@@ -365,6 +395,13 @@ const STYLE = `
   .mcw-pager-total { display: none; }
   .mcw-dialog-body { padding: 16px; }
 }
+.mcw-diff-list.is-recipes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 860px) {
+  .mcw-diff-list.is-recipes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 720px) {
+  .mcw-diff-list.is-recipes { grid-template-columns: 1fr; }
+}
 @media (prefers-reduced-motion: reduce) {
   .mcw-view-enter, .mcw-page-enter { animation: none; }
   ::view-transition-old(mcw-view), ::view-transition-new(mcw-view) { animation: none; }
@@ -374,7 +411,7 @@ const STYLE = `
   .mcw-stats { grid-template-columns: repeat(2, 1fr); }
   .mcw-stat:nth-child(2) { border-right: 0; }
   .mcw-stat:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
-  .mcw-recipe { grid-template-columns: 1fr; justify-items: center; }
+  .mcw-recipe, .mcw-recipe-grid .mcw-recipe { grid-template-columns: 1fr; justify-items: center; }
   .mcw-arrow { transform: rotate(90deg); }
   .mcw-toolbar .search-box { width: 100%; max-width: none; }
   .mcw-toolbar-right { width: 100%; }
@@ -395,11 +432,21 @@ export async function mount(root, ctx) {
   let version = '';
   const compactLayout = () => window.matchMedia?.('(max-width: 640px)').matches === true;
   let lastCompact = compactLayout();
+  const narrowCards = () => window.matchMedia?.('(max-width: 720px)').matches === true;
+  const viewWidth = () => view?.clientWidth || Math.max(320, (window.innerWidth || 0) - 48);
+  const gridColumns = (minWidth, gap) => Math.max(1, Math.floor((viewWidth() + gap) / (minWidth + gap)));
+  const itemColumns = () => {
+    if (lastCompact) return 2;
+    return gridColumns(window.matchMedia?.('(max-width: 900px)').matches ? 140 : 168, 12);
+  };
+  const cardColumns = () => (narrowCards() ? 1 : gridColumns(270, 10));
   const applyPageSizes = () => {
-    itemView.size = lastCompact ? 12 : 18;
-    recipeView.size = lastCompact ? 8 : 12;
+    const columns = itemColumns();
+    itemView.size = lastCompact ? columns * 6 : columns * (columns >= 6 ? 3 : 4);
+    const cards = cardColumns();
+    recipeView.size = window.matchMedia?.('(min-width: 861px)').matches ? 12 : 8;
     adminView.size = lastCompact ? 10 : 15;
-    compareView.size = lastCompact ? 12 : 20;
+    compareView.size = narrowCards() ? 12 : cards * 5;
   };
   let itemView = { keyword: '', kind: '', page: 1, size: 18, loading: false };
   let recipeView = { keyword: '', page: 1, size: 12, loading: false };
@@ -418,7 +465,6 @@ export async function mount(root, ctx) {
   let searchTimer = null;
 
   injectStyle();
-  applyPageSizes();
   root.innerHTML = `
     <section class="plugin-shell mcw">
       <header class="plugin-head">
@@ -442,6 +488,7 @@ export async function mount(root, ctx) {
   `;
   const view = root.querySelector('[data-view]');
   view.classList.add('mcw-vt-view');
+  applyPageSizes();
 
   if (ctx.plugin?.version) {
     root.querySelector('.plugin-lead').insertAdjacentHTML(
@@ -1065,8 +1112,9 @@ export async function mount(root, ctx) {
     await loadAdmin();
   }
 
-  async function loadAdmin() {
+  async function loadAdmin(options = {}) {
     if (!isAdmin) return;
+    if (options.keep) view.classList.add('mcw-list-loading');
     try {
       const data = await api.get(`${base}/admin/state`, {
         keyword: adminView.keyword,
@@ -1080,6 +1128,8 @@ export async function mount(root, ctx) {
       paintAdmin();
     } catch (error) {
       view.innerHTML = `<div class="mcw-empty"><h3>后台数据读取失败</h3><p>${esc(error.message || '未知错误')}</p></div>`;
+    } finally {
+      view.classList.remove('mcw-list-loading');
     }
   }
 
@@ -1104,7 +1154,7 @@ export async function mount(root, ctx) {
         <div class="mcw-panel-head">
           <div>
             <h2>百科版本</h2>
-            <p>导入会把该版本的物品、配方与方块状态写入本地；发布后前台图鉴与配方页可切换查看。</p>
+            <p>导入会把该版本的物品、配方与方块状态写入本地；发布后前台可切换查看，已发布版本可设为默认展示。</p>
           </div>
           <div class="mcw-row-actions">
             <button class="btn btn-ghost" data-admin-action="jobs">任务中心</button>
@@ -1309,7 +1359,11 @@ export async function mount(root, ctx) {
         : `<button class="btn btn-primary btn-sm" data-version-action="import" data-version="${esc(row.id)}">导入</button>`,
       row.imported
         ? row.published
-          ? `<button class="btn btn-ghost btn-sm" data-version-action="unpublish" data-version="${esc(row.id)}">取消发布</button>`
+          ? `<button class="btn btn-ghost btn-sm" data-version-action="unpublish" data-version="${esc(row.id)}">取消发布</button>${
+              row.current
+                ? ''
+                : `<button class="btn btn-ghost btn-sm" data-version-action="default" data-version="${esc(row.id)}">设为默认</button>`
+            }`
           : `<button class="btn btn-primary btn-sm" data-version-action="publish" data-version="${esc(row.id)}">发布</button>`
         : '',
       row.imported
@@ -1389,6 +1443,13 @@ export async function mount(root, ctx) {
         await loadAdmin();
         return;
       }
+      if (action === 'default') {
+        await api.post(`${base}/admin/default`, { version: versionId });
+        toast(`${versionId} 已设为默认展示版本`, 'success');
+        await loadMeta();
+        await loadAdmin();
+        return;
+      }
       if (action === 'delete') {
         const ok = await confirm({
           title: '删除版本数据',
@@ -1410,7 +1471,7 @@ export async function mount(root, ctx) {
   // ---------------- 版本比对 ----------------
 
   async function renderCompare() {
-    view.innerHTML = '<div class="plugin-loading">正在读取已导入版本…</div>';
+    view.innerHTML = '<div class="plugin-loading">正在读取已发布版本…</div>';
     let versions = [];
     try {
       const data = await api.get(`${base}/versions`);
@@ -1423,8 +1484,8 @@ export async function mount(root, ctx) {
     if (versions.length < 2) {
       view.innerHTML = `
         <div class="mcw-empty">
-          <h3>至少需要两个已导入版本</h3>
-          <p>请先在「版本管理」中导入两个 Minecraft 版本，再回到这里进行物品与配方比对。</p>
+          <h3>至少需要两个已发布版本</h3>
+          <p>请先在「版本管理」中发布两个 Minecraft 版本，再回到这里进行物品与配方比对。</p>
         </div>`;
       return;
     }
@@ -1661,10 +1722,15 @@ export async function mount(root, ctx) {
     return compareView.kind === 'items' && compareView.itemKind === key;
   }
 
-  function paintCompareList() {
+  function paintCompareList({ animate = true } = {}) {
     const host = view.querySelector('[data-compare-list]');
     const data = compareView.data;
     if (!host || !data) return;
+    if (compareView.kind === 'recipes') {
+      compareView.size = window.matchMedia?.('(min-width: 861px)').matches ? 12 : 8;
+    } else {
+      compareView.size = narrowCards() ? 12 : Math.max(1, cardColumns()) * 5;
+    }
     const block = data[compareView.kind] || {};
     let rows = block[compareView.filter] || [];
     if (compareView.kind === 'items' && compareView.itemKind) {
@@ -1682,7 +1748,7 @@ export async function mount(root, ctx) {
     }
     if (!rows.length) {
       host.innerHTML = '<p class="mcw-muted" style="padding:20px 0">当前分类没有差异。</p>';
-      animateElement(host, 'mcw-page-enter');
+      if (animate) animateElement(host, 'mcw-page-enter');
       return;
     }
     const totalPages = Math.max(1, Math.ceil(rows.length / compareView.size));
@@ -1703,7 +1769,7 @@ export async function mount(root, ctx) {
       </div>`;
     bindIcons(host);
     bindRecipeHover(host);
-    animateElement(host.querySelector('.mcw-diff-list') || host, 'mcw-page-enter');
+    if (animate) animateElement(host.querySelector('.mcw-diff-list') || host, 'mcw-page-enter');
     host.querySelectorAll('[data-compare-page]').forEach((button) => {
       button.addEventListener('click', () => {
         compareView.page = Number(button.dataset.comparePage);
@@ -2147,24 +2213,26 @@ export async function mount(root, ctx) {
   let resizeTimer = null;
   const onResize = () => {
     const next = compactLayout();
-    if (next === lastCompact) return;
+    const previousSize = itemView.size;
+    const layoutChanged = next !== lastCompact;
     lastCompact = next;
     applyPageSizes();
+    if (!layoutChanged && previousSize === itemView.size) return;
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
       if (disposed) return;
       if (tab === 'items') {
         itemView.page = 1;
-        loadItems();
+        loadItems({ keep: true });
       } else if (tab === 'recipes') {
         recipeView.page = 1;
-        loadRecipes();
+        loadRecipes({ keep: true });
       } else if (tab === 'admin') {
         adminView.page = 1;
-        loadAdmin();
+        loadAdmin({ keep: true });
       } else if (tab === 'compare' && compareView.data) {
         compareView.page = 1;
-        paintCompareList();
+        paintCompareList({ animate: false });
       }
     }, 250);
   };

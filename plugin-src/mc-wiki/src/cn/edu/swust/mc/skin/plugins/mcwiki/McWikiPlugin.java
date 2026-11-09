@@ -113,6 +113,11 @@ public final class McWikiPlugin implements SkinPlugin {
             query.unpublish(version);
             return Map.of("published", false, "version", version);
         });
+        ctx.registerAdminRoute("POST", "/admin/default", request -> {
+            String version = required(text(request.json().get("version")), "version");
+            query.setDefaultVersion(version);
+            return Map.of("current", true, "version", version);
+        });
         ctx.registerAdminRoute("POST", "/admin/delete", request -> {
             String version = required(text(request.json().get("version")), "version");
             return query.deleteVersionData(version);

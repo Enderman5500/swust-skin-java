@@ -46,7 +46,8 @@ final class WikiQuery {
         List<String> published = new ArrayList<>(publishedVersions());
         published.remove(version);
         published.add(version);
-        savePublication(version, published);
+        String current = currentVersion();
+        savePublication(current != null && published.contains(current) ? current : version, published);
     }
 
     void unpublish(String version) {
@@ -56,7 +57,17 @@ final class WikiQuery {
             store.writePublication(new LinkedHashMap<>());
             return;
         }
-        savePublication(published.getLast(), published);
+        String current = currentVersion();
+        if (current == null || !published.contains(current)) current = published.getLast();
+        savePublication(current, published);
+    }
+
+    /** 从已发布版本中指定公开页面默认展示的版本。 */
+    void setDefaultVersion(String version) {
+        List<String> published = publishedVersions();
+        if (!published.contains(version)) throw Web.badRequest("请先发布该版本");
+        if (version.equals(currentVersion())) return;
+        savePublication(version, published);
     }
 
     private void savePublication(String current, List<String> published) {
@@ -265,6 +276,12 @@ final class WikiQuery {
         String v = selected.get();
         WikiCatalog.Index index = catalog.get(v);
         List<String> members = store.tags(v).getOrDefault(id, List.of());
+        if (members.isEmpty() && "minecraft:dyes".equals(id)) {
+            List<String> colors = List.of("white", "orange", "magenta", "light_blue", "yellow", "lime",
+                    "pink", "gray", "light_gray", "cyan", "purple", "blue", "brown", "green", "red", "black");
+            members = colors.stream().map(color -> "minecraft:" + color + "_dye")
+                    .filter(index.itemsById()::containsKey).toList();
+        }
         List<Map<String, Object>> rows = new ArrayList<>();
         for (String member : members) {
             Map<String, Object> item = index.itemsById().get(member);
@@ -286,7 +303,7 @@ final class WikiQuery {
         return result;
     }
 
-    /** 公开的已导入版本列表，供版本比对页使用。 */
+    /** 公开的已发布版本列表，供版本比对页使用。 */
     Map<String, Object> importedVersions() {
         Map<String, Map<String, Object>> imports = store.imports();
         List<String> published = publishedVersions();
@@ -295,7 +312,7 @@ final class WikiQuery {
         for (Map<String, Object> version : store.versions()) {
             String id = String.valueOf(version.get("id"));
             Map<String, Object> record = imports.get(id);
-            if (record == null) continue;
+            if (record == null || !published.contains(id)) continue;
             Map<String, Object> row = new LinkedHashMap<>(version);
             row.put("items", record.getOrDefault("items", 0));
             row.put("recipes", record.getOrDefault("recipes", 0));
@@ -317,8 +334,9 @@ final class WikiQuery {
             throw Web.badRequest("请选择两个版本");
         }
         if (from.equals(to)) throw Web.badRequest("请选择不同的版本");
-        if (store.importRecord(from) == null) throw Web.badRequest("版本尚未导入：" + from);
-        if (store.importRecord(to) == null) throw Web.badRequest("版本尚未导入：" + to);
+        List<String> published = publishedVersions();
+        if (!published.contains(from)) throw Web.badRequest("版本尚未发布：" + from);
+        if (!published.contains(to)) throw Web.badRequest("版本尚未发布：" + to);
         WikiCatalog.Index fromIndex = catalog.get(from);
         WikiCatalog.Index toIndex = catalog.get(to);
 
