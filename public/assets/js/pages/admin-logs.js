@@ -37,7 +37,7 @@ export async function renderLogs(main, ctx) {
       <div>
         <p class="eyebrow">SYSTEM LOGS</p>
         <h2>系统日志</h2>
-        <p>实时查看应用、systemd journald 与 Nginx 日志，并下载历史文件或按时间导出。</p>
+        <p>实时查看应用、systemd journald 与 Nginx 日志，日志默认保留 30 天，可下载历史文件或按时间导出。</p>
         <p class="field-hint">游戏端心跳只记录玩家上线 / 离线，不记录每次上报的玩家明细。</p>
       </div>
       <div class="admin-head-actions">
@@ -179,6 +179,7 @@ export async function renderLogs(main, ctx) {
             [1, '最近 1 小时'],
             [24, '最近 24 小时'],
             [168, '最近 7 天'],
+            [720, '最近 30 天'],
           ]
             .map(
               ([hours, label]) => `
