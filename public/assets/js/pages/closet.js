@@ -1,5 +1,5 @@
 import { api, buildQuery } from '../api.js';
-import { PAGE_SIZES } from '../admin-pagination.js';
+import { DEFAULT_ROWS, ROW_SIZES, gridColumns, pageSizeForRows } from '../card-pagination.js';
 import {
   mountTextureCards,
   openEquipDialog,
@@ -17,15 +17,16 @@ function displayName(texture) {
 }
 
 export async function render(root, ctx) {
-  const initialPerPage = Number.parseInt(ctx.query.perPage, 10);
+  const initialRows = Number.parseInt(ctx.query.rows, 10);
   const state = {
     type: ['skin', 'cape'].includes(ctx.query.type) ? ctx.query.type : 'all',
     q: ctx.query.q || '',
     page: Math.max(1, Number.parseInt(ctx.query.page, 10) || 1),
-    perPage: PAGE_SIZES.includes(initialPerPage) ? initialPerPage : 20,
+    rows: ROW_SIZES.includes(initialRows) ? initialRows : DEFAULT_ROWS,
   };
   let items = [];
   let itemsById = new Map();
+  let columns = 1;
 
   root.innerHTML = `
     <section class="page-head">
@@ -69,7 +70,7 @@ export async function render(root, ctx) {
         type: state.type === 'all' ? '' : state.type,
         q: state.q,
         page: state.page > 1 ? state.page : '',
-        perPage: state.perPage !== 20 ? state.perPage : '',
+        rows: state.rows !== DEFAULT_ROWS ? state.rows : '',
       })}`
     );
   }
@@ -118,9 +119,9 @@ export async function render(root, ctx) {
       <button class="pager-btn pager-next" data-page="${data.page + 1}" ${data.page >= total ? 'disabled' : ''} aria-label="下一页">${icon('chevron')}</button>
       <label class="pager-size">
         <span>每页</span>
-        <select data-page-size aria-label="每页显示数量">
-          ${PAGE_SIZES.map(
-            (value) => `<option value="${value}" ${value === state.perPage ? 'selected' : ''}>${value}</option>`
+        <select data-page-size aria-label="每页显示行数">
+          ${ROW_SIZES.map(
+            (value) => `<option value="${value}" ${value === state.rows ? 'selected' : ''}>${value} 行</option>`
           ).join('')}
         </select>
       </label>
@@ -128,13 +129,14 @@ export async function render(root, ctx) {
   }
 
   async function load() {
+    columns = gridColumns(grid);
     grid.innerHTML = ui.loadingBlock('正在打开衣柜…');
     try {
       const data = await api.get('/closet', {
         type: state.type === 'all' ? '' : state.type,
         q: state.q,
         page: state.page,
-        perPage: state.perPage,
+        perPage: pageSizeForRows(state.rows, grid),
       });
       if (state.page > data.pages) {
         state.page = data.pages;
@@ -239,8 +241,8 @@ export async function render(root, ctx) {
     const select = event.target.closest('[data-page-size]');
     if (!select) return;
     const size = Number(select.value);
-    if (!PAGE_SIZES.includes(size)) return;
-    state.perPage = size;
+    if (!ROW_SIZES.includes(size)) return;
+    state.rows = size;
     state.page = 1;
     syncUrl();
     load();
@@ -284,5 +286,15 @@ export async function render(root, ctx) {
     if (preview) openDetail(Number(preview.dataset.open));
   });
 
+  const onResize = ui.debounce(() => {
+    const next = gridColumns(grid);
+    if (next === columns) return;
+    columns = next;
+    load();
+  }, 180);
+  window.addEventListener('resize', onResize);
+
   await load();
+
+  return () => window.removeEventListener('resize', onResize);
 }

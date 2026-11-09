@@ -1,5 +1,5 @@
 import { api, buildQuery } from '../api.js';
-import { PAGE_SIZES } from '../admin-pagination.js';
+import { DEFAULT_ROWS, ROW_SIZES, gridColumns, pageSizeForRows } from '../card-pagination.js';
 import {
   bindTextureCards,
   mountTextureCards,
@@ -10,17 +10,18 @@ import { icon } from '../icons.js';
 import * as ui from '../ui.js';
 
 export async function render(root, ctx) {
-  const initialPerPage = Number.parseInt(ctx.query.perPage, 10);
+  const initialRows = Number.parseInt(ctx.query.rows, 10);
   const state = {
     type: ['skin', 'cape'].includes(ctx.query.type) ? ctx.query.type : 'all',
     q: ctx.query.q || '',
     sort: ['latest', 'popular', 'random'].includes(ctx.query.sort) ? ctx.query.sort : 'latest',
     scope: ctx.query.scope === 'mine' && ctx.user ? 'mine' : 'library',
     page: Math.max(1, Number.parseInt(ctx.query.page, 10) || 1),
-    perPage: PAGE_SIZES.includes(initialPerPage) ? initialPerPage : 20,
+    rows: ROW_SIZES.includes(initialRows) ? initialRows : DEFAULT_ROWS,
   };
   let lastData = null;
   let deepLinkOpened = false;
+  let columns = 1;
 
   root.innerHTML = `
     <section class="page-head library-head">
@@ -84,7 +85,7 @@ export async function render(root, ctx) {
       sort: state.sort === 'latest' ? '' : state.sort,
       scope: state.scope === 'mine' ? 'mine' : '',
       page: state.page > 1 ? state.page : '',
-      perPage: state.perPage !== 20 ? state.perPage : '',
+      rows: state.rows !== DEFAULT_ROWS ? state.rows : '',
     };
     history.replaceState(null, '', `#/library${buildQuery(query)}`);
   }
@@ -114,9 +115,9 @@ export async function render(root, ctx) {
       <button class="pager-btn pager-next" data-page="${current + 1}" ${current >= total ? 'disabled' : ''} aria-label="下一页">${icon('chevron')}</button>
       <label class="pager-size">
         <span>每页</span>
-        <select data-page-size aria-label="每页显示数量">
-          ${PAGE_SIZES.map(
-            (value) => `<option value="${value}" ${value === state.perPage ? 'selected' : ''}>${value}</option>`
+        <select data-page-size aria-label="每页显示行数">
+          ${ROW_SIZES.map(
+            (value) => `<option value="${value}" ${value === state.rows ? 'selected' : ''}>${value} 行</option>`
           ).join('')}
         </select>
       </label>
@@ -130,6 +131,7 @@ export async function render(root, ctx) {
   }
 
   async function load({ scroll = false } = {}) {
+    columns = gridColumns(grid);
     grid.innerHTML = ui.loadingBlock('正在加载皮肤库…');
     pager.innerHTML = '';
     try {
@@ -139,7 +141,7 @@ export async function render(root, ctx) {
         sort: state.sort,
         scope: state.scope === 'mine' ? 'mine' : '',
         page: state.page,
-        perPage: state.perPage,
+        perPage: pageSizeForRows(state.rows, grid),
       });
       lastData = data;
       if (state.page > data.pages) {
@@ -220,12 +222,20 @@ export async function render(root, ctx) {
     const select = event.target.closest('[data-page-size]');
     if (!select) return;
     const size = Number(select.value);
-    if (!PAGE_SIZES.includes(size)) return;
-    state.perPage = size;
+    if (!ROW_SIZES.includes(size)) return;
+    state.rows = size;
     state.page = 1;
     syncUrl();
     load({ scroll: true });
   });
+
+  const onResize = ui.debounce(() => {
+    const next = gridColumns(grid);
+    if (next === columns) return;
+    columns = next;
+    load();
+  }, 180);
+  window.addEventListener('resize', onResize);
 
   await load();
 
@@ -239,10 +249,13 @@ export async function render(root, ctx) {
       sort: state.sort === 'latest' ? '' : state.sort,
       scope: state.scope === 'mine' ? 'mine' : '',
       page: state.page > 1 ? state.page : '',
-      perPage: state.perPage !== 20 ? state.perPage : '',
+      rows: state.rows !== DEFAULT_ROWS ? state.rows : '',
     };
     history.replaceState(null, '', `#/library${buildQuery(query)}`);
   }
 
-  return () => unbindCards();
+  return () => {
+    unbindCards();
+    window.removeEventListener('resize', onResize);
+  };
 }
