@@ -185,6 +185,16 @@ export async function mount(root, ctx) {
             <label class="field"><span>图标地址</span><input name="icon" maxlength="500" placeholder="/assets/brand/badge.png" value="${escapeHtml(domain.icon || '')}" /></label>
             <label class="field"><span>站点地址</span><input name="siteUrl" maxlength="500" placeholder="留空则使用当前站点" value="${escapeHtml(domain.site_url || '')}" /></label>
             <label class="field"><span>认证地址</span><input name="yggdrasilUrl" maxlength="500" placeholder="/api/yggdrasil" value="${escapeHtml(domain.yggdrasil_url || '')}" /></label>
+            <label class="field full"><span>CurseForge API Key（站点中转）</span>
+              <input name="curseforgeApiKey" type="password" autocomplete="off" maxlength="200" placeholder="${
+                domain.curseforge_configured ? '已配置，留空保持不变' : '粘贴 CurseForge API Key'
+              }" />
+              <small class="field-hint">${
+                domain.curseforge_configured
+                  ? `当前状态：${domain.curseforge_source === 'environment' ? '已通过站点环境变量配置' : '已配置'}。域内启动器搜索 CurseForge 时由本站中转，Key 不会下发。`
+                  : '未配置。配置后，处于本站域的启动器可直接搜索 CurseForge，无需玩家填写 Key；也可用环境变量 CURSEFORGE_API_KEY 配置。'
+              }</small>
+            </label>
             <label class="field full"><span>域描述</span><input name="description" maxlength="300" value="${escapeHtml(domain.description || '')}" /></label>
             <label class="field full"><span>公告</span><textarea name="announcement" rows="5" maxlength="2000" placeholder="启动器域页面展示的公告">${escapeHtml(domain.announcement || '')}</textarea></label>
           </form>

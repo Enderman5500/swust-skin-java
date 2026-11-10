@@ -1,12 +1,19 @@
 package cn.edu.swust.mc.skin.plugins.launcherdomain;
 
 import cn.edu.swust.mc.skin.Authz;
+import cn.edu.swust.mc.skin.Json;
 import cn.edu.swust.mc.skin.Security;
 import cn.edu.swust.mc.skin.Web;
 import cn.edu.swust.mc.skin.plugin.PluginContext;
 import cn.edu.swust.mc.skin.plugin.PluginRequest;
 import cn.edu.swust.mc.skin.plugin.SkinPlugin;
 
+import java.net.URI;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
@@ -20,8 +27,11 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * 面向 SWUSTMCL 的“站点型域”：域资料、公告、官方服务器与资源清单。
@@ -34,6 +44,13 @@ public final class LauncherDomainPlugin implements SkinPlugin {
     private static final String DOMAIN_ID = "default";
     private static final Set<String> RESOURCE_TYPES = Set.of("modpack", "resourcepack", "shaderpack", "other");
     private static final long ONLINE_WINDOW_SECONDS = 90;
+    private static final String CURSEFORGE_API = "https://api.curseforge.com/v1";
+    private static final Pattern CURSEFORGE_PATH = Pattern.compile(
+            "^/mods/(search|\\d+|\\d+/files|\\d+/files/\\d+)$");
+    private static final HttpClient HTTP = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(8))
+            .followRedirects(HttpClient.Redirect.NEVER)
+            .build();
 
     private PluginContext context;
     private Connection db;
@@ -48,6 +65,7 @@ public final class LauncherDomainPlugin implements SkinPlugin {
         ensureDomain();
         importMinecraftServers();
         context.registerRoute("GET", "/manifest", this::manifest);
+        context.registerRoute("GET", "/curseforge", this::curseforgeRelay);
         context.registerAdminRoute("GET", "/admin/overview", this::adminOverview);
         context.registerAdminRoute("POST", "/admin/domain", this::adminSaveDomain);
         context.registerAdminRoute("POST", "/admin/server", this::adminSaveServer);
@@ -75,6 +93,7 @@ public final class LauncherDomainPlugin implements SkinPlugin {
                       icon TEXT NOT NULL DEFAULT '',
                       site_url TEXT NOT NULL DEFAULT '',
                       yggdrasil_url TEXT NOT NULL DEFAULT '',
+                      curseforge_api_key TEXT NOT NULL DEFAULT '',
                       announcement TEXT NOT NULL DEFAULT '',
                       announcement_updated_at TEXT,
                       updated_at TEXT NOT NULL
@@ -112,6 +131,17 @@ public final class LauncherDomainPlugin implements SkinPlugin {
                       updated_at TEXT NOT NULL
                     )
                     """);
+        }
+        ensureColumn("domain", "curseforge_api_key", "TEXT NOT NULL DEFAULT ''");
+    }
+
+    private void ensureColumn(String table, String column, String definition) throws SQLException {
+        try (Statement statement = db.createStatement()) {
+            statement.executeUpdate("ALTER TABLE " + table + " ADD COLUMN " + column + " " + definition);
+        } catch (SQLException e) {
+            if (!String.valueOf(e.getMessage()).toLowerCase(Locale.ROOT).contains("duplicate column")) {
+                throw e;
+            }
         }
     }
 
@@ -196,6 +226,10 @@ public final class LauncherDomainPlugin implements SkinPlugin {
         auth.put("loginUrl", "/api/auth/login");
         auth.put("playersUrl", "/api/players");
         out.put("auth", auth);
+        Map<String, Object> curseforge = new LinkedHashMap<>();
+        curseforge.put("relayUrl", "/api/plugins/launcher-domain/curseforge");
+        curseforge.put("configured", !curseforgeKey().isEmpty());
+        out.put("curseforge", curseforge);
         out.put("updatedAt", Authz.str(domain.get("updated_at")));
         return out;
     }
@@ -203,6 +237,10 @@ public final class LauncherDomainPlugin implements SkinPlugin {
     private Map<String, Object> adminOverview(PluginRequest request) throws Exception {
         Map<String, Object> domain = one("SELECT * FROM domain WHERE id = ?", DOMAIN_ID);
         if (domain == null) throw Web.notFound("域尚未初始化");
+        String source = curseforgeSource(domain);
+        domain.remove("curseforge_api_key");
+        domain.put("curseforge_configured", !source.isEmpty());
+        domain.put("curseforge_source", source);
         List<Map<String, Object>> servers = all("SELECT * FROM servers ORDER BY sort_order, name");
         for (Map<String, Object> server : servers) attachStatus(server);
         List<Map<String, Object>> resources = all("SELECT * FROM resources ORDER BY sort_order, name");
@@ -222,6 +260,8 @@ public final class LauncherDomainPlugin implements SkinPlugin {
         String siteUrl = urlOrPath(body.get("siteUrl"), "站点地址");
         String yggdrasilUrl = urlOrPath(body.get("yggdrasilUrl"), "认证地址");
         String announcement = text(body.get("announcement"), 2000);
+        String curseforgeApiKey = text(body.get("curseforgeApiKey"), 200);
+        boolean clearCurseforgeApiKey = Authz.bool(body.get("clearCurseforgeApiKey"));
         String now = Security.isoNow();
         String previousAnnouncement = "";
         String previousAnnouncementAt = null;
@@ -236,6 +276,11 @@ public final class LauncherDomainPlugin implements SkinPlugin {
                   announcement = ?, announcement_updated_at = ?, updated_at = ? WHERE id = ?
                 """, name, description, icon, siteUrl, yggdrasilUrl, announcement,
                 announcementChanged ? now : emptyToNull(previousAnnouncementAt), now, DOMAIN_ID);
+        if (!curseforgeApiKey.isEmpty()) {
+            update("UPDATE domain SET curseforge_api_key = ? WHERE id = ?", curseforgeApiKey, DOMAIN_ID);
+        } else if (clearCurseforgeApiKey) {
+            update("UPDATE domain SET curseforge_api_key = '' WHERE id = ?", DOMAIN_ID);
+        }
         return adminOverview(request);
     }
 
@@ -324,6 +369,75 @@ public final class LauncherDomainPlugin implements SkinPlugin {
         if (id.isEmpty()) throw Web.badRequest("缺少资源 ID");
         update("DELETE FROM resources WHERE id = ?", id);
         return adminOverview(request);
+    }
+
+    /** 站点持有的 CurseForge Key：域管理配置优先，其次读取环境变量。 */
+    private String curseforgeKey() throws SQLException {
+        Map<String, Object> row = one("SELECT curseforge_api_key FROM domain WHERE id = ?", DOMAIN_ID);
+        String key = row == null ? "" : text(row.get("curseforge_api_key"), 200);
+        if (key.isEmpty()) key = text(System.getenv("CURSEFORGE_API_KEY"), 200);
+        if (key.isEmpty()) key = text(System.getenv("CF_API_KEY"), 200);
+        return key;
+    }
+
+    private String curseforgeSource(Map<String, Object> domain) {
+        String stored = domain == null ? "" : text(domain.get("curseforge_api_key"), 200);
+        if (!stored.isEmpty()) return "database";
+        if (!text(System.getenv("CURSEFORGE_API_KEY"), 200).isEmpty()) return "environment";
+        if (!text(System.getenv("CF_API_KEY"), 200).isEmpty()) return "environment";
+        return "";
+    }
+
+    /**
+     * 启动器域内 CurseForge 中转：只放行读取类接口，Key 始终留在站点，
+     * 不返回给启动器，也不允许请求任意上游地址。
+     */
+    private Object curseforgeRelay(PluginRequest request) throws Exception {
+        String path = text(request.query("path"), 200);
+        if (!CURSEFORGE_PATH.matcher(path).matches()) throw Web.badRequest("不支持的 CurseForge 接口");
+        String key = curseforgeKey();
+        if (key.isEmpty()) {
+            throw new Web.HttpError(503, "curseforge_not_configured", "站点尚未配置 CurseForge API Key");
+        }
+        String query = request.query().entrySet().stream()
+                .filter(entry -> !"path".equals(entry.getKey()))
+                .map(entry -> URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8)
+                        + "=" + URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8))
+                .collect(Collectors.joining("&"));
+        String url = CURSEFORGE_API + path + (query.isEmpty() ? "" : "?" + query);
+        HttpRequest upstream = HttpRequest.newBuilder(URI.create(url))
+                .timeout(Duration.ofSeconds(20))
+                .header("x-api-key", key)
+                .header("Accept", "application/json")
+                .header("User-Agent", "SWUSTMCL-Domain/1.0")
+                .GET()
+                .build();
+        HttpResponse<String> response;
+        try {
+            response = HTTP.send(upstream, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            throw new Web.HttpError(504, "curseforge_timeout", "CurseForge 请求超时，请稍后再试");
+        }
+        int statusCode = response.statusCode();
+        if (statusCode != 200) {
+            int status = switch (statusCode) {
+                case 400 -> 400;
+                case 404 -> 404;
+                case 429 -> 429;
+                default -> 502;
+            };
+            String message = statusCode == 429
+                    ? "CurseForge 请求过于频繁，请稍后再试"
+                    : (statusCode == 401 || statusCode == 403)
+                    ? "站点的 CurseForge API Key 无效或没有访问权限"
+                    : "CurseForge 上游返回 HTTP " + statusCode;
+            throw new Web.HttpError(status, "curseforge_error", message);
+        }
+        try {
+            return Json.MAPPER.readValue(response.body(), Object.class);
+        } catch (Exception e) {
+            throw new Web.HttpError(502, "curseforge_bad_response", "CurseForge 返回了无法解析的数据");
+        }
     }
 
     private Map<String, Object> announcement(Map<String, Object> domain) {

@@ -8,6 +8,7 @@ import {
 } from '../components/texture.js';
 import { icon } from '../icons.js';
 import * as ui from '../ui.js';
+import { drawCapePreview, drawSkinCard } from '../skin2d.js';
 import { renderRoles } from './admin-roles.js';
 import { renderUsers } from './admin-users.js';
 import { renderApiKeys } from './admin-api-keys.js';
@@ -63,11 +64,28 @@ function formatUptime(seconds) {
 export async function render(root, ctx) {
   const parts = ctx.path.split('/').filter(Boolean);
   const section = parts[1] || '';
-  const active = SECTIONS.some((item) => item.key === section) ? section : '';
+  const pluginAdminId = section === 'plugin' ? parts[2] || '' : '';
+  const pluginAdmin = pluginAdminId
+    ? (ctx.plugins || []).find((item) => item.id === pluginAdminId && item.clientUrl)
+    : null;
+  const activeQuery = new URLSearchParams(ctx.query || {}).toString();
+  const active = pluginAdmin
+    ? `plugin/${pluginAdmin.id}${activeQuery ? `?${activeQuery}` : ''}`
+    : SECTIONS.some((item) => item.key === section)
+      ? section
+      : '';
   const visibleSections = SECTIONS.filter(
     (item) => !item.permission || can(ctx.user, item.permission)
   );
-  const activeSection = SECTIONS.find((item) => item.key === active);
+  const pluginAdminNav = pluginAdmin ? (pluginAdmin.adminNav || [])[0] || null : null;
+  const activeSection = pluginAdmin
+    ? {
+        key: active,
+        label: pluginAdminNav?.title || pluginAdmin.name,
+        icon: pluginAdminNav?.icon || pluginAdmin.nav?.icon || 'plugin',
+        permission: pluginAdmin.permission,
+      }
+    : SECTIONS.find((item) => item.key === active);
   const activeLabel = activeSection?.label || '概览';
   const allowed = !activeSection?.permission || can(ctx.user, activeSection.permission);
   const roleLabel = (ctx.user.roleNames || []).join(' / ') || '管理员';
@@ -107,6 +125,8 @@ export async function render(root, ctx) {
           }]
         : [];
     for (const entry of entries) {
+      const insideAdmin = Boolean(plugin.clientUrl) && Array.isArray(plugin.adminNav) && plugin.adminNav.length > 0;
+      const entryQuery = String(entry.path || '').split('?')[1] || '';
       const category = entry.category || '插件页面';
       let group = navGroups.find((item) => item.category === category);
       if (!group) {
@@ -114,9 +134,12 @@ export async function render(root, ctx) {
         navGroups.push(group);
       }
       group.items.push({
-        href: entry.path || `#/plugin/${encodeURIComponent(plugin.id)}`,
+        href: insideAdmin
+          ? `#/admin/plugin/${encodeURIComponent(plugin.id)}${entryQuery ? `?${entryQuery}` : ''}`
+          : entry.path || `#/plugin/${encodeURIComponent(plugin.id)}`,
         label: entry.title || plugin.name,
         icon: entry.icon || 'plugin',
+        key: insideAdmin ? `plugin/${plugin.id}${entryQuery ? `?${entryQuery}` : ''}` : undefined,
       });
     }
   }
@@ -295,6 +318,22 @@ async function renderAdminSection(main, ctx, active, activeSection, allowed) {
     return;
   }
 
+  if (active.startsWith('plugin/')) {
+    const pluginId = active.slice('plugin/'.length).split('?')[0];
+    const plugin = (ctx.plugins || []).find((item) => item.id === pluginId);
+    if (!plugin || !plugin.clientUrl) {
+      main.innerHTML = `
+        <section class="page-error">
+          <span class="empty-icon">${icon('plugin')}</span>
+          <h1>插件管理页面不可用</h1>
+          <p>插件可能已停用或没有提供前端页面。</p>
+          <a class="btn btn-primary" href="#/admin/plugins">返回插件管理</a>
+        </section>
+      `;
+      return;
+    }
+    return renderPluginAdmin(main, ctx, plugin);
+  }
   if (active === 'users') return renderUsers(main, ctx);
   if (active === 'roles') return renderRoles(main, ctx);
   if (active === 'players') return renderPlayers(main, ctx);
@@ -305,6 +344,53 @@ async function renderAdminSection(main, ctx, active, activeSection, allowed) {
   if (active === 'settings') return renderSettings(main, ctx);
   if (active === 'logs') return renderLogs(main, ctx);
   return renderOverview(main, ctx);
+}
+
+/** 在管理后台外壳中挂载插件自带的管理界面，避免跳到前台插件页。 */
+async function renderPluginAdmin(main, ctx, plugin) {
+  main.innerHTML = ui.loadingBlock(`正在加载 ${plugin.name} 管理页面…`);
+  try {
+    const module = await import(`${plugin.clientUrl}?v=${encodeURIComponent(plugin.version || '')}`);
+    if (typeof module.mount !== 'function') throw new Error('插件前端模块必须导出 mount(root, ctx)');
+    main.innerHTML = '';
+    const host = document.createElement('section');
+    host.className = 'plugin-admin-host';
+    main.append(host);
+    const query = { ...(ctx.query || {}) };
+    if (!query.tab) query.tab = 'admin';
+    const pluginCtx = {
+      api,
+      user: ctx.user,
+      settings: ctx.settings,
+      plugin,
+      path: ctx.path,
+      query,
+      admin: true,
+      navigate: ctx.navigate,
+      toast: ui.toast,
+      confirm: ui.confirmDialog,
+      escapeHtml: ui.escapeHtml,
+      formatDate: ui.formatDate,
+      timeAgo: ui.timeAgo,
+      icon,
+      ui,
+      skinPreview: { drawSkinCard, drawCapePreview },
+    };
+    const cleanup = await module.mount(host, pluginCtx);
+    return () => {
+      if (typeof cleanup === 'function') cleanup();
+    };
+  } catch (error) {
+    main.innerHTML = `
+      <section class="page-error">
+        <span class="empty-icon">${icon('plugin')}</span>
+        <h1>插件管理页面加载失败</h1>
+        <p>${ui.escapeHtml(error.message || '未知错误')}</p>
+        <button class="btn btn-primary" data-action="retry">重新加载</button>
+      </section>
+    `;
+    main.querySelector('[data-action="retry"]')?.addEventListener('click', () => renderPluginAdmin(main, ctx, plugin));
+  }
 }
 
 async function renderOverview(main, ctx) {
