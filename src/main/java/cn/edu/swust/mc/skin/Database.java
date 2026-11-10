@@ -35,7 +35,8 @@ public final class Database implements AutoCloseable {
                 if (input == null) throw new IllegalStateException("缺少 schema.sql");
                 exec(new String(input.readAllBytes(), StandardCharsets.UTF_8));
             }
-            exec("PRAGMA user_version = 2");
+            ensureColumn("users", "player_limit", "INTEGER NOT NULL DEFAULT 3");
+            exec("PRAGMA user_version = 3");
         } catch (Exception e) {
             throw new IllegalStateException("数据库初始化失败", e);
         }
@@ -47,6 +48,13 @@ public final class Database implements AutoCloseable {
         } catch (SQLException e) {
             throw new IllegalStateException("SQL 执行失败: " + sql, e);
         }
+    }
+
+    private void ensureColumn(String table, String column, String definition) {
+        for (Map<String, Object> info : query("PRAGMA table_info(" + table + ")")) {
+            if (column.equalsIgnoreCase(Authz.str(info.get("name")))) return;
+        }
+        exec("ALTER TABLE " + table + " ADD COLUMN " + column + " " + definition);
     }
 
     public synchronized int update(String sql, Object... params) {

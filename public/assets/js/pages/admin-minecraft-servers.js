@@ -1,6 +1,13 @@
 import { api } from '../api.js';
+import { bindPager, pagerHtml } from '../admin-pagination.js';
 import { icon } from '../icons.js';
 import * as ui from '../ui.js';
+
+let listPageSize = 10;
+let listPage = 1;
+let detailPageSize = 10;
+let detailPage = 1;
+let detailServerId = '';
 
 function formatDuration(millis) {
   const totalMinutes = Math.max(0, Math.floor(Number(millis || 0) / 60000));
@@ -127,6 +134,10 @@ function openEditor(main, ctx, server = null) {
 function renderList(main, ctx, servers, totals) {
   const publicCount = servers.filter((server) => server.visible).length;
   const hiddenCount = servers.length - publicCount;
+  const pages = Math.max(1, Math.ceil(servers.length / listPageSize));
+  listPage = Math.min(Math.max(1, listPage), pages);
+  const start = (listPage - 1) * listPageSize;
+  const visibleServers = servers.slice(start, start + listPageSize);
   main.innerHTML = `
     <section class="admin-page-head">
       <div>
@@ -153,7 +164,7 @@ function renderList(main, ctx, servers, totals) {
           ? `<table class="data-table mc-server-table">
               <thead><tr><th>服务器</th><th>服务器 ID</th><th>地址</th><th>状态</th><th>公开</th><th>端 / 版本</th><th>最后心跳/探测</th><th>操作</th></tr></thead>
               <tbody>
-                ${servers
+                ${visibleServers
                   .map(
                     (server) => `
                   <tr>
@@ -208,6 +219,8 @@ function renderList(main, ctx, servers, totals) {
             )}添加服务器</button></div>`
       }
     </div>
+
+    <div data-server-pager></div>
 
     <div class="panel api-key-help">
       <div class="panel-head"><div><p class="eyebrow">GAME INTEGRATION</p><h3>游戏端上报</h3></div></div>
@@ -275,9 +288,30 @@ api-key  = sk_...（需要 plugin:minecraft-server:use 权限）</pre>
       }
     });
   });
+
+  const pagerHost = main.querySelector('[data-server-pager]');
+  pagerHost.innerHTML = pagerHtml(listPage, pages, servers.length, listPageSize);
+  bindPager(
+    pagerHost,
+    (next) => {
+      listPage = next;
+      renderList(main, ctx, servers, totals);
+      main.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    },
+    (size) => {
+      listPageSize = size;
+      listPage = 1;
+      renderList(main, ctx, servers, totals);
+      main.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  );
 }
 
 function renderDetail(main, ctx, servers, players, serverId) {
+  if (detailServerId !== serverId) {
+    detailServerId = serverId;
+    detailPage = 1;
+  }
   const server = serverById(servers, serverId);
   if (!server) {
     main.innerHTML = `<div class="empty-state"><span class="empty-icon">${icon('server')}</span><h3>服务器不存在</h3><p>它可能已被删除。</p><a class="btn btn-primary" href="#/admin/minecraft-servers">返回服务器列表</a></div>`;
@@ -287,6 +321,10 @@ function renderDetail(main, ctx, servers, players, serverId) {
   const totalMillis = rows.reduce((sum, player) => sum + Number(player.totalMillis || 0), 0);
   const afkMillis = rows.reduce((sum, player) => sum + Number(player.afkMillis || 0), 0);
   const activeMillis = totalMillis - afkMillis;
+  const detailPages = Math.max(1, Math.ceil(rows.length / detailPageSize));
+  detailPage = Math.min(Math.max(1, detailPage), detailPages);
+  const detailStart = (detailPage - 1) * detailPageSize;
+  const visibleRows = rows.slice(detailStart, detailStart + detailPageSize);
 
   main.innerHTML = `
     <section class="admin-page-head">
@@ -341,7 +379,7 @@ function renderDetail(main, ctx, servers, players, serverId) {
           ? `<div class="table-panel"><table class="data-table mc-player-table">
               <thead><tr><th>玩家</th><th>站点角色</th><th>总在线</th><th>活跃</th><th>挂机</th><th>最后在线</th></tr></thead>
               <tbody>
-                ${rows
+                ${visibleRows
                   .map(
                     (player) => `
                   <tr>
@@ -365,8 +403,25 @@ function renderDetail(main, ctx, servers, players, serverId) {
             </table></div>`
           : `<div class="empty-state compact"><p>还没有玩家在线时长数据。</p></div>`
       }
+      <div data-detail-pager></div>
     </div>
   `;
 
   main.querySelector('[data-action="edit-server"]')?.addEventListener('click', () => openEditor(main, ctx, server));
+  const pagerHost = main.querySelector('[data-detail-pager]');
+  pagerHost.innerHTML = pagerHtml(detailPage, detailPages, rows.length, detailPageSize);
+  bindPager(
+    pagerHost,
+    (next) => {
+      detailPage = next;
+      renderDetail(main, ctx, servers, players, serverId);
+      main.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    },
+    (size) => {
+      detailPageSize = size;
+      detailPage = 1;
+      renderDetail(main, ctx, servers, players, serverId);
+      main.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  );
 }

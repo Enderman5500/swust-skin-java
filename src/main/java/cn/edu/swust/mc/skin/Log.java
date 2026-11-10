@@ -31,7 +31,7 @@ public final class Log {
     private static final Object LOCK = new Object();
     private static final long MAX_BYTES = 8L * 1024 * 1024;
     private static final int RETENTION_DAYS = 30;
-    private static final int MAX_ARCHIVES = 100;
+    private static final int MAX_ARCHIVES = 500;
     private static final DateTimeFormatter ARCHIVE_STAMP =
             DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
 

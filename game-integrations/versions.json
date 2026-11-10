@@ -43,13 +43,13 @@
     },
     {
       "family": "1.21",
-      "compile": "latest-1.21",
+      "compile": "1.21.1",
       "range": ">=1.21 <26",
       "java": 21,
-      "loom": "1.11-SNAPSHOT",
-      "yarn": "auto",
+      "loom": "1.7-SNAPSHOT",
+      "yarn": "1.21.1+build.3",
       "loader": "0.16.14",
-      "api": "auto",
+      "api": "0.116.17+1.21.1",
       "available": true
     },
     {
@@ -100,34 +100,145 @@
   ],
   "neoforge": [
     {
-      "family": "1.20.2-1.20.6",
+      "family": "1.20.2",
+      "compile": "1.20.2",
+      "range": "[1.20.2,1.20.3)",
+      "java": 17,
+      "neoforge": "20.2.93",
+      "loaderRange": "[4,)",
+      "neoforgeRange": "[20.2,20.3)",
+      "available": false,
+      "note": "NeoForge 20.2 未提供 moddev-bundle，ModDevGradle 无法构建"
+    },
+    {
+      "family": "1.20.4",
+      "compile": "1.20.4",
+      "range": "[1.20.4,1.20.5)",
+      "java": 17,
+      "neoforge": "20.4.253",
+      "loaderRange": "[4,)",
+      "neoforgeRange": "[20.4,20.5)",
+      "available": true
+    },
+    {
+      "family": "1.20.6",
       "compile": "1.20.6",
-      "range": "[1.20.2,1.21)",
+      "range": "[1.20.6,1.20.7)",
       "java": 21,
-      "neoforge": "20.6.119",
-      "loaderRange": "[20.6,)",
-      "neoforgeRange": "[20.2,21)",
+      "neoforge": "20.6.144",
+      "loaderRange": "[4,)",
+      "neoforgeRange": "[20.6,20.7)",
       "available": true
     },
     {
       "family": "1.21",
-      "compile": "latest-1.21",
-      "range": "[1.21,26)",
+      "compile": "1.21",
+      "range": "[1.21,1.21.1)",
       "java": 21,
-      "neoforge": "auto",
-      "loaderRange": "[21.0,)",
-      "neoforgeRange": "[21.0,26)",
+      "neoforge": "21.0.167",
+      "loaderRange": "[4,)",
+      "neoforgeRange": "[21.0,21.1)",
       "available": true
     },
     {
-      "family": "26",
-      "compile": "26.3",
-      "range": "[26,27)",
+      "family": "1.21.1",
+      "compile": "1.21.1",
+      "range": "[1.21.1,1.21.2)",
+      "java": 21,
+      "neoforge": "21.1.265",
+      "loaderRange": "[4,)",
+      "neoforgeRange": "[21.1,21.2)",
+      "available": true
+    },
+    {
+      "family": "1.21.3",
+      "compile": "1.21.3",
+      "range": "[1.21.3,1.21.4)",
+      "java": 21,
+      "neoforge": "21.3.100",
+      "loaderRange": "[4,)",
+      "neoforgeRange": "[21.3,21.4)",
+      "available": true
+    },
+    {
+      "family": "1.21.4",
+      "compile": "1.21.4",
+      "range": "[1.21.4,1.21.5)",
+      "java": 21,
+      "neoforge": "21.4.161",
+      "loaderRange": "[4,)",
+      "neoforgeRange": "[21.4,21.5)",
+      "available": true
+    },
+    {
+      "family": "1.21.5",
+      "compile": "1.21.5",
+      "range": "[1.21.5,1.21.6)",
+      "java": 21,
+      "neoforge": "21.5.101",
+      "loaderRange": "[4,)",
+      "neoforgeRange": "[21.5,21.6)",
+      "available": true
+    },
+    {
+      "family": "1.21.8",
+      "compile": "1.21.8",
+      "range": "[1.21.8,1.21.9)",
+      "java": 21,
+      "neoforge": "21.8.57",
+      "loaderRange": "[4,)",
+      "neoforgeRange": "[21.8,21.9)",
+      "available": true
+    },
+    {
+      "family": "1.21.10",
+      "compile": "1.21.10",
+      "range": "[1.21.10,1.21.11)",
+      "java": 21,
+      "neoforge": "21.10.64",
+      "loaderRange": "[4,)",
+      "neoforgeRange": "[21.10,21.11)",
+      "available": true
+    },
+    {
+      "family": "1.21.11",
+      "compile": "1.21.11",
+      "range": "[1.21.11,1.21.12)",
+      "java": 21,
+      "neoforge": "21.11.48",
+      "loaderRange": "[4,)",
+      "neoforgeRange": "[21.11,21.12)",
+      "available": true
+    },
+    {
+      "family": "26.1",
+      "compile": "26.1",
+      "range": "[26.1,26.2)",
       "java": 25,
-      "neoforge": "auto",
-      "loaderRange": "[26.0,)",
-      "neoforgeRange": "[26.0,27)",
-      "available": "auto"
+      "neoforge": "26.1.2.126",
+      "loaderRange": "[4,)",
+      "neoforgeRange": "[26.1,26.2)",
+      "available": true
+    },
+    {
+      "family": "26.2",
+      "compile": "26.2",
+      "range": "[26.2,26.3)",
+      "java": 25,
+      "neoforge": "26.2.0.93",
+      "loaderRange": "[4,)",
+      "neoforgeRange": "[26.2,26.3)",
+      "available": true
+    },
+    {
+      "family": "26.3",
+      "compile": "26.3",
+      "range": "[26.3,27)",
+      "java": 25,
+      "neoforge": "26.3.0.101",
+      "loaderRange": "[4,)",
+      "neoforgeRange": "[26.3,27)",
+      "available": true
     }
   ]
 }

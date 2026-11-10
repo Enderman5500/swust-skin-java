@@ -115,7 +115,9 @@ public final class Plugins {
                         bool(manifest.get("enabledByDefault")) ? 1 : 0, now, now);
                 row = db.one("SELECT * FROM plugins WHERE id = ?", id);
             } else if (!string(manifest.get("name")).equals(string(row.get("name")))
-                    || !string(manifest.get("version")).equals(string(row.get("version")))) {
+                    || !string(manifest.get("version")).equals(string(row.get("version")))
+                    || !string(manifest.get("description")).equals(string(row.get("description")))
+                    || !string(manifest.get("author")).equals(string(row.get("author")))) {
                 db.update("""
                         UPDATE plugins SET name = ?, version = ?, description = ?, author = ?, updated_at = ?
                         WHERE id = ?
@@ -264,6 +266,10 @@ public final class Plugins {
     }
 
     public synchronized Map<String, Object> install(byte[] archive) {
+        return install(archive, null);
+    }
+
+    public synchronized Map<String, Object> install(byte[] archive, String expectedId) {
         Map<String, byte[]> files = extract(archive);
         files = stripCommonRoot(files);
         byte[] manifestBytes = files.get("plugin.json");
@@ -278,13 +284,30 @@ public final class Plugins {
             throw Web.conflict(message);
         }
         String id = string(manifest.get("id"));
-        if (records.containsKey(id)) throw Web.conflict("该插件已安装");
-        Path target = config.pluginsDir.resolve(id);
-        if (Files.exists(target)) throw Web.conflict("插件目录已存在");
+        String version = string(manifest.get("version"));
+        if (expectedId != null && !expectedId.isBlank() && !expectedId.equals(id)) {
+            throw Web.conflict("上传的插件包 ID（" + id + "）与要更新的插件（" + expectedId + "）不一致");
+        }
         String client = string(manifest.get("client"));
         if (!client.isEmpty() && !files.containsKey(client)) throw Web.conflict("插件包中缺少 client 入口");
 
+        Record existing = records.get(id);
+        Path target = config.pluginsDir.resolve(id);
+        Map<String, Object> previousRow = existing == null
+                ? db.one("SELECT version FROM plugins WHERE id = ?", id)
+                : null;
+        boolean update = existing != null || Files.exists(target) || previousRow != null;
+        if (expectedId != null && !expectedId.isBlank() && !update) {
+            throw Web.notFound("要更新的插件不存在");
+        }
+        String previousVersion = existing != null
+                ? string(existing.manifest.get("version"))
+                : previousRow == null ? "" : Authz.str(previousRow.get("version"));
+
         Path temp = config.dataDir.resolve("tmp").resolve("plugin-" + id + "-" + System.currentTimeMillis());
+        Path backup = update
+                ? config.dataDir.resolve("tmp").resolve("plugin-backup-" + id + "-" + System.currentTimeMillis())
+                : null;
         try {
             Files.createDirectories(temp);
             for (Map.Entry<String, byte[]> entry : files.entrySet()) {
@@ -293,13 +316,55 @@ public final class Plugins {
                 Files.createDirectories(destination.getParent());
                 Files.write(destination, entry.getValue());
             }
+            if (update) {
+                unload(id);
+                if (Files.exists(target)) moveDirectory(target, backup);
+            }
             Files.createDirectories(target.getParent());
             try {
                 Files.move(temp, target, StandardCopyOption.ATOMIC_MOVE);
             } catch (Exception e) {
                 copyDirectory(temp, target);
             }
+            scan();
+            Record record = records.get(id);
+            if (record == null) {
+                restoreUpdate(id, target, backup);
+                throw Web.conflict("插件安装失败");
+            }
+            String now = Security.isoNow();
+            if (update) {
+                db.update("UPDATE plugins SET updated_at = ? WHERE id = ?", now, id);
+                record.updatedAt = now;
+                if (record.enabled) {
+                    load(id);
+                    if (record.error != null) {
+                        String error = record.error;
+                        restoreUpdate(id, target, backup);
+                        throw Web.conflict("新版本加载失败，已回滚到旧版本：" + error);
+                    }
+                }
+            } else {
+                db.update("UPDATE plugins SET enabled = 1, updated_at = ? WHERE id = ?", now, id);
+                record.enabled = true;
+                record.updatedAt = now;
+                load(id);
+            }
+            if (backup != null) {
+                try {
+                    deleteDirectory(backup);
+                } catch (IOException ignored) {
+                }
+            }
+            Map<String, Object> result = listAdmin();
+            result.put("installedId", id);
+            result.put("updated", update);
+            result.put("previousVersion", previousVersion);
+            result.put("version", version);
+            result.put("enabled", record.enabled);
+            return result;
         } catch (IOException e) {
+            restoreUpdate(id, target, backup);
             throw new IllegalStateException("插件安装失败", e);
         } finally {
             try {
@@ -307,15 +372,23 @@ public final class Plugins {
             } catch (IOException ignored) {
             }
         }
-        scan();
-        Record record = records.get(id);
-        if (record == null) throw Web.conflict("插件安装失败");
-        db.update("UPDATE plugins SET enabled = 1, updated_at = ? WHERE id = ?", Security.isoNow(), id);
-        record.enabled = true;
-        load(id);
-        Map<String, Object> result = listAdmin();
-        result.put("installedId", id);
-        return result;
+    }
+
+    private void restoreUpdate(String id, Path target, Path backup) {
+        if (backup == null) return;
+        try {
+            unload(id);
+            if (Files.exists(backup)) {
+                if (Files.exists(target)) deleteDirectory(target);
+                moveDirectory(backup, target);
+            }
+            scan();
+            Record restored = records.get(id);
+            if (restored != null && restored.enabled) load(id);
+            Log.warn("插件 " + id + " 更新失败，已恢复原版本");
+        } catch (Exception e) {
+            Log.error("插件 " + id + " 回滚失败：" + e.getMessage());
+        }
     }
 
     public synchronized void remove(String id) {
@@ -784,6 +857,16 @@ public final class Plugins {
                     Files.copy(path, destination, StandardCopyOption.REPLACE_EXISTING);
                 }
             }
+        }
+    }
+
+    private static void moveDirectory(Path source, Path target) throws IOException {
+        Files.createDirectories(target.getParent());
+        try {
+            Files.move(source, target, StandardCopyOption.ATOMIC_MOVE);
+        } catch (Exception e) {
+            copyDirectory(source, target);
+            deleteDirectory(source);
         }
     }
 

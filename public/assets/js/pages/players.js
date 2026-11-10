@@ -77,7 +77,7 @@ export async function render(root, ctx) {
         <p>角色名就是你在 Minecraft 服务器中的名字。一个账号可以拥有多个角色。</p>
       </div>
       <div class="page-head-actions">
-        <span class="count-badge" data-player-count>— / 10</span>
+        <span class="count-badge" data-player-count>—</span>
         <button class="btn btn-primary" data-action="create" disabled>${icon('plus')}创建角色</button>
       </div>
     </section>
@@ -100,10 +100,14 @@ export async function render(root, ctx) {
       const data = await api.get('/players');
       players = data.items;
       playersById = new Map(players.map((player) => [player.id, player]));
-      limit = data.limit || 10;
+      limit = data.limit ?? 3;
       countBadge.textContent = `${players.length} / ${limit}`;
       createButton.disabled = !data.canCreate;
-      createButton.title = data.canCreate ? '' : `每位社员最多 ${limit} 个角色`;
+      createButton.title = data.canCreate
+        ? ''
+        : limit > 0
+          ? `每位社员最多 ${limit} 个角色`
+          : '当前账号未开放创建角色';
       if (!players.length) {
         grid.innerHTML = `
           <div class="empty-state player-empty">
@@ -344,7 +348,7 @@ export async function render(root, ctx) {
       const action = actionButton.dataset.action;
       if (action === 'create') {
         if (!createButton.disabled) openCreate();
-        else ui.toast(`每位社员最多 ${limit} 个角色`, 'info');
+        else ui.toast(limit > 0 ? `每位社员最多 ${limit} 个角色` : '当前账号未开放创建角色', 'info');
         return;
       }
       if (action === 'retry') {

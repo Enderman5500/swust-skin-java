@@ -165,8 +165,9 @@ public final class SkinRoutes {
             List<Map<String, Object>> items = rows.stream().map(row -> Players.serialize(row, user)).toList();
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("items", items);
-            data.put("limit", Players.MAX_PER_USER);
-            data.put("canCreate", items.size() < Players.MAX_PER_USER);
+            int limit = Players.limitFor(app.db, user.id);
+            data.put("limit", limit);
+            data.put("canCreate", items.size() < limit);
             ctx.ok(data);
         });
 

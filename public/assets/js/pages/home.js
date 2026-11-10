@@ -37,7 +37,8 @@ function bindAuthDrag(root, url) {
       const transfer = event.dataTransfer;
       if (!transfer) return;
       transfer.effectAllowed = 'copy';
-      transfer.setData('text/plain', url);
+      // PCL2 只识别这个前缀；URL 需要先做 URL 编码。
+      transfer.setData('text/plain', `authlib-injector:yggdrasil-server:${encodeURIComponent(url)}`);
       transfer.setData('text/uri-list', url);
       transfer.setData('text/html', `<a href="${url}">${url}</a>`);
       transfer.setData('application/x-authlib-injector', url);

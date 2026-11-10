@@ -116,10 +116,28 @@ public final class Yggdrasil {
         return ref;
     }
 
-    private Map<String, Object> selectedPlayer(String userId, String selectedProfile) {
-        if (selectedProfile == null || selectedProfile.isBlank()) return null;
-        Map<String, Object> row = Players.byUuid(db, selectedProfile);
+    private Map<String, Object> selectedPlayer(String userId, Object selectedProfile) {
+        if (selectedProfile == null) return null;
+        String id = "";
+        String name = "";
+        if (selectedProfile instanceof Map<?, ?> map) {
+            if (map.get("id") != null) id = Authz.str(map.get("id"));
+            if (map.get("name") != null) name = Authz.str(map.get("name"));
+        } else {
+            id = Authz.str(selectedProfile);
+        }
+        if (id.isBlank() && name.isBlank()) return null;
+        id = id.trim().replace("\"", "");
+        if (id.startsWith("{") && id.endsWith("}")) id = id.substring(1, id.length() - 1);
+        Map<String, Object> row = id.isBlank() ? null : Players.byUuid(db, id);
+        if (row == null && !id.isBlank()) row = Players.byName(db, id);
+        if (row == null && id.matches("\\d{1,19}")) {
+            Map<String, Object> byId = Players.row(db, id);
+            if (byId != null && userId.equals(Authz.str(byId.get("user_id")))) row = byId;
+        }
+        if (row == null && !name.isBlank()) row = Players.byName(db, name);
         if (row == null || !userId.equals(Authz.str(row.get("user_id")))) {
+            Log.warn("Yggdrasil selectedProfile 无法匹配用户 " + userId + "：" + (id.isBlank() ? name : id));
             throw new YggdrasilError(403, "ForbiddenOperationException", "Invalid profile.");
         }
         return row;
@@ -187,7 +205,7 @@ public final class Yggdrasil {
         List<Map<String, Object>> players = playersForUser(userId);
         Map<String, Object> player = null;
         if (body.get("selectedProfile") != null) {
-            player = selectedPlayer(userId, Authz.str(body.get("selectedProfile")));
+            player = selectedPlayer(userId, body.get("selectedProfile"));
         } else if (players.size() == 1) {
             player = players.get(0);
         }
@@ -203,7 +221,7 @@ public final class Yggdrasil {
         }
         Object playerId = row.get("player_id");
         if (body.get("selectedProfile") != null) {
-            Map<String, Object> player = selectedPlayer(Authz.str(row.get("user_id")), Authz.str(body.get("selectedProfile")));
+            Map<String, Object> player = selectedPlayer(Authz.str(row.get("user_id")), body.get("selectedProfile"));
             playerId = player.get("id");
         } else if (playerId == null) {
             List<Map<String, Object>> players = playersForUser(Authz.str(row.get("user_id")));
@@ -294,8 +312,21 @@ public final class Yggdrasil {
         Map<String, Object> row = tokenRow(body.get("accessToken") == null ? null : Authz.str(body.get("accessToken")));
         String serverId = body.get("serverId") == null ? "" : Authz.str(body.get("serverId"));
         if (serverId.isEmpty()) throw new YggdrasilError(400, "IllegalArgumentException", "serverId is required.");
-        Map<String, Object> player = selectedPlayer(Authz.str(row.get("user_id")),
-                body.get("selectedProfile") == null ? null : Authz.str(body.get("selectedProfile")));
+        String userId = Authz.str(row.get("user_id"));
+        Map<String, Object> player = selectedPlayer(userId, body.get("selectedProfile"));
+        if (player == null && row.get("player_id") != null) {
+            Map<String, Object> byToken = Players.row(db, row.get("player_id"));
+            if (byToken != null && userId.equals(Authz.str(byToken.get("user_id")))) {
+                player = byToken;
+            }
+        }
+        if (player == null) {
+            List<Map<String, Object>> players = playersForUser(userId);
+            if (players.size() == 1) player = players.get(0);
+        }
+        if (player == null) {
+            throw new YggdrasilError(403, "ForbiddenOperationException", "Invalid profile.");
+        }
         db.update("DELETE FROM yggdrasil_joins WHERE created_at <= ?",
                 Instant.now().minusSeconds(120).toString());
         db.update("""

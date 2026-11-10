@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { bindPager, pagerHtml } from '../admin-pagination.js';
 import {
   bindTextureCards,
   mountTextureCards,
@@ -39,27 +40,6 @@ function displayName(user) {
 
 function statusLabel(status) {
   return status === 'ACTIVE' ? '正常' : status === 'DISABLED' ? '已停用' : status;
-}
-
-function pagerHtml(data) {
-  if (!data || data.pages <= 1) return '';
-  return `
-    <nav class="pagination admin-pager" data-pager aria-label="分页">
-      <button class="pager-btn" data-page="${data.page - 1}" ${data.page <= 1 ? 'disabled' : ''}>${icon('chevron')}</button>
-      <span class="pager-label">第 ${data.page} / ${data.pages} 页 · 共 ${data.total} 条</span>
-      <button class="pager-btn pager-next" data-page="${data.page + 1}" ${data.page >= data.pages ? 'disabled' : ''}>${icon('chevron')}</button>
-    </nav>
-  `;
-}
-
-function bindPager(container, handler) {
-  container.querySelectorAll('.pagination').forEach((pager) => {
-    pager.addEventListener('click', (event) => {
-      const button = event.target.closest('[data-page]');
-      if (!button || button.disabled) return;
-      handler(Number(button.dataset.page));
-    });
-  });
 }
 
 function statusPill(active, activeText = '正常', inactiveText = '已停用') {
@@ -399,7 +379,7 @@ async function renderOverview(main, ctx) {
 }
 
 async function renderPlayers(main, ctx) {
-  const state = { q: '', page: 1 };
+  const state = { q: '', page: 1, pageSize: 10 };
   main.innerHTML = `
     <section class="admin-page-head">
       <div><p class="eyebrow">PLAYERS</p><h2>角色管理</h2><p>查看全部角色、所属社员与装备情况。</p></div>
@@ -416,7 +396,7 @@ async function renderPlayers(main, ctx) {
   async function load() {
     tableHost.innerHTML = ui.loadingBlock('正在加载角色…');
     try {
-      const data = await api.get('/admin/players', { q: state.q, page: state.page, perPage: 30 });
+      const data = await api.get('/admin/players', { q: state.q, page: state.page, perPage: state.pageSize });
       rows = data.items;
       tableHost.innerHTML = `
         <table class="data-table player-table">
@@ -451,11 +431,19 @@ async function renderPlayers(main, ctx) {
         </table>
         ${data.items.length ? '' : emptyTable('没有找到角色')}
       `;
-      pagerHost.innerHTML = pagerHtml(data);
-      bindPager(pagerHost, (page) => {
-        state.page = page;
-        load();
-      });
+      pagerHost.innerHTML = pagerHtml(data.page, data.pages, data.total, state.pageSize);
+      bindPager(
+        pagerHost,
+        (page) => {
+          state.page = page;
+          load();
+        },
+        (size) => {
+          state.pageSize = size;
+          state.page = 1;
+          load();
+        }
+      );
     } catch (error) {
       tableHost.innerHTML = emptyTable(error.message);
     }
@@ -565,7 +553,7 @@ async function renderPlayers(main, ctx) {
     load();
   }, 300));
 
-  main.addEventListener('click', async (event) => {
+  async function onMainClick(event) {
     const button = event.target.closest('[data-action]');
     if (!button) return;
     const player = rows.find((item) => item.id === Number(button.dataset.id));
@@ -588,13 +576,15 @@ async function renderPlayers(main, ctx) {
         ui.toast(error.message, 'error');
       }
     }
-  });
+  }
+  main.addEventListener('click', onMainClick);
 
   await load();
+  return () => main.removeEventListener('click', onMainClick);
 }
 
 async function renderTextures(main, ctx) {
-  const state = { q: '', type: 'all', page: 1 };
+  const state = { q: '', type: 'all', page: 1, pageSize: 10 };
   main.innerHTML = `
     <section class="admin-page-head">
       <div><p class="eyebrow">TEXTURES</p><h2>材质管理</h2><p>审核公开状态、查看归属并清理不合适的材质。</p></div>
@@ -624,7 +614,7 @@ async function renderTextures(main, ctx) {
         q: state.q,
         type: state.type === 'all' ? '' : state.type,
         page: state.page,
-        perPage: 30,
+        perPage: state.pageSize,
       });
       rows = data.items;
       tableHost.innerHTML = `
@@ -669,11 +659,19 @@ async function renderTextures(main, ctx) {
         ${data.items.length ? '' : emptyTable('没有找到材质')}
       `;
       await mountTextureCards(tableHost);
-      pagerHost.innerHTML = pagerHtml(data);
-      bindPager(pagerHost, (page) => {
-        state.page = page;
-        load();
-      });
+      pagerHost.innerHTML = pagerHtml(data.page, data.pages, data.total, state.pageSize);
+      bindPager(
+        pagerHost,
+        (page) => {
+          state.page = page;
+          load();
+        },
+        (size) => {
+          state.pageSize = size;
+          state.page = 1;
+          load();
+        }
+      );
     } catch (error) {
       tableHost.innerHTML = emptyTable(error.message);
     }
@@ -696,7 +694,7 @@ async function renderTextures(main, ctx) {
     load();
   });
 
-  main.addEventListener('click', async (event) => {
+  async function onMainClick(event) {
     const button = event.target.closest('[data-action]');
     if (!button) return;
     const texture = rows.find((item) => item.id === Number(button.dataset.id));
@@ -727,9 +725,11 @@ async function renderTextures(main, ctx) {
         ui.toast(error.message, 'error');
       }
     }
-  });
+  }
+  main.addEventListener('click', onMainClick);
 
   await load();
+  return () => main.removeEventListener('click', onMainClick);
 }
 
 async function renderPlugins(main, ctx) {
@@ -738,13 +738,20 @@ async function renderPlugins(main, ctx) {
       <div><p class="eyebrow">PLUGINS</p><h2>插件管理</h2><p>热加载服务端扩展与前端页面。插件拥有服务端执行权限，请只安装可信来源。</p></div>
       <div class="admin-head-actions">
         <button class="btn btn-ghost" data-action="rescan">${icon('refresh')}重新扫描</button>
-        <label class="btn btn-primary upload-button">${icon('upload')}安装 Java 插件 JAR / ZIP<input type="file" accept=".jar,.zip,application/java-archive,application/zip" hidden data-plugin-file /></label>
+        <label class="btn btn-primary upload-button">${icon('upload')}安装 / 更新 Java 插件 JAR / ZIP<input type="file" accept=".jar,.zip,application/java-archive,application/zip" hidden data-plugin-file /></label>
+        <input type="file" accept=".jar,.zip,application/java-archive,application/zip" hidden data-plugin-update-file />
       </div>
     </section>
-    <div class="plugin-admin-grid" data-plugin-list>${ui.loadingBlock('正在读取插件…')}</div>
+    <div class="toolbar plugin-toolbar">
+      <label class="search-box">${icon('search')}<input type="search" placeholder="搜索插件名称、作者或 ID" data-plugin-search /></label>
+      <span class="plugin-search-count" data-plugin-count></span>
+    </div>
+    <div class="panel table-panel" data-plugin-list>${ui.loadingBlock('正在读取插件…')}</div>
+    <div data-plugin-pager></div>
     <div class="panel plugin-help">
       <div class="panel-head"><div><p class="eyebrow">DEVELOPER</p><h3>插件包结构</h3></div></div>
       <p>插件包根目录放置 <code>plugin.json</code>，<code>mainClass</code> 指向实现 <code>SkinPlugin</code> 的 Java 类，可选 <code>client.mjs</code> 提供前端页面模块。启停与重载即时生效。</p>
+      <p class="field-hint">上传相同插件 ID 的新版本会原地更新，保留插件私有数据、权限、API 密钥与启用状态；新版本加载失败会自动回滚到旧版本。</p>
       <p class="field-hint">服务端插件以 JAR 形式运行在 Java 宿主内，可直接使用站点 API 与数据库；请只安装可信来源的插件。</p>
       <pre class="code-block small">{
   "id": "my-plugin",
@@ -758,116 +765,199 @@ async function renderPlugins(main, ctx) {
   `;
 
   const listHost = main.querySelector('[data-plugin-list]');
+  const pagerHost = main.querySelector('[data-plugin-pager]');
   const fileInput = main.querySelector('[data-plugin-file]');
+  const updateFileInput = main.querySelector('[data-plugin-update-file]');
+  const searchInput = main.querySelector('[data-plugin-search]');
+  const countLabel = main.querySelector('[data-plugin-count]');
+  let pageSize = 10;
+  let items = [];
+  let scanErrors = [];
+  let query = '';
+  let page = 1;
+  let updateTargetId = '';
+
+  function rowHtml(plugin) {
+    return `
+      <tr data-plugin-id="${ui.escapeHtml(plugin.id)}" class="${plugin.error ? 'has-error' : ''}">
+        <td data-label="插件">
+          <div class="plugin-cell">
+            <div class="plugin-cell-title">
+              <strong>${ui.escapeHtml(plugin.name)}</strong>
+              <span class="role-chip muted">v${ui.escapeHtml(plugin.version)}</span>
+            </div>
+            <p class="plugin-cell-desc">${ui.escapeHtml(plugin.description || '没有描述')}</p>
+            <code class="plugin-cell-id">${ui.escapeHtml(plugin.id)}</code>
+          </div>
+        </td>
+        <td data-label="状态">${statusPill(plugin.enabled && plugin.loaded, plugin.loaded ? '运行中' : '已启用', '已停用')}</td>
+        <td data-label="信息">
+          <div class="plugin-cell-meta">
+            <span>作者：${ui.escapeHtml(plugin.author || '未知')}</span>
+            <span>${plugin.hasServer ? '服务端模块' : '纯前端'}${
+              plugin.nav ? ` · 导航：${ui.escapeHtml(plugin.nav.title)}` : ''
+            }</span>
+          </div>
+        </td>
+        <td data-label="操作" class="table-actions">
+          <button class="btn btn-ghost btn-sm" data-action="update-plugin" data-id="${ui.escapeHtml(
+            plugin.id
+          )}">${icon('upload')}更新</button>
+          <button class="btn ${plugin.enabled ? 'btn-ghost' : 'btn-primary'} btn-sm" data-action="toggle-plugin" data-id="${ui.escapeHtml(
+            plugin.id
+          )}" data-enabled="${plugin.enabled}">
+            ${icon(plugin.enabled ? 'close' : 'check')}${plugin.enabled ? '停用' : '启用'}
+          </button>
+          ${
+            plugin.enabled
+              ? `<button class="btn btn-ghost btn-sm" data-action="reload-plugin" data-id="${ui.escapeHtml(
+                  plugin.id
+                )}">${icon('refresh')}重载</button>`
+              : ''
+          }
+          ${
+            plugin.clientUrl && plugin.nav && plugin.enabled
+              ? `<a class="btn btn-ghost btn-sm" href="#/plugin/${ui.escapeHtml(
+                  plugin.id
+                )}">${icon('external')}打开页面</a>`
+              : ''
+          }
+          <button class="btn btn-ghost btn-sm danger-text" data-action="delete-plugin" data-id="${ui.escapeHtml(
+            plugin.id
+          )}">${icon('trash')}卸载</button>
+        </td>
+      </tr>
+      ${
+        plugin.error
+          ? `<tr class="plugin-error-row"><td colspan="4"><p class="plugin-error">${ui.escapeHtml(
+              plugin.error
+            )}</p></td></tr>`
+          : ''
+      }
+    `;
+  }
+
+  function filteredItems() {
+    const keyword = query.trim().toLowerCase();
+    if (!keyword) return items;
+    return items.filter((plugin) =>
+      [plugin.name, plugin.id, plugin.description, plugin.author, plugin.version, plugin.nav?.title]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(keyword))
+    );
+  }
+
+  function renderPage() {
+    const filtered = filteredItems();
+    const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
+    page = Math.min(Math.max(1, page), pages);
+    const start = (page - 1) * pageSize;
+    const visible = filtered.slice(start, start + pageSize);
+    countLabel.textContent = query
+      ? `找到 ${filtered.length} / ${items.length} 个插件`
+      : `共 ${items.length} 个插件`;
+    listHost.innerHTML = `${
+      visible.length
+        ? `<table class="data-table plugin-table">
+            <thead><tr><th>插件</th><th>状态</th><th>信息</th><th class="table-actions-col">操作</th></tr></thead>
+            <tbody>${visible.map(rowHtml).join('')}</tbody>
+          </table>`
+        : emptyTable(query ? '没有匹配的插件' : '还没有安装插件')
+    }${
+      scanErrors.length
+        ? `<div class="scan-errors">
+            <strong>扫描警告</strong>
+            ${scanErrors
+              .map(
+                (error) =>
+                  `<p><code>${ui.escapeHtml(error.directory)}</code> ${ui.escapeHtml(error.error)}</p>`
+              )
+              .join('')}
+          </div>`
+        : ''
+    }`;
+    pagerHost.innerHTML = pagerHtml(page, pages, filtered.length, pageSize);
+    bindPager(
+      pagerHost,
+      (next) => {
+        page = next;
+        renderPage();
+        main.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      },
+      (size) => {
+        pageSize = size;
+        page = 1;
+        renderPage();
+        main.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    );
+  }
+
+  searchInput?.addEventListener(
+    'input',
+    ui.debounce(() => {
+      query = searchInput.value.trim();
+      page = 1;
+      renderPage();
+    }, 250)
+  );
 
   async function load() {
     listHost.innerHTML = ui.loadingBlock('正在读取插件…');
     try {
       const data = await api.get('/admin/plugins');
-      listHost.innerHTML = `
-        ${data.items
-          .map(
-            (plugin) => `
-          <article class="plugin-card ${plugin.error ? 'has-error' : ''}">
-            <div class="plugin-card-head">
-              <div>
-                <div class="plugin-card-title">
-                  <h3>${ui.escapeHtml(plugin.name)}</h3>
-                  <span class="role-chip muted">v${ui.escapeHtml(plugin.version)}</span>
-                </div>
-                <p>${ui.escapeHtml(plugin.description || '没有描述')}</p>
-              </div>
-              ${statusPill(plugin.enabled && plugin.loaded, plugin.loaded ? '运行中' : '已启用', '已停用')}
-            </div>
-            <div class="plugin-card-meta">
-              <span>作者：${ui.escapeHtml(plugin.author || '未知')}</span>
-              <span>${plugin.hasServer ? '服务端模块' : '纯前端'}</span>
-              ${plugin.nav ? `<span>导航：${ui.escapeHtml(plugin.nav.title)}</span>` : ''}
-            </div>
-            ${
-              plugin.routes.length
-                ? `<div class="plugin-chips">${plugin.routes
-                    .map((route) => `<code>${ui.escapeHtml(route)}</code>`)
-                    .join('')}</div>`
-                : ''
-            }
-            ${
-              plugin.hooks.length
-                ? `<div class="plugin-chips">${plugin.hooks
-                    .map((hook) => `<code>on ${ui.escapeHtml(hook)}</code>`)
-                    .join('')}</div>`
-                : ''
-            }
-            ${plugin.error ? `<p class="plugin-error">${ui.escapeHtml(plugin.error)}</p>` : ''}
-            <div class="plugin-card-actions">
-              <button class="btn ${plugin.enabled ? 'btn-ghost' : 'btn-primary'} btn-sm" data-action="toggle-plugin" data-id="${plugin.id}" data-enabled="${plugin.enabled}">
-                ${icon(plugin.enabled ? 'close' : 'check')}${plugin.enabled ? '停用' : '启用'}
-              </button>
-              ${
-                plugin.enabled
-                  ? `<button class="btn btn-ghost btn-sm" data-action="reload-plugin" data-id="${plugin.id}">${icon(
-                      'refresh'
-                    )}重载</button>`
-                  : ''
-              }
-              ${
-                plugin.clientUrl && plugin.nav && plugin.enabled
-                  ? `<a class="btn btn-ghost btn-sm" href="#/plugin/${plugin.id}">${icon('external')}打开页面</a>`
-                  : ''
-              }
-              <button class="btn btn-ghost btn-sm danger-text" data-action="delete-plugin" data-id="${plugin.id}">${icon(
-                'trash'
-              )}卸载</button>
-            </div>
-          </article>
-        `
-          )
-          .join('')}
-        ${data.items.length ? '' : emptyTable('还没有安装插件')}
-        ${
-          data.scanErrors?.length
-            ? `<div class="scan-errors">
-                <strong>扫描警告</strong>
-                ${data.scanErrors
-                  .map(
-                    (error) =>
-                      `<p><code>${ui.escapeHtml(error.directory)}</code> ${ui.escapeHtml(error.error)}</p>`
-                  )
-                  .join('')}
-              </div>`
-            : ''
-        }
-      `;
+      items = data.items || [];
+      scanErrors = data.scanErrors || [];
+      renderPage();
     } catch (error) {
       listHost.innerHTML = emptyTable(error.message);
+      pagerHost.innerHTML = '';
+      countLabel.textContent = '';
+    }
+  }
+
+  async function uploadPackage(file, expectedId = '') {
+    if (!file) return;
+    if (!/\.(zip|jar)$/i.test(file.name)) {
+      ui.toast('请选择 JAR 或 ZIP 插件包', 'error');
+      return;
+    }
+    ui.toast(expectedId ? '正在更新插件…' : '正在安装或更新插件…', 'info');
+    try {
+      const contentType = file.name.toLowerCase().endsWith('.jar')
+        ? 'application/java-archive'
+        : 'application/zip';
+      const query = expectedId ? `?expectId=${encodeURIComponent(expectedId)}` : '';
+      const result = await api.upload(`/api/admin/plugins/install${query}`, file, contentType);
+      if (result?.updated) {
+        const from = result.previousVersion ? `v${result.previousVersion} → ` : '';
+        ui.toast(`插件已更新：${from}v${result.version}，数据与权限已保留`, 'success');
+      } else {
+        ui.toast('插件已安装并启用', 'success');
+      }
+      await load();
+      await ctx.refreshPlugins();
+    } catch (error) {
+      ui.toast(error.message, 'error');
     }
   }
 
   fileInput.addEventListener('change', async () => {
     const file = fileInput.files[0];
-    if (!file) return;
-    if (!/\.(zip|jar)$/i.test(file.name)) {
-      ui.toast('请选择 JAR 或 ZIP 插件包', 'error');
-      fileInput.value = '';
-      return;
-    }
-    ui.toast('正在安装插件…', 'info');
-    try {
-      const contentType = file.name.toLowerCase().endsWith('.jar')
-        ? 'application/java-archive'
-        : 'application/zip';
-      await api.upload('/api/admin/plugins/install', file, contentType);
-      ui.toast('插件已安装并启用', 'success');
-      fileInput.value = '';
-      await load();
-      await ctx.refreshPlugins();
-    } catch (error) {
-      ui.toast(error.message, 'error');
-      fileInput.value = '';
-    }
+    fileInput.value = '';
+    await uploadPackage(file);
   });
 
-  main.addEventListener('click', async (event) => {
+  updateFileInput.addEventListener('change', async () => {
+    const file = updateFileInput.files[0];
+    const expectedId = updateTargetId;
+    updateTargetId = '';
+    updateFileInput.value = '';
+    if (!file || !expectedId) return;
+    await uploadPackage(file, expectedId);
+  });
+
+  async function onMainClick(event) {
     const button = event.target.closest('[data-action]');
     if (!button) return;
     const action = button.dataset.action;
@@ -884,6 +974,12 @@ async function renderPlugins(main, ctx) {
       return;
     }
     const id = button.dataset.id;
+    if (action === 'update-plugin') {
+      updateTargetId = id || '';
+      updateFileInput.value = '';
+      updateFileInput.click();
+      return;
+    }
     if (action === 'toggle-plugin') {
       try {
         await api.post(`/admin/plugins/${id}/${button.dataset.enabled === 'true' ? 'disable' : 'enable'}`);
@@ -919,9 +1015,11 @@ async function renderPlugins(main, ctx) {
         ui.toast(error.message, 'error');
       }
     }
-  });
+  }
+  main.addEventListener('click', onMainClick);
 
   await load();
+  return () => main.removeEventListener('click', onMainClick);
 }
 
 async function renderSettings(main, ctx) {

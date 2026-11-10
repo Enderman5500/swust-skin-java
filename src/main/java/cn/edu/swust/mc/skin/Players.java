@@ -6,7 +6,8 @@ import java.util.List;
 import java.util.Map;
 
 public final class Players {
-    public static final int MAX_PER_USER = 10;
+    public static final int DEFAULT_PER_USER = 3;
+    public static final int MAX_PER_USER = 100;
     public static final Object UNSET = new Object();
     public static final Object CLEAR = new Object();
 
@@ -112,7 +113,7 @@ public final class Players {
 
     public static Map<String, Object> adminPage(Database db, Map<String, String> query) {
         int page = Math.max(1, Users.parseInt(query.get("page"), 1));
-        int perPage = Math.max(1, Math.min(60, Users.parseInt(
+        int perPage = Math.max(1, Math.min(100, Users.parseInt(
                 query.containsKey("perPage") ? query.get("perPage") : query.get("size"), 30)));
         int offset = (page - 1) * perPage;
         String q = query.getOrDefault("q", "").trim();
@@ -145,14 +146,22 @@ public final class Players {
         if (existing != null) throw Web.conflict("该角色名已被占用");
     }
 
+    public static int limitFor(Database db, String userId) {
+        Map<String, Object> row = db.one("SELECT player_limit FROM users WHERE id = ?", userId);
+        if (row == null || row.get("player_limit") == null) return DEFAULT_PER_USER;
+        return Math.max(0, Authz.num(row.get("player_limit")));
+    }
+
     public static Map<String, Object> create(Database db, AuthUser user, String name, String model) {
         String cleanName = name == null ? "" : name.trim();
         if (!Security.validPlayerName(cleanName)) throw Web.badRequest("角色名需为 3–16 位字母、数字或下划线");
         if (model == null) model = "classic";
         if (!"classic".equals(model) && !"slim".equals(model)) throw Web.badRequest("角色模型不合法");
+        int limit = limitFor(db, user.id);
+        if (limit <= 0) throw Web.badRequest("当前账号未开放创建角色");
         Map<String, Object> count = db.one("SELECT COUNT(*) AS count FROM players WHERE user_id = ?", user.id);
-        if (count != null && Authz.num(count.get("count")) >= MAX_PER_USER) {
-            throw Web.badRequest("每位社员最多创建 " + MAX_PER_USER + " 个角色");
+        if (count != null && Authz.num(count.get("count")) >= limit) {
+            throw Web.badRequest("每位社员最多创建 " + limit + " 个角色");
         }
         assertNameAvailable(db, cleanName, null);
         String uuid = Security.playerUuid(cleanName);

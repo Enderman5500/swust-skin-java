@@ -49,22 +49,39 @@ Fabric 代表产物：
 game-integrations/dist/fabric/1.18/minecraft-server-report-fabric-1.18-1.0.0.jar
 game-integrations/dist/fabric/1.19/minecraft-server-report-fabric-1.19-1.0.0.jar
 game-integrations/dist/fabric/1.20/minecraft-server-report-fabric-1.20-1.0.0.jar
+game-integrations/dist/fabric/1.21/minecraft-server-report-fabric-1.21-1.0.0.jar
 game-integrations/dist/fabric/26/minecraft-server-report-fabric-26-1.0.0.jar
 ```
 
-Forge 1.20.1 代表产物：
+Forge 代表产物：
 
 ```text
+game-integrations/dist/forge/1.18/minecraft-server-report-forge-1.18-1.0.0.jar
+game-integrations/dist/forge/1.19/minecraft-server-report-forge-1.19-1.0.0.jar
 game-integrations/dist/forge/1.20/minecraft-server-report-forge-1.20-1.0.0.jar
 ```
 
-NeoForge 1.21 代表产物：
+NeoForge 产物（每个 Minecraft 小版本一个 JAR）：
 
 ```text
+game-integrations/dist/neoforge/1.20.4/minecraft-server-report-neoforge-1.20.4-1.0.0.jar
+game-integrations/dist/neoforge/1.20.6/minecraft-server-report-neoforge-1.20.6-1.0.0.jar
 game-integrations/dist/neoforge/1.21/minecraft-server-report-neoforge-1.21-1.0.0.jar
+game-integrations/dist/neoforge/1.21.1/minecraft-server-report-neoforge-1.21.1-1.0.0.jar
+game-integrations/dist/neoforge/1.21.3/minecraft-server-report-neoforge-1.21.3-1.0.0.jar
+game-integrations/dist/neoforge/1.21.4/minecraft-server-report-neoforge-1.21.4-1.0.0.jar
+game-integrations/dist/neoforge/1.21.5/minecraft-server-report-neoforge-1.21.5-1.0.0.jar
+game-integrations/dist/neoforge/1.21.8/minecraft-server-report-neoforge-1.21.8-1.0.0.jar
+game-integrations/dist/neoforge/1.21.10/minecraft-server-report-neoforge-1.21.10-1.0.0.jar
+game-integrations/dist/neoforge/1.21.11/minecraft-server-report-neoforge-1.21.11-1.0.0.jar
+game-integrations/dist/neoforge/26.1/minecraft-server-report-neoforge-26.1-1.0.0.jar
+game-integrations/dist/neoforge/26.2/minecraft-server-report-neoforge-26.2-1.0.0.jar
+game-integrations/dist/neoforge/26.3/minecraft-server-report-neoforge-26.3-1.0.0.jar
 ```
 
-Fabric 26.x 使用 `fabric26/` 的 official-name 适配源；1.18–1.20 使用 Yarn 映射。Fabric 构建需要可访问的 Fabric Maven；受限网络可将 `maven.fabricmc.net` 替换为 CreeperHost 镜像。Forge 构建需要 JDK 17；NeoForge 1.21 使用 JDK 21。受限网络下 Forge / NeoForge 依赖可通过 `https://maven.creeperhost.net` 获取。
+NeoForge 20.2 没有提供 ModDevGradle 所需的 `moddev-bundle`，暂时无法用当前构建链产出；1.20.4 起按每个 Minecraft 小版本分别构建，不能共用一个 JAR。
+
+Fabric 26.x 使用 `fabric26/` 的 official-name 适配源；1.18–1.21 使用 Yarn 映射。Fabric 构建需要可访问的 Fabric Maven；受限网络可将 `maven.fabricmc.net` 替换为 CreeperHost 镜像。Forge 1.18 / 1.19 在 Windows 上可能触发 ForgeGradle 的映射产物注册问题，推荐在 Linux/WSL 中使用 `forge5/`、Gradle 7.6.4 和 JDK 17 构建；Forge 1.20 可直接使用 `forge/`。NeoForge 1.21–1.21.11 使用 JDK 21，26.x 使用 JDK 25 和 ModDevGradle 2。受限网络下 Forge / NeoForge 依赖可通过 `https://maven.creeperhost.net` 获取。
 
 安装到 `plugins/`，首次启动会生成：
 

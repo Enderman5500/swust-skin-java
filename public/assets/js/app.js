@@ -1,4 +1,5 @@
 import { api, setCsrf } from './api.js';
+import { initCustomSelects } from './custom-select.js';
 import { icon } from './icons.js';
 import { drawCapePreview, drawSkinCard, placeholderSkinCanvas } from './skin2d.js';
 import * as ui from './ui.js';
@@ -32,6 +33,7 @@ const state = {
 };
 
 const headerEl = document.getElementById('site-header');
+let headerNavCleanup = null;
 const footerEl = document.getElementById('site-footer');
 const announcementEl = document.getElementById('announcement-root');
 const mainEl = document.getElementById('main');
@@ -137,13 +139,153 @@ function updateHeaderActive() {
     const path = href.startsWith('#') ? href.slice(1) : href;
     link.classList.toggle('is-active', isActive(path, current.path));
   });
+  const moreToggle = headerEl.querySelector('[data-action="toggle-nav-more"]');
+  const morePanel = headerEl.querySelector('[data-nav-more-panel]');
+  moreToggle?.classList.toggle(
+    'is-active',
+    Boolean(morePanel?.querySelector('.nav-link.is-active'))
+  );
 }
 
 function displayName(user) {
   return user?.nickname || user?.username || '社员';
 }
 
+function setUserMenuOpen(open) {
+  const menu = headerEl.querySelector('[data-user-menu]');
+  const toggle = headerEl.querySelector('[data-action="toggle-user-menu"]');
+  const panel = headerEl.querySelector('[data-user-panel]');
+  menu?.classList.toggle('is-open', open);
+  toggle?.setAttribute('aria-expanded', String(open));
+  panel?.classList.toggle('is-open', open);
+  panel?.setAttribute('aria-hidden', String(!open));
+}
+
+function setNavMoreOpen(open) {
+  const more = headerEl.querySelector('[data-nav-more]');
+  const toggle = headerEl.querySelector('[data-action="toggle-nav-more"]');
+  const panel = headerEl.querySelector('[data-nav-more-panel]');
+  if (!more) return;
+  more.dataset.open = open ? 'true' : 'false';
+  toggle?.setAttribute('aria-expanded', String(open));
+  panel?.classList.toggle('is-open', open);
+  panel?.setAttribute('aria-hidden', String(!open));
+}
+
+function setupHeaderNav() {
+  const nav = headerEl.querySelector('.main-nav');
+  const navMore = headerEl.querySelector('[data-nav-more]');
+  const navMoreToggle = headerEl.querySelector('[data-action="toggle-nav-more"]');
+  const navMorePanel = headerEl.querySelector('[data-nav-more-panel]');
+  if (!nav || !navMore || !navMoreToggle || !navMorePanel) return () => {};
+
+  const links = [...nav.querySelectorAll('.nav-link')];
+  let frame = 0;
+  let disposed = false;
+
+  function layout() {
+    frame = 0;
+    if (disposed) return;
+    headerEl.classList.remove('is-nav-compact');
+    navMore.hidden = true;
+    setNavMoreOpen(false);
+
+    const fragment = document.createDocumentFragment();
+    for (const link of links) {
+      link.classList.remove('is-more-link');
+      fragment.appendChild(link);
+    }
+    nav.insertBefore(fragment, navMore);
+
+    if (window.matchMedia('(max-width: 640px)').matches) {
+      headerEl.classList.add('is-nav-compact');
+      return;
+    }
+
+    const navStyle = getComputedStyle(nav);
+    const gap = Number.parseFloat(navStyle.columnGap || navStyle.gap) || 0;
+    const available = nav.clientWidth;
+
+    navMore.hidden = false;
+    navMore.style.visibility = 'hidden';
+    const moreWidth = navMore.offsetWidth;
+    navMore.style.visibility = '';
+
+    const widths = links.map((link) => link.getBoundingClientRect().width);
+    const total = widths.reduce((sum, width) => sum + width, 0) + gap * Math.max(0, links.length - 1);
+    if (total <= available + 0.5) {
+      navMore.hidden = true;
+      return;
+    }
+
+    const budget = available - moreWidth - gap;
+    let used = 0;
+    let visible = 0;
+    for (let index = 0; index < links.length; index += 1) {
+      const need = widths[index] + (visible ? gap : 0);
+      if (used + need > budget + 0.5) break;
+      used += need;
+      visible += 1;
+    }
+
+    if (visible === 0) {
+      navMore.hidden = true;
+      headerEl.classList.add('is-nav-compact');
+      return;
+    }
+
+    navMore.hidden = false;
+    for (let index = visible; index < links.length; index += 1) {
+      const link = links[index];
+      link.classList.add('is-more-link');
+      navMorePanel.appendChild(link);
+    }
+    updateHeaderActive();
+  }
+
+  const schedule = () => {
+    if (disposed || frame) return;
+    frame = requestAnimationFrame(layout);
+  };
+
+  const onDocumentClick = (event) => {
+    if (!navMore.contains(event.target)) setNavMoreOpen(false);
+  };
+  const onKeyDown = (event) => {
+    if (event.key === 'Escape') {
+      setNavMoreOpen(false);
+      setUserMenuOpen(false);
+    }
+  };
+
+  navMoreToggle.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const open = navMore.dataset.open !== 'true';
+    if (open) setUserMenuOpen(false);
+    setNavMoreOpen(open);
+  });
+  navMorePanel.addEventListener('click', () => setNavMoreOpen(false));
+  document.addEventListener('click', onDocumentClick);
+  document.addEventListener('keydown', onKeyDown);
+  window.addEventListener('resize', schedule);
+  const observer = window.ResizeObserver ? new ResizeObserver(schedule) : null;
+  observer?.observe(headerEl.querySelector('.header-inner'));
+  document.fonts?.ready.then(schedule).catch(() => {});
+  layout();
+
+  return () => {
+    disposed = true;
+    if (frame) cancelAnimationFrame(frame);
+    observer?.disconnect();
+    window.removeEventListener('resize', schedule);
+    document.removeEventListener('click', onDocumentClick);
+    document.removeEventListener('keydown', onKeyDown);
+  };
+}
+
 function renderHeader() {
+  headerNavCleanup?.();
+  headerNavCleanup = null;
   const current = parseHash();
   const items = navigationItems();
   const links = items
@@ -159,13 +301,13 @@ function renderHeader() {
 
   const authArea = state.user
     ? `
-      <details class="user-menu">
-        <summary class="user-summary" aria-label="账号菜单">
+      <div class="user-menu" data-user-menu>
+        <button type="button" class="user-summary" data-action="toggle-user-menu" aria-label="账号菜单" aria-expanded="false" aria-haspopup="true">
           ${ui.avatarHtml(displayName(state.user), { size: 'sm', avatar: state.user.avatar })}
           <span class="user-name">${ui.escapeHtml(displayName(state.user))}</span>
           ${icon('chevron', 'icon user-chevron')}
-        </summary>
-        <div class="user-panel">
+        </button>
+        <div class="user-panel dropdown-panel" data-user-panel aria-hidden="true">
           <div class="user-panel-head">
             ${ui.avatarHtml(displayName(state.user), { size: 'md', avatar: state.user.avatar })}
             <div>
@@ -180,7 +322,7 @@ function renderHeader() {
           ${state.user.isAdmin ? `<a href="#/admin">${icon('admin')}管理后台</a>` : ''}
           <button type="button" class="menu-danger" data-action="logout">${icon('logout')}退出登录</button>
         </div>
-      </details>
+      </div>
     `
     : `
       <a class="btn btn-ghost btn-sm header-login" href="#/login">登录</a>
@@ -199,7 +341,15 @@ function renderHeader() {
       <button class="icon-btn mobile-toggle" data-action="toggle-nav" aria-label="展开导航" aria-expanded="false">
         ${icon('layers')}
       </button>
-      <nav class="main-nav" aria-label="主导航">${links}</nav>
+      <nav class="main-nav" aria-label="主导航">
+        ${links}
+        <div class="nav-more" data-nav-more hidden>
+          <button class="nav-more-toggle" type="button" data-action="toggle-nav-more" aria-expanded="false" aria-haspopup="true">
+            <span>更多</span>${icon('chevron', 'nav-more-chevron')}
+          </button>
+          <div class="nav-more-panel dropdown-panel" data-nav-more-panel aria-hidden="true"></div>
+        </div>
+      </nav>
       <div class="header-actions">${authArea}</div>
     </div>
   `;
@@ -213,7 +363,18 @@ function renderHeader() {
   });
   nav?.addEventListener('click', () => headerEl.classList.remove('nav-open'));
 
+  const userMenu = headerEl.querySelector('[data-user-menu]');
+  const userPanel = headerEl.querySelector('[data-user-panel]');
+  headerEl.querySelector('[data-action="toggle-user-menu"]')?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const open = !userMenu?.classList.contains('is-open');
+    if (open) setNavMoreOpen(false);
+    setUserMenuOpen(open);
+  });
+  userPanel?.addEventListener('click', () => setUserMenuOpen(false));
+
   headerEl.querySelector('[data-action="logout"]')?.addEventListener('click', async () => {
+    setUserMenuOpen(false);
     try {
       await api.post('/auth/logout');
     } catch {
@@ -224,17 +385,18 @@ function renderHeader() {
     ui.toast('已退出登录，星空会记得你', 'info');
   });
 
-  const menu = headerEl.querySelector('.user-menu');
   if (headerOutsideHandler) {
     document.removeEventListener('click', headerOutsideHandler);
     headerOutsideHandler = null;
   }
-  if (menu) {
+  if (userMenu) {
     headerOutsideHandler = (event) => {
-      if (!menu.contains(event.target)) menu.removeAttribute('open');
+      if (!userMenu.contains(event.target)) setUserMenuOpen(false);
     };
     document.addEventListener('click', headerOutsideHandler);
   }
+
+  headerNavCleanup = setupHeaderNav();
 }
 
 function renderAnnouncement() {
@@ -563,4 +725,5 @@ async function bootstrap() {
   }
 }
 
+initCustomSelects();
 bootstrap();

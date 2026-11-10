@@ -1,18 +1,8 @@
 import { api } from '../api.js';
+import { bindPager, pagerHtml } from '../admin-pagination.js';
 import { can, displayName, userStatusLabel } from '../authz-client.js';
 import { icon } from '../icons.js';
 import * as ui from '../ui.js';
-
-function pagerHtml(data) {
-  if (!data || data.pages <= 1) return '';
-  return `
-    <nav class="pagination admin-pager" data-pager aria-label="分页">
-      <button class="pager-btn" data-page="${data.page - 1}" ${data.page <= 1 ? 'disabled' : ''}>${icon('chevron')}</button>
-      <span class="pager-label">第 ${data.page} / ${data.pages} 页 · 共 ${data.total} 条</span>
-      <button class="pager-btn pager-next" data-page="${data.page + 1}" ${data.page >= data.pages ? 'disabled' : ''}>${icon('chevron')}</button>
-    </nav>
-  `;
-}
 
 function roleChips(user) {
   if (!user.roles?.length) return '<span class="role-chip muted">无角色</span>';
@@ -50,7 +40,7 @@ function passwordError(password) {
 }
 
 export async function renderUsers(main, ctx) {
-  const state = { q: '', status: '', roleId: '', page: 1 };
+  const state = { q: '', status: '', roleId: '', page: 1, pageSize: 10 };
   let roleOptions = [];
   let departments = [];
   let permissionCatalog = [];
@@ -120,12 +110,12 @@ export async function renderUsers(main, ctx) {
         status: state.status,
         roleId: state.roleId,
         page: state.page,
-        size: 30,
+        size: state.pageSize,
       });
       rows = data.items;
       tableHost.innerHTML = `
         <table class="data-table user-table">
-          <thead><tr><th>用户</th><th>角色</th><th>部门</th><th>状态</th><th>角色/材质</th><th class="table-actions-col">操作</th></tr></thead>
+          <thead><tr><th>用户</th><th>角色</th><th>部门</th><th>状态</th><th>角色额度</th><th>材质</th><th class="table-actions-col">操作</th></tr></thead>
           <tbody>
             ${data.items
               .map(
@@ -142,7 +132,8 @@ export async function renderUsers(main, ctx) {
                   <td data-label="角色"><div class="role-chip-list">${roleChips(user)}</div></td>
                   <td data-label="部门">${ui.escapeHtml(user.deptNames?.join(' / ') || '未分配')}</td>
                   <td data-label="状态">${statusPill(user.status)}</td>
-                  <td data-label="角色 / 材质"><span class="num-pair">${user.playerCount} / ${user.textureCount}</span></td>
+                  <td data-label="角色额度"><span class="num-pair">${user.playerCount} / ${user.playerLimit ?? 3}</span></td>
+                  <td data-label="材质"><span class="num-pair">${user.textureCount}</span></td>
                   <td data-label="操作" class="table-actions">
                     ${
                       can(ctx.user, 'system:user:edit') && canManageTarget(ctx.user, user)
@@ -182,7 +173,19 @@ export async function renderUsers(main, ctx) {
           'users'
         )}</span><p>没有找到匹配的用户</p></div>`}
       `;
-      pagerHost.innerHTML = pagerHtml(data);
+      pagerHost.innerHTML = pagerHtml(data.page, data.pages, data.total, state.pageSize);
+      bindPager(
+        pagerHost,
+        (page) => {
+          state.page = page;
+          load();
+        },
+        (size) => {
+          state.pageSize = size;
+          state.page = 1;
+          load();
+        }
+      );
     } catch (error) {
       tableHost.innerHTML = `<div class="empty-state compact"><p>${ui.escapeHtml(error.message)}</p></div>`;
     }
@@ -316,6 +319,13 @@ export async function renderUsers(main, ctx) {
           <span><strong>邮箱已验证</strong><small>对应用户字段 emailVerified。</small></span>
           <input type="checkbox" name="emailVerified" ${user?.emailVerified !== false ? 'checked' : ''} />
         </label>
+        <label class="field">
+          <span>可创建角色数</span>
+          <input name="playerLimit" type="number" min="0" max="100" step="1" required value="${ui.escapeHtml(
+            String(user?.playerLimit ?? 3)
+          )}" />
+          <small class="field-hint">默认 3，范围 0–100；设为 0 表示禁止创建新角色。</small>
+        </label>
         <div class="field">
           <span>角色</span>
           ${roleCheckboxes(selectedRoles, { allowAll: ctx.user.wildcard })}
@@ -357,6 +367,7 @@ export async function renderUsers(main, ctx) {
               phone: form.elements.phone.value.trim(),
               qq: form.elements.qq.value.trim(),
               emailVerified: form.elements.emailVerified.checked,
+              playerLimit: Number(form.elements.playerLimit.value),
             };
             ui.setButtonLoading(button, true, '保存中…');
             try {
@@ -421,13 +432,7 @@ export async function renderUsers(main, ctx) {
     load();
   });
 
-  main.addEventListener('click', async (event) => {
-    const pageButton = event.target.closest('[data-page]');
-    if (pageButton && !pageButton.disabled) {
-      state.page = Number(pageButton.dataset.page);
-      await load();
-      return;
-    }
+  async function onMainClick(event) {
     const button = event.target.closest('[data-action]');
     if (!button) return;
     const action = button.dataset.action;
@@ -478,8 +483,11 @@ export async function renderUsers(main, ctx) {
         ui.toast(error.message, 'error');
       }
     }
-  });
+  }
+  main.addEventListener('click', onMainClick);
 
   await loadRoles();
   await load();
+
+  return () => main.removeEventListener('click', onMainClick);
 }

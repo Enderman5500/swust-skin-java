@@ -112,7 +112,7 @@ public final class Textures {
 
     public static Map<String, Object> list(Database db, AuthUser viewer, Map<String, String> query) {
         int page = Math.max(1, Users.parseInt(query.get("page"), 1));
-        int perPage = Math.max(1, Math.min(60, Users.parseInt(
+        int perPage = Math.max(1, Math.min(100, Users.parseInt(
                 first(query, "perPage", "size"), 24)));
         int offset = (page - 1) * perPage;
         String scope = query.getOrDefault("scope", "library");
@@ -323,7 +323,7 @@ public final class Textures {
 
     public static Map<String, Object> closet(Database db, String userId, Map<String, String> query) {
         int page = Math.max(1, Users.parseInt(query.get("page"), 1));
-        int perPage = Math.max(1, Math.min(60, Users.parseInt(first(query, "perPage", "size"), 24)));
+        int perPage = Math.max(1, Math.min(100, Users.parseInt(first(query, "perPage", "size"), 24)));
         int offset = (page - 1) * perPage;
         List<String> conditions = new ArrayList<>();
         conditions.add("c.user_id = ?");
