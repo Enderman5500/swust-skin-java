@@ -12,3 +12,5 @@ game-integrations/**/target/
 plugins/mc-wiki/assets/
 plugins/mc-wiki/cn/
 plugins/activity/cn/
+
+plugins/feedback/cn/

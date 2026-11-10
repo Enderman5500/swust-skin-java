@@ -348,6 +348,28 @@ data/plugin-data/activity/     activities.json、participations.json、identitie
 plugin-src/activity/build.sh      # Windows: plugin-src\activity\build.bat
 ```
 
+## 问题反馈
+
+`plugins/feedback/` 移植自 YuDream 问题反馈插件，入口为 `#/plugin/feedback`，管理员入口为 `#/plugin/feedback?tab=admin`。
+
+- 社员提交缺陷反馈 / 功能建议 / 使用咨询，可附最多 6 张截图，并可选择一个由管理员维护的自定义分类，在「我的反馈」中跟进进度、追加说明、修改未完结的内容或撤回。
+- 管理员在「反馈管理」中跨用户检索与筛选反馈，回复用户、填写仅管理员可见的内部备注、指派处理人（支持多人协作）、修正严重程度，并流转「待处理 / 处理中 / 已解决 / 不予处理 / 已归档」状态。
+- 「分类管理」页支持新增、编辑（重命名、设置默认处理人，默认处理人可多选）、启用/停用与删除分类；用户提交该分类的反馈时会自动指派给这些默认处理人。停用或删除后不再出现在提交表单中，历史反馈仍保留原分类名称。
+- 管理员给出结论（已解决 / 不予处理）后，提交人可归档；结论超过 7 天仍未归档的，在下次读取反馈时由插件自动归档。
+- 全部处理过程留痕，用户端不会看到内部备注。
+
+数据位置：
+
+```text
+data/plugin-data/feedback/     feedbacks.json、categories.json、attachments/*
+```
+
+重新构建插件：
+
+```bash
+plugin-src/feedback/build.sh      # Windows: plugin-src\feedback\build.bat
+```
+
 ## 插件权限
 
 每个已安装插件会自动注册一个权限码：
