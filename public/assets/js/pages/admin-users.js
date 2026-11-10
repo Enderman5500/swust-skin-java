@@ -115,7 +115,7 @@ export async function renderUsers(main, ctx) {
       rows = data.items;
       tableHost.innerHTML = `
         <table class="data-table user-table">
-          <thead><tr><th>用户</th><th>角色</th><th>部门</th><th>状态</th><th>角色/材质</th><th class="table-actions-col">操作</th></tr></thead>
+          <thead><tr><th>用户</th><th>角色</th><th>部门</th><th>状态</th><th>角色额度</th><th>材质</th><th class="table-actions-col">操作</th></tr></thead>
           <tbody>
             ${data.items
               .map(
@@ -132,7 +132,8 @@ export async function renderUsers(main, ctx) {
                   <td data-label="角色"><div class="role-chip-list">${roleChips(user)}</div></td>
                   <td data-label="部门">${ui.escapeHtml(user.deptNames?.join(' / ') || '未分配')}</td>
                   <td data-label="状态">${statusPill(user.status)}</td>
-                  <td data-label="角色 / 材质"><span class="num-pair">${user.playerCount} / ${user.textureCount}</span></td>
+                  <td data-label="角色额度"><span class="num-pair">${user.playerCount} / ${user.playerLimit ?? 3}</span></td>
+                  <td data-label="材质"><span class="num-pair">${user.textureCount}</span></td>
                   <td data-label="操作" class="table-actions">
                     ${
                       can(ctx.user, 'system:user:edit') && canManageTarget(ctx.user, user)
@@ -318,6 +319,13 @@ export async function renderUsers(main, ctx) {
           <span><strong>邮箱已验证</strong><small>对应用户字段 emailVerified。</small></span>
           <input type="checkbox" name="emailVerified" ${user?.emailVerified !== false ? 'checked' : ''} />
         </label>
+        <label class="field">
+          <span>可创建角色数</span>
+          <input name="playerLimit" type="number" min="0" max="100" step="1" required value="${ui.escapeHtml(
+            String(user?.playerLimit ?? 3)
+          )}" />
+          <small class="field-hint">默认 3，范围 0–100；设为 0 表示禁止创建新角色。</small>
+        </label>
         <div class="field">
           <span>角色</span>
           ${roleCheckboxes(selectedRoles, { allowAll: ctx.user.wildcard })}
@@ -359,6 +367,7 @@ export async function renderUsers(main, ctx) {
               phone: form.elements.phone.value.trim(),
               qq: form.elements.qq.value.trim(),
               emailVerified: form.elements.emailVerified.checked,
+              playerLimit: Number(form.elements.playerLimit.value),
             };
             ui.setButtonLoading(button, true, '保存中…');
             try {

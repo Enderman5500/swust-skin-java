@@ -136,6 +136,7 @@ public final class Authz {
         user.avatarFileId = row.get("avatar_file_id") == null ? null : str(row.get("avatar_file_id"));
         user.emailVerified = num(row.get("email_verified")) != 0;
         user.status = str(row.get("status"));
+        user.playerLimit = row.get("player_limit") == null ? 3 : num(row.get("player_limit"));
         user.createTime = str(row.get("create_time"));
         user.updateTime = str(row.get("update_time"));
         user.lastLoginTime = row.get("last_login_time") == null ? null : str(row.get("last_login_time"));

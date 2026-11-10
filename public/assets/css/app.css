@@ -7393,12 +7393,13 @@ body.is-admin .site-main {
   overflow: visible;
 }
 
-.yd-admin-content .user-table th:nth-child(1) { width: 24%; }
-.yd-admin-content .user-table th:nth-child(2) { width: 20%; }
-.yd-admin-content .user-table th:nth-child(3) { width: 13%; }
-.yd-admin-content .user-table th:nth-child(4) { width: 9%; }
-.yd-admin-content .user-table th:nth-child(5) { width: 9%; }
-.yd-admin-content .user-table th:nth-child(6) { width: 25%; }
+.yd-admin-content .user-table th:nth-child(1) { width: 20%; }
+.yd-admin-content .user-table th:nth-child(2) { width: 18%; }
+.yd-admin-content .user-table th:nth-child(3) { width: 11%; }
+.yd-admin-content .user-table th:nth-child(4) { width: 8%; }
+.yd-admin-content .user-table th:nth-child(5) { width: 10%; }
+.yd-admin-content .user-table th:nth-child(6) { width: 8%; }
+.yd-admin-content .user-table th:nth-child(7) { width: 25%; }
 
 .yd-admin-content .role-table th:nth-child(1) { width: 31%; }
 .yd-admin-content .role-table th:nth-child(2) { width: 15%; }

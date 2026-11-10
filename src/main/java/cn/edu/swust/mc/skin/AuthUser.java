@@ -17,6 +17,7 @@ public final class AuthUser {
     public String avatarFileId;
     public boolean emailVerified;
     public String status;
+    public int playerLimit = 3;
     public String createTime;
     public String updateTime;
     public String lastLoginTime;
@@ -52,6 +53,7 @@ public final class AuthUser {
         map.put("avatarFileId", avatarFileId);
         map.put("emailVerified", emailVerified);
         map.put("status", status);
+        map.put("playerLimit", playerLimit);
         map.put("roleIds", roleIds);
         map.put("roleNames", roleNames);
         map.put("roles", roles);

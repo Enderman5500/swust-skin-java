@@ -60,6 +60,7 @@ CREATE TABLE IF NOT EXISTS users (
   avatar_file_id TEXT,
   email_verified INTEGER NOT NULL DEFAULT 0,
   status TEXT NOT NULL DEFAULT 'ACTIVE',
+  player_limit INTEGER NOT NULL DEFAULT 3,
   tags TEXT NOT NULL DEFAULT '[]',
   fields TEXT NOT NULL DEFAULT '{}',
   version INTEGER NOT NULL DEFAULT 0,

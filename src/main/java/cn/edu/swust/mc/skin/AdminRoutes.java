@@ -162,7 +162,7 @@ public final class AdminRoutes {
             assertCanManage(ctx.user, target);
             Map<String, Object> body = ctx.json();
             Map<String, Object> payload = new LinkedHashMap<>();
-            for (String field : List.of("username", "nickname", "email", "phone", "qq", "emailVerified")) {
+            for (String field : List.of("username", "nickname", "email", "phone", "qq", "emailVerified", "playerLimit")) {
                 if (body.containsKey(field)) payload.put(field, body.get(field));
             }
             AuthUser updated = Users.update(app.db, target.id, payload);

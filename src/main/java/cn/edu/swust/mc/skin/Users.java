@@ -103,6 +103,18 @@ public final class Users {
         }
     }
 
+    private static int parsePlayerLimit(Object value) {
+        String text = Authz.str(value).trim();
+        if (!text.matches("\\d{1,3}")) {
+            throw Web.badRequest("可创建角色数需为 0–" + Players.MAX_PER_USER + " 的整数");
+        }
+        int limit = Integer.parseInt(text);
+        if (limit > Players.MAX_PER_USER) {
+            throw Web.badRequest("可创建角色数需为 0–" + Players.MAX_PER_USER + " 的整数");
+        }
+        return limit;
+    }
+
     public static AuthUser create(Database db, Config config, Map<String, Object> input) {
         String username = Authz.str(input.get("username")).trim();
         String nickname = Security.sanitize(Authz.str(input.getOrDefault("nickname", username)), 64);
@@ -117,15 +129,18 @@ public final class Users {
         ensureUniqueIdentity(db, username, email, null);
         String now = Security.isoNow();
         String id = Security.nextId(config.snowflakeDataCenter, config.snowflakeMachine);
+        int playerLimit = input.containsKey("playerLimit")
+                ? parsePlayerLimit(input.get("playerLimit"))
+                : Players.DEFAULT_PER_USER;
         db.update("""
                 INSERT INTO users
                 (id, username, nickname, email, phone, qq, password, avatar_file_id, email_verified, status,
-                 tags, fields, version, create_time, update_time)
-                VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, 'ACTIVE', '[]', '{}', 0, ?, ?)
+                 player_limit, tags, fields, version, create_time, update_time)
+                VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, 'ACTIVE', ?, '[]', '{}', 0, ?, ?)
                 """, id, username, nickname, email,
                 phone.isEmpty() ? null : phone, qq.isEmpty() ? null : qq,
                 Security.hashPassword(password), Boolean.FALSE.equals(input.get("emailVerified")) ? 0 : 1,
-                now, now);
+                playerLimit, now, now);
         List<Map<String, Object>> depts = mapList(input.get("depts"));
         if (depts.isEmpty()) {
             depts = List.of(Map.of("deptId", Authz.ROOT_DEPT, "defaultDept", true));
@@ -153,11 +168,16 @@ public final class Users {
                 ? (Authz.bool(input.get("emailVerified")) ? 1 : 0)
                 : (user.emailVerified ? 1 : 0);
         String now = Security.isoNow();
+        int playerLimit = input.containsKey("playerLimit")
+                ? parsePlayerLimit(input.get("playerLimit"))
+                : row.get("player_limit") == null
+                        ? Players.DEFAULT_PER_USER
+                        : Authz.num(row.get("player_limit"));
         db.update("""
                 UPDATE users SET username = ?, nickname = ?, email = ?, phone = ?, qq = ?,
-                  email_verified = ?, update_time = ?, version = version + 1 WHERE id = ?
+                  email_verified = ?, player_limit = ?, update_time = ?, version = version + 1 WHERE id = ?
                 """, username, nickname, email, phone.isEmpty() ? null : phone, qq.isEmpty() ? null : qq,
-                emailVerified, now, user.id);
+                emailVerified, playerLimit, now, user.id);
 
         if (input.containsKey("depts")) {
             List<Map<String, Object>> depts = mapList(input.get("depts"));
