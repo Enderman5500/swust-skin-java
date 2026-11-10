@@ -250,6 +250,26 @@ game-integrations/
 
 详见 `game-integrations/README.md`。
 
+## 启动器域插件
+
+内置 `launcher-domain` 插件为 SWUSTMCL 提供“站点型域”：
+
+- 公开页「社团域」展示域资料、公告、官方服务器与资源；
+- 管理后台「插件页面 → 域管理」维护域资料、公告、服务器和资源；
+- 清单接口：`GET /api/plugins/launcher-domain/manifest`；
+- 启动器邀请：`swustmcl:domain:<编码后的站址>` 或 `swustmcl://add-domain?url=...`；
+- 服务器可关联 `minecraft-server` 插件中的服务器 ID，网页清单直接显示心跳在线人数；
+- 资源支持整合包、资源包、光影包和其他文件，启动器可下载，资源包/光影可直接安装到实例；
+- 启动器登录同一域的皮肤站账号后，可同步角色并切换启动角色。
+
+域数据保存在：
+
+```text
+data/plugin-data/launcher-domain/launcher-domain.db
+```
+
+一个皮肤站只维护一个域；插件首次启用时会导入 `minecraft-server` 中已有的服务器。
+
 ## 插件权限
 
 每个已安装插件会自动注册一个权限码：
