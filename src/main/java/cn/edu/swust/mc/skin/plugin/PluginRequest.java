@@ -33,6 +33,10 @@ public final class PluginRequest {
         return ctx.query;
     }
 
+    public String header(String name) {
+        return ctx.exchange.getRequestHeaders().getFirst(name);
+    }
+
     public AuthUser user() {
         return ctx.user;
     }

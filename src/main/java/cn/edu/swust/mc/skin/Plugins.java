@@ -425,9 +425,16 @@ public final class Plugins {
             if (route.admin && !ctx.user.admin) throw Web.forbidden("没有权限执行此操作");
             try {
                 Object result = route.handler.handle(new PluginRequest(ctx, record.manifest));
-                ctx.ok(result);
+                if (result instanceof cn.edu.swust.mc.skin.plugin.PluginResponse response) {
+                    response.write(ctx);
+                } else {
+                    ctx.ok(result);
+                }
             } catch (Web.HttpError | Yggdrasil.YggdrasilError e) {
                 throw e;
+            } catch (IOException e) {
+                Log.error("插件 " + id + " 路由 " + route.method + " " + route.path + " 输出失败：" + e.getMessage());
+                throw new Web.HttpError(500, "plugin_error", "插件输出失败");
             } catch (Exception e) {
                 Log.error("插件 " + id + " 路由 " + route.method + " " + route.path + " 执行失败：" + e.getMessage());
                 throw new Web.HttpError(500, "plugin_error", "插件执行失败");

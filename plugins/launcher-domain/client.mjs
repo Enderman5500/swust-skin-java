@@ -73,6 +73,7 @@ export async function mount(root, ctx) {
     const iconUrl = data.icon ? absolute(data.icon, origin) : `${origin}/assets/brand/badge.png`;
     const servers = data.servers || [];
     const resources = data.resources || [];
+    const packs = data.packs || [];
     const announcement = data.announcement?.text || '';
     root.innerHTML = `${STYLE}
       <section class="ld-page">
@@ -88,7 +89,7 @@ export async function mount(root, ctx) {
         <div class="ld-grid">
           <section class="ld-card">
             <h2>添加到启动器</h2>
-            <p>拖到 SWUSTMCL 的「域」页面，或复制邀请手动添加。</p>
+            <p>在启动器侧边栏「域」卡片中添加，或复制邀请手动添加。</p>
             <div class="ld-drag" draggable="true" data-ld-drag>
               ${icon('layers')}
               <code>${escapeHtml(invite)}</code>
@@ -121,6 +122,7 @@ export async function mount(root, ctx) {
                       </div>
                       <code>${escapeHtml(server.host)}:${server.port}</code>
                       ${server.note ? `<p>${escapeHtml(server.note)}</p>` : ''}
+                      ${server.pack ? `<p>整合包：${escapeHtml(server.pack.name)} · ${server.pack.policy === 'required' ? '必装' : '可选'} · v${server.pack.latestVersion}</p>` : ''}
                       <div class="ld-server-meta">
                         ${online ? `<span>${server.onlineCount || 0} / ${server.maxPlayers || '—'} 人</span>` : ''}
                         ${server.version ? `<span>${escapeHtml(server.version)}</span>` : ''}
@@ -134,7 +136,28 @@ export async function mount(root, ctx) {
         </section>
 
         <section class="ld-card">
-          <div class="ld-section-head"><h2>资源分发</h2><span class="type-pill muted">${resources.length} 个</span></div>
+          <div class="ld-section-head"><h2>服务器整合包</h2><span class="type-pill muted">${packs.length} 个</span></div>
+          ${
+            packs.length
+              ? packs
+                  .map((pack) => {
+                    const server = servers.find((item) => item.id === pack.serverId);
+                    return `<div class="ld-resource">
+                      <div>
+                        <strong>${escapeHtml(pack.name)}${pack.policy === 'required' ? ' · 必装' : ' · 可选'}</strong>
+                        <small>${escapeHtml(server ? server.name : '未绑定服务器')} · v${pack.latestVersion}${pack.totalSize ? ` · ${formatBytes(pack.totalSize)}` : ''}${pack.minJava ? ` · Java ${pack.minJava}+` : ''}</small>
+                        ${pack.description ? `<small style="display:block;margin-top:2px">${escapeHtml(pack.description)}</small>` : ''}
+                      </div>
+                      <span class="type-pill muted">启动器安装</span>
+                    </div>`;
+                  })
+                  .join('')
+              : '<div class="ld-empty">管理员还没有发布服务器整合包。</div>'
+          }
+        </section>
+
+        <section class="ld-card">
+          <div class="ld-section-head"><h2>其他资源</h2><span class="type-pill muted">${resources.length} 个</span></div>
           ${
             resources.length
               ? resources
@@ -172,6 +195,8 @@ export async function mount(root, ctx) {
     const domain = data.domain || {};
     const servers = data.servers || [];
     const resources = data.resources || [];
+    const packs = data.packs || [];
+    const tokens = data.tokens || [];
     root.innerHTML = `${STYLE}
       <section class="ld-page">
         <header class="admin-page-head">
@@ -198,6 +223,62 @@ export async function mount(root, ctx) {
             <label class="field full"><span>域描述</span><input name="description" maxlength="300" value="${escapeHtml(domain.description || '')}" /></label>
             <label class="field full"><span>公告</span><textarea name="announcement" rows="5" maxlength="2000" placeholder="启动器域页面展示的公告">${escapeHtml(domain.announcement || '')}</textarea></label>
           </form>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head"><div><p class="eyebrow">PUBLISH TOKENS</p><h3>启动器发布令牌</h3></div><button class="btn btn-primary btn-sm" data-ld-add-token>${icon('plus')}生成令牌</button></div>
+          <p class="field-hint">在启动器「版本管理 → 发布到域」中填写。令牌只显示一次，可随时吊销；持有令牌的人可以发布整合包版本。</p>
+          ${
+            tokens.length
+              ? `<div class="table-panel"><table class="data-table">
+                  <thead><tr><th>名称</th><th>前缀</th><th>有效期</th><th>最后使用</th><th>状态</th><th class="table-actions-col">操作</th></tr></thead>
+                  <tbody>${tokens
+                    .map(
+                      (token) => `<tr>
+                        <td data-label="名称"><strong>${escapeHtml(token.name)}</strong></td>
+                        <td data-label="前缀"><code>${escapeHtml(token.prefix)}…</code></td>
+                        <td data-label="有效期">${token.expiresAt ? escapeHtml(String(token.expiresAt).slice(0, 10)) : '永久'}</td>
+                        <td data-label="最后使用">${token.lastUsedAt ? escapeHtml(String(token.lastUsedAt).slice(0, 16).replace('T', ' ')) : '—'}</td>
+                        <td data-label="状态">${token.revoked ? '<span class="status-pill offline">已吊销</span>' : '<span class="status-pill online">可用</span>'}</td>
+                        <td data-label="操作" class="table-actions">
+                          <button class="btn btn-ghost btn-sm danger-text" data-ld-delete-token="${escapeHtml(token.id)}">${icon('trash')}吊销</button>
+                        </td>
+                      </tr>`
+                    )
+                    .join('')}</tbody>
+                </table></div>`
+              : '<div class="ld-empty">还没有发布令牌。生成后到启动器里填写即可发布整合包。</div>'
+          }
+        </section>
+
+        <section class="panel">
+          <div class="panel-head"><div><p class="eyebrow">INSTANCE PACKS</p><h3>服务器整合包</h3></div><button class="btn btn-ghost btn-sm" data-ld-refresh-packs>${icon('refresh')}刷新</button></div>
+          <p class="field-hint">由管理员在启动器「版本管理 → 发布到域」上传。每个服务器最多绑定一个整合包；同一实例再次发布只会上传变化文件。</p>
+          ${
+            packs.length
+              ? `<div class="table-panel"><table class="data-table">
+                  <thead><tr><th>整合包</th><th>服务器</th><th>绑定方式</th><th>最低 Java</th><th>版本</th><th>大小</th><th>更新</th><th class="table-actions-col">操作</th></tr></thead>
+                  <tbody>${packs
+                    .map(
+                      (pack) => `<tr>
+                        <td data-label="整合包"><strong>${escapeHtml(pack.name)}</strong><small class="field-hint">${escapeHtml(pack.instance?.mcVersion || '')}${pack.instance?.loader ? ' · ' + escapeHtml(pack.instance.loader) : ''}</small></td>
+                        <td data-label="服务器">${escapeHtml(pack.serverName || '未绑定')}</td>
+                        <td data-label="绑定方式">${pack.policy === 'required' ? '<span class="status-pill online">必装</span>' : '<span class="status-pill offline">可选</span>'}</td>
+                        <td data-label="最低 Java">${pack.minJava ? 'Java ' + pack.minJava + '+' : '不设置'}</td>
+                        <td data-label="版本">${pack.latestVersion ? 'v' + pack.latestVersion + (pack.visible ? '' : ' · 隐藏') : '未发布'}</td>
+                        <td data-label="大小">${formatBytes(pack.totalSize || 0)}</td>
+                        <td data-label="更新">${escapeHtml(String(pack.latestCreatedAt || pack.updatedAt || '').slice(0, 10))}</td>
+                        <td data-label="操作" class="table-actions">
+                          <button class="btn btn-ghost btn-sm" data-ld-pack-versions="${escapeHtml(pack.id)}">${icon('layers')}版本</button>
+                          <button class="btn btn-ghost btn-sm" data-ld-pack-visibility="${escapeHtml(pack.id)}" data-visible="${pack.visible ? '1' : '0'}">${pack.visible ? '隐藏' : '公开'}</button>
+                          <button class="btn btn-ghost btn-sm danger-text" data-ld-pack-delete="${escapeHtml(pack.id)}">${icon('trash')}删除</button>
+                        </td>
+                      </tr>`
+                    )
+                    .join('')}</tbody>
+                </table></div>`
+              : '<div class="ld-empty">还没有整合包。请到启动器发布一个已有实例。</div>'
+          }
         </section>
 
         <section class="panel">
@@ -229,7 +310,8 @@ export async function mount(root, ctx) {
         </section>
 
         <section class="panel">
-          <div class="panel-head"><div><p class="eyebrow">RESOURCES</p><h3>资源分发</h3></div><button class="btn btn-primary btn-sm" data-ld-add-resource>${icon('plus')}添加资源</button></div>
+          <div class="panel-head"><div><p class="eyebrow">LEGACY RESOURCES</p><h3>其他资源（旧版外链）</h3></div><button class="btn btn-ghost btn-sm" data-ld-add-resource>${icon('plus')}添加外链</button></div>
+          <p class="field-hint">这里保留旧版资源包/光影外链；新整合包请用启动器发布。</p>
           ${
             resources.length
               ? `<div class="table-panel"><table class="data-table">
@@ -314,6 +396,196 @@ export async function mount(root, ctx) {
           const next = await api.post('/plugins/launcher-domain/admin/resource/delete', { id: button.dataset.ldDeleteResource });
           toast('资源已删除');
           adminView(next);
+        } catch (error) {
+          toast(error.message, 'error');
+        }
+      });
+    });
+
+    async function reloadAdmin() {
+      try {
+        adminView(await api.get('/plugins/launcher-domain/admin/overview'));
+      } catch (error) {
+        toast(error.message, 'error');
+      }
+    }
+
+    root.querySelector('[data-ld-refresh-packs]')?.addEventListener('click', () => reloadAdmin());
+
+    root.querySelector('[data-ld-add-token]')?.addEventListener('click', () => {
+      const content = document.createElement('div');
+      content.innerHTML = `
+        <form class="form-stack">
+          <label class="field"><span>令牌名称</span><input name="name" maxlength="40" value="启动器发布令牌" required /></label>
+          <label class="field"><span>有效期</span>
+            <select name="expiresInDays">
+              <option value="30">30 天</option>
+              <option value="90" selected>90 天</option>
+              <option value="365">1 年</option>
+              <option value="0">永久</option>
+            </select>
+          </label>
+          <p class="field-hint">生成后只显示一次，请立即复制到启动器。</p>
+        </form>`;
+      ui.openModal({
+        title: '生成发布令牌',
+        content,
+        size: 'sm',
+        actions: [
+          { label: '取消', className: 'btn-ghost' },
+          {
+            label: '生成',
+            className: 'btn-primary',
+            onClick: async ({ close, button }) => {
+              const form = content.querySelector('form');
+              if (!form.reportValidity()) return false;
+              ui.setButtonLoading(button, true, '生成中…');
+              try {
+                const result = await api.post('/plugins/launcher-domain/admin/pack/token', {
+                  name: form.elements.name.value.trim(),
+                  expiresInDays: Number(form.elements.expiresInDays.value),
+                });
+                ui.setButtonLoading(button, false);
+                close();
+                reloadAdmin();
+                const tokenContent = document.createElement('div');
+                tokenContent.innerHTML = `
+                  <p class="field-hint">把下面的令牌填写到启动器「版本管理 → 发布到域」中。关闭后无法再次查看。</p>
+                  <div class="device-code-box" style="margin-top:10px"><code style="word-break:break-all">${escapeHtml(result.token)}</code></div>`;
+                ui.openModal({
+                  title: '发布令牌已生成',
+                  content: tokenContent,
+                  actions: [
+                    { label: '关闭', className: 'btn-ghost' },
+                    { label: '复制令牌', className: 'btn-primary', onClick: () => ui.copyText(result.token, '发布令牌已复制') },
+                  ],
+                });
+              } catch (error) {
+                ui.setButtonLoading(button, false);
+                toast(error.message, 'error');
+                return false;
+              }
+              return true;
+            },
+          },
+        ],
+      });
+    });
+
+    root.querySelectorAll('[data-ld-delete-token]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const confirmed = await ui.confirmDialog({
+          title: '吊销发布令牌',
+          message: '吊销后使用该令牌的启动器将无法继续发布，确定继续吗？',
+          confirmText: '吊销',
+          danger: true,
+        });
+        if (!confirmed) return;
+        try {
+          await api.post('/plugins/launcher-domain/admin/pack/token/delete', { id: button.dataset.ldDeleteToken });
+          toast('发布令牌已吊销');
+          reloadAdmin();
+        } catch (error) {
+          toast(error.message, 'error');
+        }
+      });
+    });
+
+    root.querySelectorAll('[data-ld-pack-versions]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const pack = packs.find((item) => item.id === button.dataset.ldPackVersions);
+        if (!pack) return;
+        try {
+          const data = await api.get(`/plugins/launcher-domain/admin/pack/versions?id=${encodeURIComponent(pack.id)}`);
+          const versions = data.versions || [];
+          const content = document.createElement('div');
+          content.innerHTML = versions.length
+            ? `<div class="table-panel"><table class="data-table">
+                <thead><tr><th>版本</th><th>文件</th><th>大小</th><th>说明</th><th>发布时间</th><th class="table-actions-col">操作</th></tr></thead>
+                <tbody>${versions
+                  .map(
+                    (version) => `<tr>
+                      <td data-label="版本"><strong>v${version.version_no}</strong>${version.version_no === pack.latestVersion ? ' <span class="status-pill online">当前</span>' : ''}</td>
+                      <td data-label="文件">${version.file_count}</td>
+                      <td data-label="大小">${formatBytes(version.total_size)}</td>
+                      <td data-label="说明">${escapeHtml(version.notes || '—')}</td>
+                      <td data-label="发布时间">${escapeHtml(String(version.created_at || '').slice(0, 16).replace('T', ' '))}</td>
+                      <td data-label="操作" class="table-actions">
+                        ${version.version_no === pack.latestVersion ? '' : `<button class="btn btn-ghost btn-sm" data-ld-rollback-version="${version.version_no}">回滚到此版本</button>`}
+                      </td>
+                    </tr>`
+                  )
+                  .join('')}</tbody>
+              </table></div>`
+            : '<div class="ld-empty">还没有发布版本。</div>';
+          const modal = ui.openModal({
+            title: `版本历史 · ${pack.name}`,
+            content,
+            size: 'lg',
+            actions: [{ label: '关闭', className: 'btn-ghost' }],
+          });
+          content.querySelectorAll('[data-ld-rollback-version]').forEach((rollbackButton) => {
+            rollbackButton.addEventListener('click', async () => {
+              const version = Number(rollbackButton.dataset.ldRollbackVersion);
+              const confirmed = await ui.confirmDialog({
+                title: '回滚整合包',
+                message: `将最新版本切换到 v${version}？玩家下次进服会更新到该版本。`,
+                confirmText: '回滚',
+              });
+              if (!confirmed) return;
+              try {
+                await api.post('/plugins/launcher-domain/admin/pack/update', {
+                  id: pack.id,
+                  action: 'rollback',
+                  version,
+                });
+                toast(`已回滚到 v${version}`);
+                if (modal && modal.close) modal.close();
+                reloadAdmin();
+              } catch (error) {
+                toast(error.message, 'error');
+              }
+            });
+          });
+        } catch (error) {
+          toast(error.message, 'error');
+        }
+      });
+    });
+
+    root.querySelectorAll('[data-ld-pack-visibility]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const visible = button.dataset.visible === '1';
+        try {
+          await api.post('/plugins/launcher-domain/admin/pack/update', {
+            id: button.dataset.ldPackVisibility,
+            action: 'visibility',
+            visible: !visible,
+          });
+          toast(visible ? '已隐藏整合包' : '已公开整合包');
+          reloadAdmin();
+        } catch (error) {
+          toast(error.message, 'error');
+        }
+      });
+    });
+
+    root.querySelectorAll('[data-ld-pack-delete]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const confirmed = await ui.confirmDialog({
+          title: '删除整合包',
+          message: '删除后该服务器不再提供整合包，玩家无法再安装或更新。确定继续吗？',
+          confirmText: '删除',
+          danger: true,
+        });
+        if (!confirmed) return;
+        try {
+          await api.post('/plugins/launcher-domain/admin/pack/update', {
+            id: button.dataset.ldPackDelete,
+            action: 'delete',
+          });
+          toast('整合包已删除');
+          reloadAdmin();
         } catch (error) {
           toast(error.message, 'error');
         }
