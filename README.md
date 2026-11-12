@@ -369,6 +369,31 @@ data/plugin-data/feedback/     feedbacks.json、categories.json、attachments/*
 ```bash
 plugin-src/feedback/build.sh      # Windows: plugin-src\feedback\build.bat
 ```
+## 启动器域插件
+
+内置 `launcher-domain` 插件为 SWUSTMCL 提供“站点型域”：
+
+- 公开页「社团域」展示域资料、公告、官方服务器与资源，并提供启动器邀请；
+- 管理后台「插件页面 → 域管理」维护域资料、公告、服务器和资源；
+- 清单接口：`GET /api/plugins/launcher-domain/manifest`；
+- 启动器邀请：`swustmcl:domain:<编码后的站址>` 或 `swustmcl://add-domain?url=...`；
+- 启动器把域作为当前环境：添加站点型域后，首页公告、服务器、资源与账号统一由该域接管，不新增单独的域页面；
+- 域内只允许登录该域对应的皮肤站账号；切换域会自动匹配账号，无匹配账号时禁止启动；
+- 服务器可关联 `minecraft-server` 插件中的服务器 ID，网页清单直接显示心跳在线人数；
+- 资源支持整合包、资源包、光影包和其他文件，启动器可下载，资源包/光影可直接安装到实例；
+- 服务器整合包：管理员在启动器「版本管理 → 发布到域」中选择版本隔离实例发布；发布时绑定服务器（一个服务器只能绑定一个包）、选择必装/原版增强和最低 Java 版本；
+- 增量发布：站点按 SHA-256 保存文件块和完整清单，同一实例再次发布只上传新增/修改文件，移动复用已有文件块，删除只改清单；
+- 发布认证：在「域管理 → 启动器发布令牌」生成令牌，启动器用系统凭据加密保存；令牌可设有效期和吊销；
+- CurseForge 中转：站点在「域管理 → CurseForge API Key」配置（或设置环境变量 `CURSEFORGE_API_KEY` / `CF_API_KEY`）后，处于本站域的启动器直接经站点搜索 CurseForge，玩家无需填写 Key，站点 Key 不会下发；
+- 中转接口只放行 `/mods/search`、`/mods/<id>`、`/mods/<id>/files`、`/mods/<id>/files/<fileId>` 等只读接口。
+
+域数据保存在：
+
+```text
+data/plugin-data/launcher-domain/launcher-domain.db
+```
+
+一个皮肤站只维护一个域；插件首次启用时会导入 `minecraft-server` 中已有的服务器。
 
 ## 插件权限
 
@@ -391,14 +416,14 @@ plugin:<插件 id>:use
       "title": "服务器管理",
       "category": "社团服务",
       "icon": "server",
-      "path": "#/plugin/server-status",
+      "path": "#/admin/plugin/server-status",
       "order": 10
     }
   ]
 }
 ```
 
-`path` 必须是以 `#/` 开头的站内路由；省略时默认指向插件页面。
+`path` 必须是以 `#/` 开头的站内路由。带 `client` 的插件会直接在管理后台外壳内打开（不再跳到前台插件页），`path` 中的查询参数会原样传给插件（例如 `?tab=admin`）；省略时默认传入 `tab=admin`。没有前端模块的插件按 `path` 跳转。
 
 ## Java 插件开发
 

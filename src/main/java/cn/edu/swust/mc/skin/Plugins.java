@@ -426,13 +426,15 @@ public final class Plugins {
             try {
                 Object result = route.handler.handle(new PluginRequest(ctx, record.manifest));
                 if (result instanceof cn.edu.swust.mc.skin.plugin.PluginResponse response) {
-                    ctx.sendBytes(response.status(), response.body(), response.contentType(), "no-store",
-                            response.headers());
+                    response.write(ctx);
                 } else {
                     ctx.ok(result);
                 }
             } catch (Web.HttpError | Yggdrasil.YggdrasilError e) {
                 throw e;
+            } catch (IOException e) {
+                Log.error("插件 " + id + " 路由 " + route.method + " " + route.path + " 输出失败：" + e.getMessage());
+                throw new Web.HttpError(500, "plugin_error", "插件输出失败");
             } catch (Exception e) {
                 Log.error("插件 " + id + " 路由 " + route.method + " " + route.path + " 执行失败：" + e.getMessage());
                 throw new Web.HttpError(500, "plugin_error", "插件执行失败");

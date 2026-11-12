@@ -1,0 +1,24 @@
+{
+  "id": "launcher-domain",
+  "name": "启动器域",
+  "version": "1.0.3",
+  "description": "为 SWUSTMCL 提供站点型域：域资料、公告、官方服务器与资源清单。",
+  "author": "星空社技术组",
+  "mainClass": "cn.edu.swust.mc.skin.plugins.launcherdomain.LauncherDomainPlugin",
+  "client": "client.mjs",
+  "enabledByDefault": true,
+  "nav": {
+    "title": "社团域",
+    "icon": "layers",
+    "order": 12
+  },
+  "adminNav": [
+    {
+      "title": "域管理",
+      "category": "社团服务",
+      "icon": "layers",
+      "order": 25,
+      "path": "#/admin/plugin/launcher-domain"
+    }
+  ]
+}
