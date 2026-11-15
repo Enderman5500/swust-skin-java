@@ -211,7 +211,9 @@ function setupHeaderNav() {
     const moreWidth = navMore.offsetWidth;
     navMore.style.visibility = '';
 
-    const widths = links.map((link) => link.getBoundingClientRect().width);
+    // 用 offsetWidth 而不是 getBoundingClientRect：大屏整体 zoom 时后者会被缩放，
+    // 而 nav.clientWidth 仍是布局宽度，混用会导致导航过早收进「更多」。
+    const widths = links.map((link) => link.offsetWidth);
     const total = widths.reduce((sum, width) => sum + width, 0) + gap * Math.max(0, links.length - 1);
     if (total <= available + 0.5) {
       navMore.hidden = true;

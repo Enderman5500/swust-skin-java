@@ -48,6 +48,65 @@ function bindAuthDrag(root, url) {
   });
 }
 
+function domainInviteHtml(domain) {
+  let base = location.origin;
+  try {
+    base = new URL(domain.siteUrl || location.origin, location.origin).toString().replace(/\/+$/, '');
+  } catch {}
+  const invite = `swustmcl:domain:${encodeURIComponent(base)}`;
+  const addUrl = `swustmcl://add-domain?url=${encodeURIComponent(base)}`;
+  const rawIcon = String(domain.icon || '/assets/brand/badge.png');
+  const iconUrl = /^https?:\/\//i.test(rawIcon) ? rawIcon : rawIcon.startsWith('/') ? rawIcon : '/' + rawIcon;
+  return `
+    <section class="section domain-invite-section" data-domain-invite>
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">LAUNCHER DOMAIN</p>
+          <h2>把社团域带进启动器</h2>
+          <p>添加后，服务器、公告、资源和账号由社团域统一管理。</p>
+        </div>
+      </div>
+      <div class="domain-invite-card">
+        <div class="domain-invite-main">
+          <span class="domain-invite-icon"><img src="${ui.escapeHtml(iconUrl)}" alt="" /></span>
+          <div>
+            <h3>${ui.escapeHtml(domain.name || '社团域')}</h3>
+            <p>${ui.escapeHtml(domain.description || '把域添加到星启启动器，直接获取官方服务器和资源。')}</p>
+          </div>
+        </div>
+        <div class="domain-invite-drag" data-domain-drag draggable="true" title="拖进启动器窗口">
+          ${icon('layers')}
+          <code>${ui.escapeHtml(invite)}</code>
+        </div>
+        <div class="domain-invite-actions">
+          <a class="btn btn-primary" href="${ui.escapeHtml(addUrl)}">${icon('external')}添加到启动器</a>
+          <button class="btn btn-hero-ghost" type="button" data-action="copy-domain-invite">${icon('copy')}复制邀请</button>
+        </div>
+        <p class="domain-invite-hint">也可以把上方邀请拖进启动器，或粘贴到「添加域」。</p>
+      </div>
+    </section>
+  `;
+}
+
+function bindDomainInvite(root) {
+  const card = root.querySelector('[data-domain-invite]');
+  if (!card) return;
+  const drag = card.querySelector('[data-domain-drag]');
+  const invite = drag?.querySelector('code')?.textContent || '';
+  const addUrl = card.querySelector('.domain-invite-actions a.btn-primary')?.getAttribute('href') || '';
+  drag?.addEventListener('dragstart', (event) => {
+    if (!event.dataTransfer) return;
+    event.dataTransfer.effectAllowed = 'copy';
+    event.dataTransfer.setData('text/plain', invite);
+    if (addUrl) event.dataTransfer.setData('text/uri-list', addUrl);
+    drag.classList.add('is-dragging');
+  });
+  drag?.addEventListener('dragend', () => drag.classList.remove('is-dragging'));
+  card.querySelector('[data-action="copy-domain-invite"]')?.addEventListener('click', () => {
+    ui.copyText(invite, '启动器邀请已复制');
+  });
+}
+
 function heroBannerHtml(urls) {
   if (!urls.length) {
     return `
@@ -277,6 +336,10 @@ export async function render(root, ctx) {
       ? [settings.homeBannerUrl]
       : [];
   const yggdrasilUrl = home.yggdrasilUrl;
+  let launcherDomain = null;
+  try {
+    launcherDomain = await api.get('/plugins/launcher-domain/manifest');
+  } catch {}
 
   root.innerHTML = `
     <section class="hero">
@@ -317,6 +380,8 @@ export async function render(root, ctx) {
         <div class="hero-stat"><strong>${number(stats.downloads)}</strong><span>材质下载</span></div>
       </div>
     </section>
+
+    ${launcherDomain ? domainInviteHtml(launcherDomain) : ''}
 
     <section class="section">
       <div class="section-head">
@@ -425,6 +490,7 @@ export async function render(root, ctx) {
     button.addEventListener('click', () => ui.copyText(yggdrasilUrl, '认证服务器地址已复制'));
   });
   if (signedIn) bindAuthDrag(root, yggdrasilUrl);
+  bindDomainInvite(root);
   const stopCarousel = mountCarousel(root, homeBannerUrls);
 
   root.querySelectorAll('[data-hero-banner]').forEach((image) => {

@@ -81,6 +81,7 @@ public final class MinecraftServerPlugin implements SkinPlugin {
                       name TEXT NOT NULL,
                       host TEXT NOT NULL,
                       port INTEGER NOT NULL,
+                      alt_hosts TEXT NOT NULL DEFAULT '[]',
                       description TEXT NOT NULL DEFAULT '',
                       visible INTEGER NOT NULL DEFAULT 1,
                       sort_order INTEGER NOT NULL DEFAULT 0,
@@ -141,6 +142,7 @@ public final class MinecraftServerPlugin implements SkinPlugin {
         }
         ensureColumn("servers", "visible", "INTEGER NOT NULL DEFAULT 1");
         ensureColumn("servers", "sort_order", "INTEGER NOT NULL DEFAULT 0");
+        ensureColumn("servers", "alt_hosts", "TEXT NOT NULL DEFAULT '[]'");
     }
 
     private void ensureColumn(String table, String column, String definition) throws SQLException {
@@ -174,7 +176,14 @@ public final class MinecraftServerPlugin implements SkinPlugin {
 
     private synchronized Object me(PluginRequest request) throws Exception {
         AuthUser user = request.user();
-        if (user == null) throw Web.unauthorized("请先登录");
+        String userId = user == null ? null : user.id;
+        if (userId == null) {
+            String authorization = request.header("Authorization");
+            if (authorization != null && authorization.startsWith("Bearer ")) {
+                userId = context.siteUserIdByYggdrasilToken(authorization.substring(7).trim());
+            }
+        }
+        if (userId == null) throw Web.unauthorized("请先登录");
         List<Map<String, Object>> servers = new ArrayList<>();
         long total = 0;
         long afk = 0;
@@ -188,7 +197,7 @@ public final class MinecraftServerPlugin implements SkinPlugin {
                 GROUP BY s.id, s.name
                 ORDER BY s.name ASC
                 """)) {
-            statement.setString(1, user.id);
+            statement.setString(1, userId);
             try (ResultSet result = statement.executeQuery()) {
                 while (result.next()) {
                     long serverTotal = result.getLong("total_millis");
@@ -200,7 +209,7 @@ public final class MinecraftServerPlugin implements SkinPlugin {
                     item.put("afkMillis", serverAfk);
                     item.put("activeMillis", serverTotal - serverAfk);
                     item.put("lastSeenAt", result.getString("last_seen_at"));
-                    item.put("online", isUserOnline(user.id, result.getString("id")));
+                    item.put("online", isUserOnline(userId, result.getString("id")));
                     servers.add(item);
                     total += serverTotal;
                     afk += serverAfk;
@@ -450,6 +459,7 @@ public final class MinecraftServerPlugin implements SkinPlugin {
         String name = Security.sanitize(Authz.str(body.get("name")), 60);
         String host = Security.sanitize(Authz.str(body.get("host")), 255);
         String description = Security.sanitize(Authz.str(body.get("description")), 300);
+        String altHostsJson = Json.stringify(parseAltHosts(body.get("altHosts")));
         int port = (int) parseLong(body.get("port"), 25565);
         if (name.isEmpty()) throw Web.badRequest("请填写服务器名称");
         if (host.isEmpty() || host.contains(" ")) throw Web.badRequest("请填写有效的服务器地址");
@@ -468,34 +478,36 @@ public final class MinecraftServerPlugin implements SkinPlugin {
                 id = "srv_" + Security.randomHex(4);
             } while (serverRow(id) != null);
             try (PreparedStatement insert = db.prepareStatement("""
-                    INSERT INTO servers (id, name, host, port, description, visible, sort_order, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO servers (id, name, host, port, description, alt_hosts, visible, sort_order, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """)) {
                 insert.setString(1, id);
                 insert.setString(2, name);
                 insert.setString(3, host);
                 insert.setInt(4, port);
                 insert.setString(5, description);
-                insert.setInt(6, visible ? 1 : 0);
-                insert.setInt(7, sortOrder);
-                insert.setString(8, now);
+                insert.setString(6, altHostsJson);
+                insert.setInt(7, visible ? 1 : 0);
+                insert.setInt(8, sortOrder);
                 insert.setString(9, now);
+                insert.setString(10, now);
                 insert.executeUpdate();
             }
         } else {
             if (existing == null) throw Web.notFound("服务器不存在");
             try (PreparedStatement update = db.prepareStatement("""
-                    UPDATE servers SET name = ?, host = ?, port = ?, description = ?, visible = ?,
+                    UPDATE servers SET name = ?, host = ?, port = ?, description = ?, alt_hosts = ?, visible = ?,
                       sort_order = ?, updated_at = ? WHERE id = ?
                     """)) {
                 update.setString(1, name);
                 update.setString(2, host);
                 update.setInt(3, port);
                 update.setString(4, description);
-                update.setInt(5, visible ? 1 : 0);
-                update.setInt(6, sortOrder);
-                update.setString(7, now);
-                update.setString(8, id);
+                update.setString(5, altHostsJson);
+                update.setInt(6, visible ? 1 : 0);
+                update.setInt(7, sortOrder);
+                update.setString(8, now);
+                update.setString(9, id);
                 update.executeUpdate();
             }
         }
@@ -777,6 +789,7 @@ public final class MinecraftServerPlugin implements SkinPlugin {
         server.put("name", result.getString("name"));
         server.put("host", result.getString("host"));
         server.put("port", result.getInt("port"));
+        server.put("altHosts", storedAltHosts(result.getString("alt_hosts")));
         server.put("description", result.getString("description"));
         server.put("visible", result.getInt("visible") != 0);
         server.put("sortOrder", result.getInt("sort_order"));
@@ -784,6 +797,43 @@ public final class MinecraftServerPlugin implements SkinPlugin {
         server.put("updatedAt", result.getString("updated_at"));
         server.put("address", result.getString("host") + ":" + result.getInt("port"));
         return server;
+    }
+
+    private static List<String> parseAltHosts(Object value) {
+        List<String> raw = new ArrayList<>();
+        if (value instanceof List<?> list) {
+            for (Object item : list) raw.add(String.valueOf(item));
+        } else if (value != null) {
+            for (String item : String.valueOf(value).split("[,\\n，；;]+")) raw.add(item);
+        }
+        List<String> out = new ArrayList<>();
+        for (String item : raw) {
+            String host = item == null ? "" : item.trim();
+            if (host.isEmpty()) continue;
+            if (!host.matches("^[A-Za-z0-9._:\\-\\[\\]]{1,255}$")) {
+                throw Web.badRequest("次 IP 格式不正确：" + host);
+            }
+            if (!out.contains(host)) out.add(host);
+            if (out.size() >= 16) break;
+        }
+        return out;
+    }
+
+    private static List<String> storedAltHosts(String json) {
+        if (json == null || json.isBlank()) return List.of();
+        try {
+            Object value = Json.MAPPER.readValue(json, Object.class);
+            if (value instanceof List<?> list) {
+                List<String> out = new ArrayList<>();
+                for (Object item : list) {
+                    String host = item == null ? "" : String.valueOf(item).trim();
+                    if (!host.isEmpty()) out.add(host);
+                }
+                return out;
+            }
+        } catch (Exception ignored) {
+        }
+        return List.of();
     }
 
     private Map<String, Object> serverRow(String id) {

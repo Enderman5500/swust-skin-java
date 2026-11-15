@@ -1,7 +1,7 @@
 {
   "id": "minecraft-server",
   "name": "Minecraft 服务器",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "展示社团 Minecraft 服务器列表、在线人数与个人在线/挂机时长。",
   "author": "星空社技术组",
   "mainClass": "cn.edu.swust.mc.skin.plugins.minecraftserver.MinecraftServerPlugin",
