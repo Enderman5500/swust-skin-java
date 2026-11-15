@@ -105,7 +105,12 @@ public final class PluginResponse {
 
         long length = size == 0 ? 0 : end - start + 1;
         boolean head = "HEAD".equalsIgnoreCase(exchange.getRequestMethod());
-        exchange.getResponseHeaders().set("Content-Length", String.valueOf(length));
+        // 空文件不能同时发 Content-Length 和 chunked：
+        // sendResponseHeaders(..., 0) 会让 JDK 使用 chunked，若再手动设置
+        // Content-Length，Nginx 会因两个头同时存在而返回 502。
+        if (length > 0) {
+            exchange.getResponseHeaders().set("Content-Length", String.valueOf(length));
+        }
         exchange.sendResponseHeaders(partial ? 206 : 200, head ? -1 : length);
         if (head) {
             exchange.close();
