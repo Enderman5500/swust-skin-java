@@ -30,8 +30,30 @@ const STYLE = `
 .ld-section-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
 .ld-section-head h2 { margin:0; }
 .ld-empty { padding:24px; text-align:center; color:var(--muted); font-size:12px; }
+.ld-pack-actions { display:inline-flex; align-items:center; justify-content:flex-end; gap:6px; white-space:nowrap; }
+.ld-pack-table { table-layout:fixed; width:100%; }
+.ld-pack-table th, .ld-pack-table td { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ld-pack-table .table-actions-col, .ld-pack-table td.table-actions { width:210px; }
+.ld-pack-actions .btn { margin-left:0; }
+.ld-home-layout { display:grid; grid-template-columns:minmax(0,1fr) 340px; gap:18px; align-items:start; }
+.ld-home-table input[type=number] { width:72px; }
+.ld-home-preview { border:1px solid var(--line); border-radius:14px; padding:10px; background:rgba(44,76,102,.03); }
+.ld-home-preview-grid { position:relative; height:420px; border-radius:10px; overflow:hidden; background:repeating-linear-gradient(to bottom, rgba(44,76,102,.07) 0 1px, transparent 1px 100%), repeating-linear-gradient(to right, rgba(44,76,102,.06) 0 1px, transparent 1px 100%); background-size:100% 32px, 8.3333% 100%; }
+.ld-home-preview-card { position:absolute; border-radius:8px; padding:5px 6px; font-size:10px; line-height:1.25; overflow:hidden; border:1px solid rgba(44,76,102,.22); background:rgba(255,255,255,.88); color:var(--navy); }
+.ld-home-preview-card.hidden { display:none; }
+@media (max-width:900px){ .ld-home-layout { grid-template-columns:1fr; } }
 @media (max-width:700px){ .ld-hero{padding:20px; align-items:flex-start; flex-direction:column;} .ld-hero h1{font-size:24px;} }
 </style>`;
+
+const HOME_CARDS = [
+  ['launch', '启动'],
+  ['servers', '服务器'],
+  ['calendar', '日历'],
+  ['announce', '公告'],
+  ['status', '运行环境'],
+  ['running', '运行状态'],
+  ['clock', '时钟'],
+];
 
 const TYPE_LABEL = {
   modpack: '整合包',
@@ -95,9 +117,8 @@ export async function mount(root, ctx) {
               <code>${escapeHtml(invite)}</code>
             </div>
             <div class="ld-actions">
-              <button class="btn btn-primary btn-sm" data-ld-copy="${escapeHtml(invite)}">${icon('copy')}复制邀请</button>
-              <button class="btn btn-ghost btn-sm" data-ld-copy="${escapeHtml(addUrl)}">${icon('external')}复制拉起链接</button>
-              <a class="btn btn-ghost btn-sm" href="${escapeHtml(addUrl)}">${icon('external')}打开启动器</a>
+              <button class="btn btn-ghost btn-sm" data-ld-copy="${escapeHtml(invite)}">${icon('copy')}复制邀请</button>
+              <a class="btn btn-primary btn-sm" href="${escapeHtml(addUrl)}">${icon('external')}打开启动器</a>
             </div>
           </section>
 
@@ -121,6 +142,7 @@ export async function mount(root, ctx) {
                         <span class="status-pill ${online ? 'online' : 'offline'}"><span class="status-dot"></span>${online ? '在线' : '未探测'}</span>
                       </div>
                       <code>${escapeHtml(server.host)}:${server.port}</code>
+                      ${Array.isArray(server.altHosts) && server.altHosts.length ? `<p>备用线路：${server.altHosts.map((host) => escapeHtml(host)).join(' · ')}</p>` : ''}
                       ${server.note ? `<p>${escapeHtml(server.note)}</p>` : ''}
                       ${server.pack ? `<p>整合包：${escapeHtml(server.pack.name)} · ${server.pack.policy === 'required' ? '必装' : '可选'} · v${server.pack.latestVersion}</p>` : ''}
                       <div class="ld-server-meta">
@@ -197,6 +219,8 @@ export async function mount(root, ctx) {
     const resources = data.resources || [];
     const packs = data.packs || [];
     const tokens = data.tokens || [];
+    const homeLayout = data.homeLayout || { cards: {} };
+    const homeLayoutConfigured = Boolean(data.homeLayoutConfigured);
     root.innerHTML = `${STYLE}
       <section class="ld-page">
         <header class="admin-page-head">
@@ -223,6 +247,35 @@ export async function mount(root, ctx) {
             <label class="field full"><span>域描述</span><input name="description" maxlength="300" value="${escapeHtml(domain.description || '')}" /></label>
             <label class="field full"><span>公告</span><textarea name="announcement" rows="5" maxlength="2000" placeholder="启动器域页面展示的公告">${escapeHtml(domain.announcement || '')}</textarea></label>
           </form>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div><p class="eyebrow">HOME LAYOUT</p><h3>首页卡片布局</h3></div>
+            <div class="row" style="gap:8px">
+              <span class="badge ${homeLayoutConfigured ? 'badge-green' : 'badge-orange'}">${homeLayoutConfigured ? '已启用统一布局' : '未启用，使用用户本地布局'}</span>
+              <button class="btn btn-ghost btn-sm" data-home-clear>${homeLayoutConfigured ? '取消统一布局' : '恢复默认'}</button>
+              <button class="btn btn-primary btn-sm" data-home-save>${icon('check')}保存布局</button>
+            </div>
+          </div>
+          <p class="field-hint">按 12 列网格设置卡片位置和大小；保存后域内所有玩家统一使用该布局，启动器内不再允许拖动/缩放。</p>
+          <div class="ld-home-layout">
+            <div class="table-panel"><table class="data-table ld-home-table">
+              <thead><tr><th>卡片</th><th>显示</th><th>起始列</th><th>宽度</th><th>起始行</th><th>高度</th></tr></thead>
+              <tbody>${HOME_CARDS.map(([id, label]) => {
+                const card = (homeLayout.cards || {})[id] || {};
+                return `<tr data-home-card="${id}">
+                  <td data-label="卡片"><strong>${label}</strong><small class="field-hint">${id}</small></td>
+                  <td data-label="显示"><input type="checkbox" data-home-field="visible" ${card.visible !== false ? 'checked' : ''} /></td>
+                  <td data-label="起始列"><input type="number" data-home-field="col" min="1" max="12" value="${Number(card.col) || 1}" /></td>
+                  <td data-label="宽度"><input type="number" data-home-field="width" min="1" max="12" value="${Number(card.width) || 6}" /></td>
+                  <td data-label="起始行"><input type="number" data-home-field="row" min="1" max="200" value="${Number(card.row) || 1}" /></td>
+                  <td data-label="高度"><input type="number" data-home-field="height" min="1" max="30" value="${Number(card.height) || 6}" /></td>
+                </tr>`;
+              }).join('')}</tbody>
+            </table></div>
+            <div class="ld-home-preview"><div class="ld-home-preview-grid" data-home-preview></div></div>
+          </div>
         </section>
 
         <section class="panel">
@@ -256,7 +309,7 @@ export async function mount(root, ctx) {
           <p class="field-hint">由管理员在启动器「版本管理 → 发布到域」上传。每个服务器最多绑定一个整合包；同一实例再次发布只会上传变化文件。</p>
           ${
             packs.length
-              ? `<div class="table-panel"><table class="data-table">
+              ? `<div class="table-panel"><table class="data-table ld-pack-table">
                   <thead><tr><th>整合包</th><th>服务器</th><th>绑定方式</th><th>最低 Java</th><th>版本</th><th>大小</th><th>更新</th><th class="table-actions-col">操作</th></tr></thead>
                   <tbody>${packs
                     .map(
@@ -269,9 +322,11 @@ export async function mount(root, ctx) {
                         <td data-label="大小">${formatBytes(pack.totalSize || 0)}</td>
                         <td data-label="更新">${escapeHtml(String(pack.latestCreatedAt || pack.updatedAt || '').slice(0, 10))}</td>
                         <td data-label="操作" class="table-actions">
-                          <button class="btn btn-ghost btn-sm" data-ld-pack-versions="${escapeHtml(pack.id)}">${icon('layers')}版本</button>
-                          <button class="btn btn-ghost btn-sm" data-ld-pack-visibility="${escapeHtml(pack.id)}" data-visible="${pack.visible ? '1' : '0'}">${pack.visible ? '隐藏' : '公开'}</button>
-                          <button class="btn btn-ghost btn-sm danger-text" data-ld-pack-delete="${escapeHtml(pack.id)}">${icon('trash')}删除</button>
+                          <span class="ld-pack-actions">
+                            <button class="btn btn-ghost btn-sm" data-ld-pack-versions="${escapeHtml(pack.id)}">${icon('layers')}版本</button>
+                            <button class="btn btn-ghost btn-sm" data-ld-pack-visibility="${escapeHtml(pack.id)}" data-visible="${pack.visible ? '1' : '0'}">${pack.visible ? '隐藏' : '公开'}</button>
+                            <button class="btn btn-ghost btn-sm danger-text" data-ld-pack-delete="${escapeHtml(pack.id)}">${icon('trash')}删除</button>
+                          </span>
                         </td>
                       </tr>`
                     )
@@ -293,7 +348,12 @@ export async function mount(root, ctx) {
                         <td data-label="服务器"><strong>${escapeHtml(server.name)}</strong>${
                           server.note ? `<small class="field-hint">${escapeHtml(server.note)}</small>` : ''
                         }</td>
-                        <td data-label="地址"><code>${escapeHtml(server.host)}:${server.port}</code></td>
+                        <td data-label="地址"><code>${escapeHtml(server.host)}:${server.port}</code>${(() => {
+                          try {
+                            const n = JSON.parse(server.alt_hosts || '[]').length;
+                            return n ? `<small class="field-hint">次 IP ${n} 个</small>` : '';
+                          } catch { return ''; }
+                        })()}</td>
                         <td data-label="关联统计">${server.minecraft_server_id ? `<code>${escapeHtml(server.minecraft_server_id)}</code>` : '—'}</td>
                         <td data-label="公开">${server.visible ? '<span class="status-pill online">公开</span>' : '<span class="status-pill offline">隐藏</span>'}</td>
                         <td data-label="排序">${server.sort_order || 0}</td>
@@ -400,6 +460,79 @@ export async function mount(root, ctx) {
           toast(error.message, 'error');
         }
       });
+    });
+
+    const homeGrid = root.querySelector('[data-home-preview]');
+    const readHomeLayout = () => {
+      const cards = {};
+      root.querySelectorAll('[data-home-card]').forEach((row) => {
+        const id = row.dataset.homeCard;
+        const field = (name) => row.querySelector(`[data-home-field="${name}"]`);
+        cards[id] = {
+          visible: Boolean(field('visible').checked),
+          col: Math.max(1, Math.min(12, Number(field('col').value) || 1)),
+          width: Math.max(1, Math.min(12, Number(field('width').value) || 1)),
+          row: Math.max(1, Math.min(200, Number(field('row').value) || 1)),
+          height: Math.max(1, Math.min(30, Number(field('height').value) || 1)),
+        };
+      });
+      return { version: 1, columns: 12, rowHeight: 40, gap: 16, cards };
+    };
+    const drawHomePreview = () => {
+      if (!homeGrid) return;
+      const layout = readHomeLayout();
+      const maxBottom = Math.max(18, ...HOME_CARDS.map(([id]) => {
+        const c = layout.cards[id];
+        return c && c.visible ? c.row + c.height - 1 : 0;
+      }));
+      const scale = Math.min(32, 400 / maxBottom);
+      homeGrid.innerHTML = '';
+      for (const [id, label] of HOME_CARDS) {
+        const c = layout.cards[id];
+        if (!c || !c.visible) continue;
+        const el = document.createElement('div');
+        el.className = 'ld-home-preview-card';
+        el.textContent = label;
+        el.style.left = (((c.col - 1) / 12) * 100) + '%';
+        el.style.width = ((c.width / 12) * 100) + '%';
+        el.style.top = ((c.row - 1) * scale) + 'px';
+        el.style.height = Math.max(20, c.height * scale - 3) + 'px';
+        homeGrid.append(el);
+      }
+    };
+    root.querySelectorAll('[data-home-field]').forEach((input) => {
+      input.addEventListener('input', drawHomePreview);
+      input.addEventListener('change', drawHomePreview);
+    });
+    drawHomePreview();
+    root.querySelector('[data-home-save]')?.addEventListener('click', async () => {
+      try {
+        const next = await api.post('/plugins/launcher-domain/admin/home-layout', { homeLayout: readHomeLayout() });
+        toast('首页卡片布局已保存');
+        adminView(next);
+      } catch (error) {
+        toast(error.message, 'error');
+      }
+    });
+    root.querySelector('[data-home-clear]')?.addEventListener('click', async () => {
+      if (!homeLayoutConfigured) {
+        adminView(data);
+        return;
+      }
+      const confirmed = await ui.confirmDialog({
+        title: '取消统一布局',
+        message: '取消后，玩家将恢复各自启动器里的本地卡片布局。确定继续吗？',
+        confirmText: '取消统一布局',
+        danger: true,
+      });
+      if (!confirmed) return;
+      try {
+        const next = await api.post('/plugins/launcher-domain/admin/home-layout', { clear: true });
+        toast('已取消统一布局');
+        adminView(next);
+      } catch (error) {
+        toast(error.message, 'error');
+      }
     });
 
     async function reloadAdmin() {
@@ -594,14 +727,21 @@ export async function mount(root, ctx) {
 
     function openServerEditor(server) {
       const content = document.createElement('div');
+      const altHostsText = (() => {
+        try { return (JSON.parse(server?.alt_hosts || '[]') || []).join('\n'); } catch { return ''; }
+      })();
       content.innerHTML = `
         <form class="form-stack">
           <input type="hidden" name="id" value="${escapeHtml(server?.id || '')}" />
           <label class="field"><span>名称</span><input name="name" maxlength="60" required value="${escapeHtml(server?.name || '')}" /></label>
           <div class="form-grid two">
-            <label class="field"><span>地址</span><input name="host" maxlength="255" required placeholder="mc.example.com" value="${escapeHtml(server?.host || '')}" /></label>
+            <label class="field"><span>主 IP / 地址</span><input name="host" maxlength="255" required placeholder="mc.example.com" value="${escapeHtml(server?.host || '')}" /></label>
             <label class="field"><span>端口</span><input name="port" type="number" min="1" max="65535" required value="${server?.port || 25565}" /></label>
           </div>
+          <label class="field"><span>次 IP（可选，多个）</span>
+            <textarea name="altHosts" rows="3" maxlength="2000" placeholder="每行一个，可带端口，例如：proxy1.example.com:25565">${escapeHtml(altHostsText)}</textarea>
+            <small class="field-hint">进服只使用主 IP；次 IP 用于代理服务器或备用线路展示。</small>
+          </label>
           <label class="field"><span>备注</span><input name="note" maxlength="200" value="${escapeHtml(server?.note || '')}" /></label>
           <div class="form-grid two">
             <label class="field"><span>图标地址</span><input name="icon" maxlength="500" placeholder="留空则不显示" value="${escapeHtml(server?.icon || '')}" /></label>

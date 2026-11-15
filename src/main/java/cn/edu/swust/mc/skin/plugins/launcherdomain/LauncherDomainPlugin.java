@@ -63,6 +63,7 @@ public final class LauncherDomainPlugin implements SkinPlugin {
     private static final Set<String> POLICIES = Set.of("required", "optional");
     private static final Set<Integer> MIN_JAVA_VALUES = Set.of(0, 8, 11, 16, 17, 21, 25, 26);
     private static final ConcurrentHashMap<String, Object> BLOB_LOCKS = new ConcurrentHashMap<>();
+    private static final List<String> HOME_CARD_IDS = List.of("launch", "status", "running", "servers", "calendar", "announce", "clock");
     private static final String EMPTY_SHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(8))
@@ -98,6 +99,7 @@ public final class LauncherDomainPlugin implements SkinPlugin {
         context.registerAdminRoute("POST", "/admin/pack/token/delete", this::adminDeleteToken);
         context.registerAdminRoute("GET", "/admin/overview", this::adminOverview);
         context.registerAdminRoute("POST", "/admin/domain", this::adminSaveDomain);
+        context.registerAdminRoute("POST", "/admin/home-layout", this::adminSaveHomeLayout);
         context.registerAdminRoute("POST", "/admin/server", this::adminSaveServer);
         context.registerAdminRoute("POST", "/admin/server/delete", this::adminDeleteServer);
         context.registerAdminRoute("POST", "/admin/resource", this::adminSaveResource);
@@ -124,6 +126,7 @@ public final class LauncherDomainPlugin implements SkinPlugin {
                       site_url TEXT NOT NULL DEFAULT '',
                       yggdrasil_url TEXT NOT NULL DEFAULT '',
                       curseforge_api_key TEXT NOT NULL DEFAULT '',
+                      home_layout TEXT NOT NULL DEFAULT '',
                       announcement TEXT NOT NULL DEFAULT '',
                       announcement_updated_at TEXT,
                       updated_at TEXT NOT NULL
@@ -135,6 +138,7 @@ public final class LauncherDomainPlugin implements SkinPlugin {
                       name TEXT NOT NULL,
                       host TEXT NOT NULL,
                       port INTEGER NOT NULL,
+                      alt_hosts TEXT NOT NULL DEFAULT '[]',
                       note TEXT NOT NULL DEFAULT '',
                       icon TEXT NOT NULL DEFAULT '',
                       sort_order INTEGER NOT NULL DEFAULT 0,
@@ -208,6 +212,8 @@ public final class LauncherDomainPlugin implements SkinPlugin {
             statement.execute("CREATE INDEX IF NOT EXISTS idx_publish_tokens_hash ON publish_tokens(token_hash)");
         }
         ensureColumn("domain", "curseforge_api_key", "TEXT NOT NULL DEFAULT ''");
+        ensureColumn("domain", "home_layout", "TEXT NOT NULL DEFAULT ''");
+        ensureColumn("servers", "alt_hosts", "TEXT NOT NULL DEFAULT '[]'");
     }
 
     private void ensureColumn(String table, String column, String definition) throws SQLException {
@@ -254,16 +260,19 @@ public final class LauncherDomainPlugin implements SkinPlugin {
         String now = Security.isoNow();
         try (Connection sourceDb = DriverManager.getConnection(url);
              PreparedStatement statement = sourceDb.prepareStatement(
-                     "SELECT id, name, host, port, description, visible, sort_order FROM servers ORDER BY sort_order, name");
+                     "SELECT * FROM servers ORDER BY sort_order, name");
              ResultSet rs = statement.executeQuery()) {
             while (rs.next()) {
                 String id = "srv_" + Security.randomHex(6);
+                String altHosts = "[]";
+                try { altHosts = rs.getString("alt_hosts"); } catch (SQLException ignored) {}
+                if (altHosts == null || altHosts.isBlank()) altHosts = "[]";
                 update("""
                         INSERT OR IGNORE INTO servers
-                        (id, name, host, port, note, icon, sort_order, visible, minecraft_server_id,
+                        (id, name, host, port, alt_hosts, note, icon, sort_order, visible, minecraft_server_id,
                          created_at, updated_at)
-                        VALUES (?, ?, ?, ?, ?, '', ?, ?, ?, ?, ?)
-                        """, id, rs.getString("name"), rs.getString("host"), rs.getInt("port"),
+                        VALUES (?, ?, ?, ?, ?, ?, '', ?, ?, ?, ?, ?)
+                        """, id, rs.getString("name"), rs.getString("host"), rs.getInt("port"), altHosts,
                         text(rs.getString("description"), 200), rs.getInt("sort_order"),
                         rs.getInt("visible") != 0 ? 1 : 0, rs.getString("id"), now, now);
             }
@@ -316,6 +325,8 @@ public final class LauncherDomainPlugin implements SkinPlugin {
         curseforge.put("relayUrl", "/api/plugins/launcher-domain/curseforge");
         curseforge.put("configured", !curseforgeKey().isEmpty());
         out.put("curseforge", curseforge);
+        Map<String, Object> homeLayout = parseHomeLayout(Authz.str(domain.get("home_layout")));
+        if (homeLayout != null) out.put("homeLayout", homeLayout);
         out.put("updatedAt", Authz.str(domain.get("updated_at")));
         return out;
     }
@@ -327,16 +338,105 @@ public final class LauncherDomainPlugin implements SkinPlugin {
         domain.remove("curseforge_api_key");
         domain.put("curseforge_configured", !source.isEmpty());
         domain.put("curseforge_source", source);
+        String homeJson = Authz.str(domain.get("home_layout"));
+        Map<String, Object> homeLayout = parseHomeLayout(homeJson);
+        boolean homeLayoutConfigured = homeLayout != null;
+        if (homeLayout == null) homeLayout = defaultHomeLayout();
+        domain.remove("home_layout");
         List<Map<String, Object>> servers = all("SELECT * FROM servers ORDER BY sort_order, name");
         for (Map<String, Object> server : servers) attachStatus(server);
         List<Map<String, Object>> resources = all("SELECT * FROM resources ORDER BY sort_order, name");
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("domain", domain);
+        out.put("homeLayout", homeLayout);
+        out.put("homeLayoutConfigured", homeLayoutConfigured);
         out.put("servers", servers);
         out.put("resources", resources);
         out.put("packs", adminPacks(request).get("packs"));
         out.put("tokens", adminTokens(request).get("tokens"));
         return out;
+    }
+
+    private static Map<String, Object> homeCard(boolean visible, int col, int width, int row, int height) {
+        Map<String, Object> card = new LinkedHashMap<>();
+        card.put("visible", visible);
+        card.put("col", col);
+        card.put("width", width);
+        card.put("row", row);
+        card.put("height", height);
+        return card;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> defaultHomeLayout() {
+        Map<String, Object> cards = new LinkedHashMap<>();
+        cards.put("launch", homeCard(true, 1, 6, 1, 8));
+        cards.put("clock", homeCard(true, 7, 3, 1, 6));
+        cards.put("calendar", homeCard(true, 10, 3, 1, 10));
+        cards.put("announce", homeCard(true, 7, 3, 7, 5));
+        cards.put("servers", homeCard(true, 1, 6, 9, 8));
+        cards.put("status", homeCard(true, 7, 3, 12, 7));
+        cards.put("running", homeCard(true, 1, 6, 17, 2));
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("version", 1);
+        out.put("columns", 12);
+        out.put("rowHeight", 40);
+        out.put("gap", 16);
+        out.put("cards", cards);
+        return out;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> normalizeHomeLayout(Object raw) {
+        Map<?, ?> source = raw instanceof Map<?, ?> map && map.get("cards") instanceof Map<?, ?> cards ? cards : Map.of();
+        Map<String, Object> defaults = (Map<String, Object>) defaultHomeLayout().get("cards");
+        Map<String, Object> cards = new LinkedHashMap<>();
+        for (String id : HOME_CARD_IDS) {
+            Map<?, ?> item = source.get(id) instanceof Map<?, ?> map ? map : Map.of();
+            Map<String, Object> fallback = (Map<String, Object>) defaults.get(id);
+            boolean visible = !item.containsKey("visible") || Authz.bool(item.get("visible"));
+            int col = item.containsKey("col") ? (int) longValue(item.get("col")) : Authz.num(fallback.get("col"));
+            int width = item.containsKey("width") ? (int) longValue(item.get("width")) : Authz.num(fallback.get("width"));
+            int row = item.containsKey("row") ? (int) longValue(item.get("row")) : Authz.num(fallback.get("row"));
+            int height = item.containsKey("height") ? (int) longValue(item.get("height")) : Authz.num(fallback.get("height"));
+            col = Math.max(1, Math.min(12, col));
+            width = Math.max(1, Math.min(12, width));
+            row = Math.max(1, Math.min(200, row));
+            height = Math.max(1, Math.min(30, height));
+            if (col + width - 1 > 12) throw Web.badRequest("卡片超出 12 列：" + id);
+            cards.put(id, homeCard(visible, col, width, row, height));
+        }
+        for (int i = 0; i < HOME_CARD_IDS.size(); i++) {
+            Map<String, Object> a = (Map<String, Object>) cards.get(HOME_CARD_IDS.get(i));
+            if (!Authz.bool(a.get("visible"))) continue;
+            for (int j = i + 1; j < HOME_CARD_IDS.size(); j++) {
+                Map<String, Object> b = (Map<String, Object>) cards.get(HOME_CARD_IDS.get(j));
+                if (!Authz.bool(b.get("visible"))) continue;
+                int ac = Authz.num(a.get("col")), aw = Authz.num(a.get("width"));
+                int ar = Authz.num(a.get("row")), ah = Authz.num(a.get("height"));
+                int bc = Authz.num(b.get("col")), bw = Authz.num(b.get("width"));
+                int br = Authz.num(b.get("row")), bh = Authz.num(b.get("height"));
+                if (ac < bc + bw && bc < ac + aw && ar < br + bh && br < ar + ah) {
+                    throw Web.badRequest("首页卡片重叠：" + HOME_CARD_IDS.get(i) + " / " + HOME_CARD_IDS.get(j));
+                }
+            }
+        }
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("version", 1);
+        out.put("columns", 12);
+        out.put("rowHeight", 40);
+        out.put("gap", 16);
+        out.put("cards", cards);
+        return out;
+    }
+
+    private Map<String, Object> parseHomeLayout(String json) {
+        if (json == null || json.isBlank()) return null;
+        try {
+            return normalizeHomeLayout(Json.MAPPER.readValue(json, Object.class));
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private Map<String, Object> adminSaveDomain(PluginRequest request) throws Exception {
@@ -372,6 +472,19 @@ public final class LauncherDomainPlugin implements SkinPlugin {
         return adminOverview(request);
     }
 
+    private Map<String, Object> adminSaveHomeLayout(PluginRequest request) throws Exception {
+        Map<String, Object> body = request.json();
+        if (Authz.bool(body.get("clear"))) {
+            update("UPDATE domain SET home_layout = '' WHERE id = ?", DOMAIN_ID);
+        } else if (body.get("homeLayout") instanceof Map<?, ?> layout) {
+            update("UPDATE domain SET home_layout = ? WHERE id = ?",
+                    Json.stringify(normalizeHomeLayout(layout)), DOMAIN_ID);
+        } else {
+            throw Web.badRequest("缺少首页布局");
+        }
+        return adminOverview(request);
+    }
+
     private Map<String, Object> adminSaveServer(PluginRequest request) throws Exception {
         Map<String, Object> body = request.json();
         String name = text(body.get("name"), 60);
@@ -379,6 +492,7 @@ public final class LauncherDomainPlugin implements SkinPlugin {
         if (name.isEmpty()) throw Web.badRequest("服务器名称不能为空");
         if (!host.matches("^[A-Za-z0-9._:\\-\\[\\]]{1,255}$")) throw Web.badRequest("服务器地址格式不正确");
         int port = Math.max(1, Math.min(65535, Authz.num(body.get("port")) == 0 ? 25565 : Authz.num(body.get("port"))));
+        String altHostsJson = Json.stringify(parseAltHosts(body.get("altHosts")));
         String note = text(body.get("note"), 200);
         String icon = urlOrPath(body.get("icon"), "图标地址");
         int sortOrder = Math.max(0, Math.min(9999, Authz.num(body.get("sortOrder"))));
@@ -390,15 +504,15 @@ public final class LauncherDomainPlugin implements SkinPlugin {
             id = "srv_" + Security.randomHex(6);
             update("""
                     INSERT INTO servers
-                    (id, name, host, port, note, icon, sort_order, visible, minecraft_server_id,
+                    (id, name, host, port, alt_hosts, note, icon, sort_order, visible, minecraft_server_id,
                      created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?)
-                    """, id, name, host, port, note, icon, sortOrder, visible, minecraftServerId, now, now);
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?)
+                    """, id, name, host, port, altHostsJson, note, icon, sortOrder, visible, minecraftServerId, now, now);
         } else {
             int changed = updateCount("""
-                    UPDATE servers SET name = ?, host = ?, port = ?, note = ?, icon = ?, sort_order = ?,
+                    UPDATE servers SET name = ?, host = ?, port = ?, alt_hosts = ?, note = ?, icon = ?, sort_order = ?,
                       visible = ?, minecraft_server_id = NULLIF(?, ''), updated_at = ? WHERE id = ?
-                    """, name, host, port, note, icon, sortOrder, visible, minecraftServerId, now, id);
+                    """, name, host, port, altHostsJson, note, icon, sortOrder, visible, minecraftServerId, now, id);
             if (changed == 0) throw Web.notFound("服务器不存在");
         }
         return adminOverview(request);
@@ -1143,6 +1257,7 @@ public final class LauncherDomainPlugin implements SkinPlugin {
         item.put("note", Authz.str(server.get("note")));
         item.put("icon", emptyToNull(Authz.str(server.get("icon"))));
         item.put("sortOrder", Authz.num(server.get("sort_order")));
+        item.put("altHosts", storedAltHosts(Authz.str(server.get("alt_hosts"))));
         if (server.get("pack") instanceof Map<?, ?> pack) item.put("pack", pack);
         if (server.get("status") instanceof Map<?, ?> status) {
             item.putAll((Map<String, Object>) status);
@@ -1237,6 +1352,43 @@ public final class LauncherDomainPlugin implements SkinPlugin {
             for (int i = 0; i < params.length; i++) statement.setObject(i + 1, params[i]);
             return statement.executeUpdate();
         }
+    }
+
+    private static List<String> parseAltHosts(Object value) {
+        List<String> raw = new ArrayList<>();
+        if (value instanceof List<?> list) {
+            for (Object item : list) raw.add(String.valueOf(item));
+        } else if (value != null) {
+            for (String item : String.valueOf(value).split("[,\\n，；;]+")) raw.add(item);
+        }
+        List<String> out = new ArrayList<>();
+        for (String item : raw) {
+            String host = item == null ? "" : item.trim();
+            if (host.isEmpty()) continue;
+            if (!host.matches("^[A-Za-z0-9._:\\-\\[\\]]{1,255}$")) {
+                throw Web.badRequest("次 IP 格式不正确：" + host);
+            }
+            if (!out.contains(host)) out.add(host);
+            if (out.size() >= 16) break;
+        }
+        return out;
+    }
+
+    private static List<String> storedAltHosts(String json) {
+        if (json == null || json.isBlank()) return List.of();
+        try {
+            Object value = Json.MAPPER.readValue(json, Object.class);
+            if (value instanceof List<?> list) {
+                List<String> out = new ArrayList<>();
+                for (Object item : list) {
+                    String host = text(item, 255);
+                    if (!host.isEmpty()) out.add(host);
+                }
+                return out;
+            }
+        } catch (Exception ignored) {
+        }
+        return List.of();
     }
 
     private static String text(Object value, int max) {

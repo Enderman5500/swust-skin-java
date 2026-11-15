@@ -738,6 +738,12 @@ public final class Plugins {
         }
 
         @Override
+        public String siteUserIdByYggdrasilToken(String accessToken) {
+            Map<String, Object> row = app.yggdrasil.tokenInfo(accessToken);
+            return row == null ? null : Authz.str(row.get("user_id"));
+        }
+
+        @Override
         public void registerRoute(String method, String path, SkinPlugin.RouteHandler handler) {
             addRoute(method, path, handler, false);
         }

@@ -195,7 +195,8 @@ public final class Main {
             String value = authorization.trim();
             if (value.regionMatches(true, 0, "Bearer ", 0, 7)) {
                 String token = value.substring(7).trim();
-                return token.isEmpty() ? null : token;
+                // 只有站点 API 密钥走 sk_ 认证；其他 Bearer（如 Yggdrasil 访问令牌）留给插件自行校验
+                return token.startsWith("sk_") ? token : null;
             }
         }
         String header = exchange.getRequestHeaders().getFirst("X-API-Key");

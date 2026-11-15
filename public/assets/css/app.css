@@ -34,7 +34,8 @@
   --font-display: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STZhongsong", "SimSun", serif;
   --font-mono: "SFMono-Regular", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
   --header-height: 76px;
-  --content-width: 1200px;
+  --content-width: 100%;
+  --ui-scale: 1;
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
@@ -121,7 +122,7 @@ html::-webkit-scrollbar-thumb:hover {
 
 body {
   margin: 0;
-  min-height: 100vh;
+  min-height: calc(100vh / var(--ui-scale));
   background:
     radial-gradient(ellipse at 12% 0%, rgba(156, 195, 230, 0.16), transparent 48%),
     radial-gradient(ellipse at 88% 18%, rgba(232, 201, 122, 0.09), transparent 42%),
@@ -210,7 +211,7 @@ pre {
    Boot
    ========================================================= */
 .boot-screen {
-  min-height: 100vh;
+  min-height: calc(100vh / var(--ui-scale));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -289,7 +290,7 @@ pre {
 }
 
 .header-inner {
-  width: min(1280px, calc(100% - 48px));
+  width: calc(100% - 48px);
   height: var(--header-height);
   margin: 0 auto;
   display: flex;
@@ -531,6 +532,20 @@ pre {
   border-color: transparent;
   color: #16283a;
   box-shadow: 0 8px 24px rgba(232, 201, 122, 0.18);
+}
+
+/* 大屏使用整体缩放后，导航的有效布局宽度仍按 1440 计算；
+   收紧一点间距，让站点导航项尽量完整展示，而不是提前进入「更多」。 */
+@media (min-width: 1441px) {
+  .main-nav {
+    gap: 2px;
+    margin-left: 0;
+  }
+
+  .main-nav .nav-link {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
 }
 
 .header-actions .btn-primary:hover {
@@ -832,6 +847,206 @@ pre {
   color: var(--muted);
   font-size: 14px;
   max-width: 560px;
+}
+
+/* Homepage: add the site domain to the launcher */
+.domain-invite-section {
+  padding-top: 48px;
+}
+
+.domain-invite-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "main actions"
+    "drag hint";
+  align-items: center;
+  gap: 18px 28px;
+  padding: 28px 30px;
+  border: 1px solid rgba(156, 195, 230, 0.18);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(ellipse at 8% -10%, rgba(156, 195, 230, 0.22), transparent 48%),
+    linear-gradient(135deg, #122436, #17304a 62%, #1a3248);
+  color: #fff;
+  overflow: hidden;
+}
+
+.domain-invite-card::after {
+  content: "";
+  position: absolute;
+  top: -140px;
+  right: -80px;
+  width: 300px;
+  height: 300px;
+  border: 1px solid rgba(232, 201, 122, 0.12);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.domain-invite-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.domain-invite-main {
+  grid-area: main;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+}
+
+.domain-invite-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 60px;
+  height: 60px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.domain-invite-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  image-rendering: pixelated;
+}
+
+.domain-invite-main h3 {
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.domain-invite-main p {
+  margin: 0;
+  max-width: 620px;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.domain-invite-drag {
+  grid-area: drag;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: max-content;
+  max-width: 100%;
+  min-width: 0;
+  padding: 9px 13px;
+  border: 1px dashed rgba(255, 255, 255, 0.26);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  cursor: grab;
+  transition: border-color 0.2s, background 0.2s, opacity 0.2s;
+}
+
+.domain-invite-drag:hover {
+  border-color: rgba(232, 201, 122, 0.6);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.domain-invite-drag .icon {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  color: var(--gold);
+}
+
+.domain-invite-drag code {
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.domain-invite-drag.is-dragging {
+  opacity: 0.55;
+  cursor: grabbing;
+}
+
+.domain-invite-actions {
+  grid-area: actions;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.domain-invite-actions .btn {
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.domain-invite-actions .btn-primary {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: linear-gradient(135deg, var(--gold), var(--gold-deep));
+  color: var(--ink);
+  box-shadow: 0 10px 26px rgba(9, 21, 34, 0.28);
+}
+
+.domain-invite-actions .btn-primary:hover {
+  background: linear-gradient(135deg, #f0d78f, var(--gold));
+  box-shadow: 0 14px 30px rgba(9, 21, 34, 0.34);
+}
+
+.domain-invite-hint {
+  grid-area: hint;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+}
+
+@media (max-width: 860px) {
+  .domain-invite-card {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "main"
+      "drag"
+      "actions"
+      "hint";
+    align-items: start;
+  }
+
+  .domain-invite-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 520px) {
+  .domain-invite-card {
+    padding: 22px;
+  }
+
+  .domain-invite-main {
+    align-items: flex-start;
+  }
+
+  .domain-invite-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 13px;
+  }
+
+  .domain-invite-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .domain-invite-actions .btn {
+    width: 100%;
+  }
 }
 
 .text-link {
@@ -2494,7 +2709,7 @@ pre {
 .auth-page {
   display: grid;
   grid-template-columns: 1.04fr 0.96fr;
-  min-height: calc(100vh - var(--header-height));
+  min-height: calc(100vh / var(--ui-scale) - var(--header-height));
 }
 
 .auth-visual {
@@ -3584,7 +3799,7 @@ pre {
    Admin
    ========================================================= */
 .admin-shell {
-  width: min(1320px, calc(100% - 48px));
+  width: calc(100% - 48px);
   margin: 36px auto 0;
   display: grid;
   grid-template-columns: 238px minmax(0, 1fr);
@@ -4474,7 +4689,7 @@ pre {
 
 .modal {
   width: min(560px, 100%);
-  max-height: calc(100vh - 48px);
+  max-height: calc(100vh / var(--ui-scale) - 48px);
   display: flex;
   flex-direction: column;
   border-radius: var(--radius-lg);
@@ -5205,7 +5420,7 @@ pre {
   background: #0d1926;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 20px 40px rgba(4, 12, 21, 0.4);
-  max-height: calc(100vh - var(--header-height));
+  max-height: calc(100vh / var(--ui-scale) - var(--header-height));
   overflow-y: auto;
 }
 
@@ -5620,7 +5835,7 @@ pre {
     align-items: flex-end;
   }
   .modal {
-    max-height: calc(100vh - 20px);
+    max-height: calc(100vh / var(--ui-scale) - 20px);
     border-radius: 20px 20px 14px 14px;
   }
   .detail-meta {
@@ -6111,7 +6326,7 @@ body.is-admin .site-main {
 .yd-admin {
   display: grid;
   grid-template-columns: 236px minmax(0, 1fr);
-  min-height: 100vh;
+  min-height: calc(100vh / var(--ui-scale));
   background: #f4f5f7;
   color: #1f2937;
 }
@@ -6121,7 +6336,7 @@ body.is-admin .site-main {
   top: 0;
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: calc(100vh / var(--ui-scale));
   padding: 18px 14px 14px;
   background: #fff;
   border-right: 1px solid #e5e7eb;
@@ -6343,7 +6558,6 @@ body.is-admin .site-main {
   gap: 20px;
   width: 100%;
   min-width: 0;
-  max-width: 1440px;
   margin: 0 auto;
   padding: 24px;
 }

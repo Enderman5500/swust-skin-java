@@ -49,4 +49,7 @@ public interface PluginContext {
      * 按游戏 UUID 优先、角色名兜底匹配站点角色；未匹配返回 null。
      */
     Map<String, Object> findPlayer(String uuid, String name);
+
+    /** 校验 authlib/Yggdrasil accessToken，返回对应站点用户 ID；无效返回 null。 */
+    String siteUserIdByYggdrasilToken(String accessToken);
 }

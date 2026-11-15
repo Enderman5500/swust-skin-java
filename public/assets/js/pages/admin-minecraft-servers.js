@@ -58,6 +58,7 @@ function serverById(servers, id) {
 
 function openEditor(main, ctx, server = null) {
   const content = document.createElement('div');
+  const altHostsText = (server?.altHosts || []).join('\n');
   content.innerHTML = `
     <form class="form-stack">
       <label class="field"><span>服务器名称</span><input name="name" maxlength="60" required value="${ui.escapeHtml(
@@ -71,6 +72,9 @@ function openEditor(main, ctx, server = null) {
           server?.port || 25565
         }" /></label>
       </div>
+      <label class="field"><span>次 IP（可选，多个）</span><textarea name="altHosts" rows="3" maxlength="2000" placeholder="每行一个，可带端口，例如：proxy1.example.com:25565">${ui.escapeHtml(
+        altHostsText
+      )}</textarea><small class="field-hint">进服只使用主 IP；次 IP 用于代理服务器或备用线路。</small></label>
       <div class="form-grid two">
         <label class="field"><span>排序值</span><input name="sortOrder" type="number" min="-999999" max="999999" step="1" value="${
           server?.sortOrder ?? 0
@@ -111,6 +115,7 @@ function openEditor(main, ctx, server = null) {
               name: form.elements.name.value.trim(),
               host: form.elements.host.value.trim(),
               port: Number(form.elements.port.value),
+              altHosts: form.elements.altHosts.value,
               sortOrder: Number(form.elements.sortOrder.value || 0),
               description: form.elements.description.value.trim(),
               visible: form.elements.visible.checked,
@@ -176,7 +181,11 @@ function renderList(main, ctx, servers, totals) {
                     <td data-label="服务器 ID"><code>${ui.escapeHtml(server.id)}</code><button class="icon-btn" data-action="copy-id" data-id="${ui.escapeHtml(
                       server.id
                     )}" title="复制服务器 ID">${icon('copy')}</button></td>
-                    <td data-label="地址"><code>${ui.escapeHtml(server.address)}</code></td>
+                    <td data-label="地址"><code>${ui.escapeHtml(server.address)}</code>${
+                      (server.altHosts || []).length
+                        ? `<small class="field-hint">次 IP ${(server.altHosts || []).length} 个</small>`
+                        : ''
+                    }</td>
                     <td data-label="状态">${statusPill(server.online, server.onlineCount, server.maxPlayers)}</td>
                     <td data-label="公开">
                       <label class="table-switch" title="${server.visible ? '已在公开页面显示' : '已隐藏'}">

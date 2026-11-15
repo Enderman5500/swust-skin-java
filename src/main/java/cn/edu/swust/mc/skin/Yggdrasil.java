@@ -234,6 +234,15 @@ public final class Yggdrasil {
         return tokenResponse(token, Authz.str(row.get("user_id")));
     }
 
+    /** 启动器等内部组件校验 Yggdrasil 令牌；无效返回 null，不抛异常。 */
+    public Map<String, Object> tokenInfo(String accessToken) {
+        try {
+            return tokenRow(accessToken);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     public boolean validate(String accessToken) {
         tokenRow(accessToken);
         return true;
@@ -288,7 +297,7 @@ public final class Yggdrasil {
 
     private String sign(String value) {
         try {
-            Signature signature = Signature.getInstance("SHA256withRSA");
+            Signature signature = Signature.getInstance("SHA1withRSA");
             signature.initSign(privateKey);
             signature.update(value.getBytes(StandardCharsets.UTF_8));
             return Base64.getEncoder().encodeToString(signature.sign());
