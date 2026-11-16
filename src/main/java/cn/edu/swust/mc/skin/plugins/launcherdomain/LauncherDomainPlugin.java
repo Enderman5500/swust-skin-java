@@ -9,8 +9,13 @@ import cn.edu.swust.mc.skin.plugin.PluginRequest;
 import cn.edu.swust.mc.skin.plugin.PluginResponse;
 import cn.edu.swust.mc.skin.plugin.SkinPlugin;
 
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -72,6 +77,9 @@ public final class LauncherDomainPlugin implements SkinPlugin {
 
     private PluginContext context;
     private Connection db;
+    private final ConcurrentHashMap<String, PingCache> pingCache = new ConcurrentHashMap<>();
+
+    private record PingCache(long at, Map<String, Object> status) {}
 
     @Override
     public void activate(PluginContext context) throws Exception {
@@ -83,7 +91,7 @@ public final class LauncherDomainPlugin implements SkinPlugin {
         db = DriverManager.getConnection("jdbc:sqlite:" + context.dataDir().resolve("launcher-domain.db").toAbsolutePath());
         initSchema();
         ensureDomain();
-        importMinecraftServers();
+        syncMinecraftServers();
         context.registerRoute("GET", "/manifest", this::manifest);
         context.registerRoute("GET", "/curseforge", this::curseforgeRelay);
         context.registerRoute("GET", "/pack", this::publicPack);
@@ -100,8 +108,6 @@ public final class LauncherDomainPlugin implements SkinPlugin {
         context.registerAdminRoute("GET", "/admin/overview", this::adminOverview);
         context.registerAdminRoute("POST", "/admin/domain", this::adminSaveDomain);
         context.registerAdminRoute("POST", "/admin/home-layout", this::adminSaveHomeLayout);
-        context.registerAdminRoute("POST", "/admin/server", this::adminSaveServer);
-        context.registerAdminRoute("POST", "/admin/server/delete", this::adminDeleteServer);
         context.registerAdminRoute("POST", "/admin/resource", this::adminSaveResource);
         context.registerAdminRoute("POST", "/admin/resource/delete", this::adminDeleteResource);
         context.info("启动器域插件已就绪");
@@ -244,48 +250,93 @@ public final class LauncherDomainPlugin implements SkinPlugin {
     }
 
     /**
-     * 首次启用时把 minecraft-server 插件里已有的服务器导入域清单，
-     * 保留关联 ID，网页清单可直接显示这些服务器的心跳在线人数。
+     * 以 minecraft-server 插件为唯一数据源，把服务器同步到域清单。
+     * 本地 id 保持不变以维持整合包关联；名称、地址、端口、次 IP、备注、
+     * 公开状态和排序每次都用插件数据覆盖，插件里删除的服务器这里同步删除。
      */
-    private void importMinecraftServers() {
-        try {
-            Map<String, Object> count = one("SELECT COUNT(*) AS count FROM servers");
-            if (count != null && Authz.num(count.get("count")) > 0) return;
-        } catch (SQLException e) {
-            return;
-        }
+    private synchronized void syncMinecraftServers() {
         Path source = context.dataDir().getParent().resolve("minecraft-server").resolve("minecraft-server.db");
         if (!Files.isRegularFile(source)) return;
         String url = "jdbc:sqlite:file:" + source.toAbsolutePath().toString().replace('\\', '/') + "?mode=ro";
         String now = Security.isoNow();
+        Set<String> seen = new HashSet<>();
         try (Connection sourceDb = DriverManager.getConnection(url);
              PreparedStatement statement = sourceDb.prepareStatement(
                      "SELECT * FROM servers ORDER BY sort_order, name");
              ResultSet rs = statement.executeQuery()) {
             while (rs.next()) {
-                String id = "srv_" + Security.randomHex(6);
+                String mcId = Authz.str(rs.getString("id"));
+                if (mcId.isEmpty()) continue;
+                seen.add(mcId);
+                String name = Authz.str(rs.getString("name"));
+                String host = Authz.str(rs.getString("host"));
+                int port = rs.getInt("port");
                 String altHosts = "[]";
                 try { altHosts = rs.getString("alt_hosts"); } catch (SQLException ignored) {}
                 if (altHosts == null || altHosts.isBlank()) altHosts = "[]";
-                update("""
-                        INSERT OR IGNORE INTO servers
-                        (id, name, host, port, alt_hosts, note, icon, sort_order, visible, minecraft_server_id,
-                         created_at, updated_at)
-                        VALUES (?, ?, ?, ?, ?, ?, '', ?, ?, ?, ?, ?)
-                        """, id, rs.getString("name"), rs.getString("host"), rs.getInt("port"), altHosts,
-                        text(rs.getString("description"), 200), rs.getInt("sort_order"),
-                        rs.getInt("visible") != 0 ? 1 : 0, rs.getString("id"), now, now);
+                String note = text(rs.getString("description"), 200);
+                int sortOrder = rs.getInt("sort_order");
+                int visible = rs.getInt("visible") != 0 ? 1 : 0;
+                Map<String, Object> existing = one(
+                        "SELECT * FROM servers WHERE minecraft_server_id = ? ORDER BY created_at LIMIT 1", mcId);
+                if (existing == null) {
+                    // 兼容之前手动添加的同一台服务器：按地址 + 端口认领，保留整合包关联
+                    existing = one("""
+                            SELECT * FROM servers
+                            WHERE (minecraft_server_id IS NULL OR minecraft_server_id = '')
+                              AND host = ? AND port = ?
+                            ORDER BY sort_order, name LIMIT 1
+                            """, host, port);
+                    if (existing != null) {
+                        update("UPDATE servers SET minecraft_server_id = ? WHERE id = ?", mcId, existing.get("id"));
+                    }
+                }
+                if (existing == null) {
+                    update("""
+                            INSERT INTO servers
+                            (id, name, host, port, alt_hosts, note, icon, sort_order, visible,
+                             minecraft_server_id, created_at, updated_at)
+                            VALUES (?, ?, ?, ?, ?, ?, '', ?, ?, ?, ?, ?)
+                            """, "srv_" + Security.randomHex(6), name, host, port, altHosts, note,
+                            sortOrder, visible, mcId, now, now);
+                } else {
+                    boolean changed = !name.equals(Authz.str(existing.get("name")))
+                            || !host.equals(Authz.str(existing.get("host")))
+                            || port != Authz.num(existing.get("port"))
+                            || !altHosts.equals(Authz.str(existing.get("alt_hosts")))
+                            || !note.equals(Authz.str(existing.get("note")))
+                            || sortOrder != Authz.num(existing.get("sort_order"))
+                            || visible != (Authz.bool(existing.get("visible")) ? 1 : 0);
+                    if (changed) {
+                        update("""
+                                UPDATE servers SET name = ?, host = ?, port = ?, alt_hosts = ?, note = ?,
+                                  sort_order = ?, visible = ?, updated_at = ? WHERE id = ?
+                                """, name, host, port, altHosts, note, sortOrder, visible, now, existing.get("id"));
+                    }
+                }
+            }
+            List<Map<String, Object>> linked = all("""
+                    SELECT id, minecraft_server_id FROM servers
+                    WHERE minecraft_server_id IS NOT NULL AND minecraft_server_id <> ''
+                    """);
+            for (Map<String, Object> row : linked) {
+                if (!seen.contains(Authz.str(row.get("minecraft_server_id")))) {
+                    update("DELETE FROM servers WHERE id = ?", row.get("id"));
+                }
             }
         } catch (Exception e) {
-            context.warn("导入 minecraft-server 服务器失败：" + e.getMessage());
+            context.warn("同步 minecraft-server 服务器失败：" + e.getMessage());
         }
     }
 
     private Map<String, Object> manifest(PluginRequest request) throws Exception {
         Map<String, Object> domain = one("SELECT * FROM domain WHERE id = ?", DOMAIN_ID);
         if (domain == null) throw Web.notFound("域尚未初始化");
+        syncMinecraftServers();
         List<Map<String, Object>> servers = all("""
-                SELECT * FROM servers WHERE visible = 1 ORDER BY sort_order, name
+                SELECT * FROM servers
+                WHERE visible = 1 AND minecraft_server_id IS NOT NULL AND minecraft_server_id <> ''
+                ORDER BY sort_order, name
                 """);
         for (Map<String, Object> server : servers) {
             attachStatus(server);
@@ -343,7 +394,12 @@ public final class LauncherDomainPlugin implements SkinPlugin {
         boolean homeLayoutConfigured = homeLayout != null;
         if (homeLayout == null) homeLayout = defaultHomeLayout();
         domain.remove("home_layout");
-        List<Map<String, Object>> servers = all("SELECT * FROM servers ORDER BY sort_order, name");
+        syncMinecraftServers();
+        List<Map<String, Object>> servers = all("""
+                SELECT * FROM servers
+                WHERE minecraft_server_id IS NOT NULL AND minecraft_server_id <> ''
+                ORDER BY sort_order, name
+                """);
         for (Map<String, Object> server : servers) attachStatus(server);
         List<Map<String, Object>> resources = all("SELECT * FROM resources ORDER BY sort_order, name");
         Map<String, Object> out = new LinkedHashMap<>();
@@ -482,46 +538,6 @@ public final class LauncherDomainPlugin implements SkinPlugin {
         } else {
             throw Web.badRequest("缺少首页布局");
         }
-        return adminOverview(request);
-    }
-
-    private Map<String, Object> adminSaveServer(PluginRequest request) throws Exception {
-        Map<String, Object> body = request.json();
-        String name = text(body.get("name"), 60);
-        String host = text(body.get("host"), 255);
-        if (name.isEmpty()) throw Web.badRequest("服务器名称不能为空");
-        if (!host.matches("^[A-Za-z0-9._:\\-\\[\\]]{1,255}$")) throw Web.badRequest("服务器地址格式不正确");
-        int port = Math.max(1, Math.min(65535, Authz.num(body.get("port")) == 0 ? 25565 : Authz.num(body.get("port"))));
-        String altHostsJson = Json.stringify(parseAltHosts(body.get("altHosts")));
-        String note = text(body.get("note"), 200);
-        String icon = urlOrPath(body.get("icon"), "图标地址");
-        int sortOrder = Math.max(0, Math.min(9999, Authz.num(body.get("sortOrder"))));
-        int visible = Authz.bool(body.get("visible")) ? 1 : 0;
-        String minecraftServerId = text(body.get("minecraftServerId"), 80);
-        String id = text(body.get("id"), 80);
-        String now = Security.isoNow();
-        if (id.isEmpty()) {
-            id = "srv_" + Security.randomHex(6);
-            update("""
-                    INSERT INTO servers
-                    (id, name, host, port, alt_hosts, note, icon, sort_order, visible, minecraft_server_id,
-                     created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULLIF(?, ''), ?, ?)
-                    """, id, name, host, port, altHostsJson, note, icon, sortOrder, visible, minecraftServerId, now, now);
-        } else {
-            int changed = updateCount("""
-                    UPDATE servers SET name = ?, host = ?, port = ?, alt_hosts = ?, note = ?, icon = ?, sort_order = ?,
-                      visible = ?, minecraft_server_id = NULLIF(?, ''), updated_at = ? WHERE id = ?
-                    """, name, host, port, altHostsJson, note, icon, sortOrder, visible, minecraftServerId, now, id);
-            if (changed == 0) throw Web.notFound("服务器不存在");
-        }
-        return adminOverview(request);
-    }
-
-    private Map<String, Object> adminDeleteServer(PluginRequest request) throws Exception {
-        String id = text(request.json().get("id"), 80);
-        if (id.isEmpty()) throw Web.badRequest("缺少服务器 ID");
-        update("DELETE FROM servers WHERE id = ?", id);
         return adminOverview(request);
     }
 
@@ -1282,9 +1298,109 @@ public final class LauncherDomainPlugin implements SkinPlugin {
 
     private void attachStatus(Map<String, Object> server) {
         String linkedId = Authz.str(server.get("minecraft_server_id"));
-        if (linkedId.isEmpty()) return;
-        Map<String, Object> status = linkedStatus(linkedId);
+        Map<String, Object> status = linkedId.isEmpty() ? null : linkedStatus(linkedId);
+        boolean heartbeatOnline = status != null && Boolean.TRUE.equals(status.get("online"));
+        // 心跳过期时补一次实时 SLP 探测，避免网页把在线服务器显示成「未探测」
+        if (!heartbeatOnline) {
+            Map<String, Object> live = liveStatus(Authz.str(server.get("host")), Authz.num(server.get("port")));
+            if (live != null) {
+                if (status != null && status.get("lastSeenAt") != null && live.get("lastSeenAt") == null) {
+                    live.put("lastSeenAt", status.get("lastSeenAt"));
+                }
+                status = live;
+            }
+        }
         if (status != null) server.put("status", status);
+    }
+
+    private Map<String, Object> liveStatus(String host, int port) {
+        if (host == null || host.isBlank() || port < 1 || port > 65535) return null;
+        String key = host.toLowerCase(Locale.ROOT) + ":" + port;
+        long now = System.currentTimeMillis();
+        PingCache cached = pingCache.get(key);
+        if (cached != null && now - cached.at() < 5000) return cached.status();
+        Map<String, Object> status = pingServer(host, port);
+        pingCache.put(key, new PingCache(now, status));
+        return status;
+    }
+
+    private Map<String, Object> pingServer(String host, int port) {
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress(host, port), 1200);
+            socket.setSoTimeout(1500);
+            socket.setTcpNoDelay(true);
+            DataOutputStream output = new DataOutputStream(socket.getOutputStream());
+            DataInputStream input = new DataInputStream(socket.getInputStream());
+
+            ByteArrayOutputStream handshake = new ByteArrayOutputStream();
+            DataOutputStream handshakeData = new DataOutputStream(handshake);
+            writeVarInt(handshakeData, 0x00);
+            writeVarInt(handshakeData, 47);
+            writeString(handshakeData, host);
+            handshakeData.writeShort(port);
+            writeVarInt(handshakeData, 1);
+            sendPacket(output, handshake.toByteArray());
+            sendPacket(output, new byte[]{0x00});
+
+            int length = readVarInt(input);
+            if (length <= 0 || length > 2 * 1024 * 1024) return null;
+            if (readVarInt(input) != 0) return null;
+            String json = readString(input);
+            @SuppressWarnings("unchecked")
+            Map<String, Object> root = Json.MAPPER.readValue(json, Map.class);
+            Map<?, ?> players = root.get("players") instanceof Map<?, ?> value ? value : Map.of();
+            Map<?, ?> version = root.get("version") instanceof Map<?, ?> value ? value : Map.of();
+            Map<String, Object> status = new LinkedHashMap<>();
+            status.put("online", true);
+            status.put("onlineCount", Math.max(0, Authz.num(players.get("online"))));
+            status.put("maxPlayers", Math.max(0, Authz.num(players.get("max"))));
+            status.put("version", Authz.str(version.get("name")));
+            status.put("motd", Authz.str(root.get("description")));
+            status.put("statusSource", "ping");
+            return status;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static void sendPacket(DataOutputStream output, byte[] body) throws IOException {
+        writeVarInt(output, body.length);
+        output.write(body);
+        output.flush();
+    }
+
+    private static void writeString(DataOutputStream output, String value) throws IOException {
+        byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+        writeVarInt(output, bytes.length);
+        output.write(bytes);
+    }
+
+    private static void writeVarInt(DataOutputStream output, int value) throws IOException {
+        while ((value & ~0x7F) != 0) {
+            output.writeByte((value & 0x7F) | 0x80);
+            value >>>= 7;
+        }
+        output.writeByte(value);
+    }
+
+    private static int readVarInt(DataInputStream input) throws IOException {
+        int value = 0;
+        int position = 0;
+        while (true) {
+            int current = input.readUnsignedByte();
+            value |= (current & 0x7F) << position;
+            if ((current & 0x80) == 0) return value;
+            position += 7;
+            if (position >= 35) throw new IOException("VarInt 过长");
+        }
+    }
+
+    private static String readString(DataInputStream input) throws IOException {
+        int length = readVarInt(input);
+        if (length < 0 || length > 2 * 1024 * 1024) throw new IOException("字符串长度异常");
+        byte[] bytes = new byte[length];
+        input.readFully(bytes);
+        return new String(bytes, StandardCharsets.UTF_8);
     }
 
     private Map<String, Object> linkedStatus(String serverId) {
@@ -1352,26 +1468,6 @@ public final class LauncherDomainPlugin implements SkinPlugin {
             for (int i = 0; i < params.length; i++) statement.setObject(i + 1, params[i]);
             return statement.executeUpdate();
         }
-    }
-
-    private static List<String> parseAltHosts(Object value) {
-        List<String> raw = new ArrayList<>();
-        if (value instanceof List<?> list) {
-            for (Object item : list) raw.add(String.valueOf(item));
-        } else if (value != null) {
-            for (String item : String.valueOf(value).split("[,\\n，；;]+")) raw.add(item);
-        }
-        List<String> out = new ArrayList<>();
-        for (String item : raw) {
-            String host = item == null ? "" : item.trim();
-            if (host.isEmpty()) continue;
-            if (!host.matches("^[A-Za-z0-9._:\\-\\[\\]]{1,255}$")) {
-                throw Web.badRequest("次 IP 格式不正确：" + host);
-            }
-            if (!out.contains(host)) out.add(host);
-            if (out.size() >= 16) break;
-        }
-        return out;
     }
 
     private static List<String> storedAltHosts(String json) {
