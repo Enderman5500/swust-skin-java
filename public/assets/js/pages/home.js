@@ -404,36 +404,6 @@ export async function render(root, ctx) {
       }
     </section>
 
-    <section class="section features-section">
-      <div class="section-head">
-        <div>
-          <p class="eyebrow">WHY THIS SITE</p>
-          <h2>为社团而生的皮肤站</h2>
-          <p>不只是一个上传按钮，而是一整套联机外观方案。</p>
-        </div>
-      </div>
-      <div class="feature-grid">
-        <article class="feature-card">
-          <span class="feature-icon">${icon('layers')}</span>
-          <h3>实时 3D 衣橱</h3>
-          <p>WebGL 渲染经典与纤细模型，支持披风、叠层与自由旋转，选购外观不再靠想象。</p>
-          <span class="feature-tag">SKIN VIEWER</span>
-        </article>
-        <article class="feature-card">
-          <span class="feature-icon">${icon('server')}</span>
-          <h3>authlib-injector 联机</h3>
-          <p>一次配置认证服务器，离线模式的社团服务器里也能看见每个人独一无二的皮肤。</p>
-          <span class="feature-tag">YGGDRASIL</span>
-        </article>
-        <article class="feature-card">
-          <span class="feature-icon">${icon('plugin')}</span>
-          <h3>可扩展插件系统</h3>
-          <p>服务器状态、随机皮肤只是开始。插件可以热加载、启停和独立扩展页面，让站点持续生长。</p>
-          <span class="feature-tag">PLUGIN RUNTIME</span>
-        </article>
-      </div>
-    </section>
-
     <section class="section join-section${signedIn ? ' is-single' : ''}">
       <div class="join-copy">
         <p class="eyebrow">JOIN THE CONSTELLATION</p>

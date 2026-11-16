@@ -382,9 +382,9 @@ function renderHeader() {
     } catch {
       // 忽略退出请求错误，本地状态仍然清理
     }
-    setAuth(null, null);
-    navigate('/');
-    ui.toast('已退出登录，星空会记得你', 'info');
+    // 退出后整页刷新，避免顶部导航残留登录态的菜单项
+    location.hash = '#/';
+    location.reload();
   });
 
   if (headerOutsideHandler) {

@@ -296,9 +296,9 @@ export async function render(root, ctx) {
     } catch {
       // 忽略退出请求错误
     }
-    ctx.setAuth(null, null);
-    ctx.navigate('/');
-    ui.toast('已退出登录', 'info');
+    // 整页刷新，确保顶部菜单立即恢复未登录状态
+    location.hash = '#/';
+    location.reload();
   });
 
   const main = root.querySelector('[data-admin-main]');

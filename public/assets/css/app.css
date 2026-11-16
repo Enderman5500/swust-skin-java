@@ -34,7 +34,7 @@
   --font-display: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "STZhongsong", "SimSun", serif;
   --font-mono: "SFMono-Regular", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
   --header-height: 76px;
-  --content-width: 100%;
+  --content-width: 1200px;
   --ui-scale: 1;
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
 }
@@ -290,7 +290,7 @@ pre {
 }
 
 .header-inner {
-  width: calc(100% - 48px);
+  width: min(1280px, calc(100% - 48px));
   height: var(--header-height);
   margin: 0 auto;
   display: flex;
@@ -534,20 +534,6 @@ pre {
   box-shadow: 0 8px 24px rgba(232, 201, 122, 0.18);
 }
 
-/* 大屏使用整体缩放后，导航的有效布局宽度仍按 1440 计算；
-   收紧一点间距，让站点导航项尽量完整展示，而不是提前进入「更多」。 */
-@media (min-width: 1441px) {
-  .main-nav {
-    gap: 2px;
-    margin-left: 0;
-  }
-
-  .main-nav .nav-link {
-    padding-left: 10px;
-    padding-right: 10px;
-  }
-}
-
 .header-actions .btn-primary:hover {
   background: linear-gradient(135deg, #f4dda2, #edd28d);
 }
@@ -727,7 +713,15 @@ pre {
 /* =========================================================
    Layout / common
    ========================================================= */
+/* 页面高度不足时，让页脚贴住视口底部；内容较长时正常跟随内容。 */
+#app:not([hidden]) {
+  min-height: calc(100vh / var(--ui-scale));
+  display: flex;
+  flex-direction: column;
+}
+
 .site-main {
+  flex: 1 0 auto;
   min-height: 60vh;
   padding-bottom: 88px;
 }
@@ -2466,69 +2460,8 @@ pre {
 }
 
 /* =========================================================
-   Features / join
+   Join
    ========================================================= */
-.feature-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-}
-
-.feature-card {
-  position: relative;
-  padding: 30px 26px 26px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--line);
-  background:
-    radial-gradient(ellipse at 100% 0%, rgba(156, 195, 230, 0.16), transparent 50%),
-    #fff;
-  overflow: hidden;
-  transition: transform 0.25s var(--ease), box-shadow 0.25s;
-}
-
-.feature-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-md);
-}
-
-.feature-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, rgba(44, 76, 102, 0.1), rgba(156, 195, 230, 0.18));
-  color: var(--navy);
-  margin-bottom: 20px;
-}
-
-.feature-icon .icon {
-  width: 22px;
-  height: 22px;
-}
-
-.feature-card h3 {
-  font-family: var(--font-display);
-  font-size: 21px;
-  margin-bottom: 10px;
-}
-
-.feature-card p {
-  font-size: 13px;
-  line-height: 1.85;
-  color: var(--muted);
-}
-
-.feature-tag {
-  display: inline-block;
-  margin-top: 22px;
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.18em;
-  color: var(--muted-2);
-}
-
 .join-section {
   display: grid;
   grid-template-columns: 1.05fr 0.95fr;
@@ -5373,9 +5306,6 @@ pre {
     width: 88px;
     height: 88px;
   }
-  .feature-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
   .stat-grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -5567,9 +5497,6 @@ pre {
   }
   .hero-stat:nth-child(-n + 2) {
     border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-  }
-  .feature-grid {
-    grid-template-columns: 1fr;
   }
   .join-section {
     padding: 28px 22px;
