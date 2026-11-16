@@ -271,11 +271,11 @@ export async function render(root, ctx) {
       ctx.setAuth(data.user, data.csrfToken);
       ui.toast(`欢迎回来，${data.user.nickname || data.user.username}`, 'success');
       const target = next === '/onboarding' ? '/players' : next;
-      if (data.user.onboardingRequired) {
-        ctx.navigate(`/onboarding?next=${encodeURIComponent(target)}`);
-        return;
-      }
-      ctx.navigate(target);
+      // 登录态会改变顶部菜单项，整页刷新确保导航与权限状态一致
+      location.hash = '#' + (data.user.onboardingRequired
+        ? `/onboarding?next=${encodeURIComponent(target)}`
+        : target);
+      location.reload();
     } catch (error) {
       showError(error.message);
       ui.setButtonLoading(button, false);
@@ -325,8 +325,9 @@ export async function render(root, ctx) {
     try {
       const data = await api.post('/auth/register', { username, nickname, email, password, code });
       ctx.setAuth(data.user, data.csrfToken);
-      ui.toast('注册成功，欢迎加入星空社！', 'success');
-      ctx.navigate(next === '/players' ? '/players' : next);
+      // 注册即登录，同样整页刷新以更新顶部导航
+      location.hash = '#' + (next === '/players' ? '/players' : next);
+      location.reload();
     } catch (error) {
       showError(error.message);
       ui.setButtonLoading(button, false);

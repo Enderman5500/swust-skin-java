@@ -417,7 +417,11 @@ public final class Plugins {
         if (path.length() > 1 && path.endsWith("/")) path = path.substring(0, path.length() - 1);
         Record record = records.get(id);
         if (record == null || !record.loaded) return false;
-        if (!canUse(ctx.user, id)) throw Web.forbidden("没有权限使用该插件");
+        // 启动器读取域清单不经过站点登录；域页面/前端资源仍受插件权限控制。
+        boolean launcherManifest = "launcher-domain".equals(id)
+                && "GET".equals(ctx.method)
+                && "/manifest".equals(path);
+        if (!launcherManifest && !canUse(ctx.user, id)) throw Web.forbidden("没有权限使用该插件");
         for (PluginRoute route : record.routes) {
             if (!route.method.equals(ctx.method)) continue;
             if (!route.path.equals(path)) continue;

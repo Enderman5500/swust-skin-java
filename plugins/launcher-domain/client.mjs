@@ -142,7 +142,6 @@ export async function mount(root, ctx) {
                         <span class="status-pill ${online ? 'online' : 'offline'}"><span class="status-dot"></span>${online ? '在线' : '未探测'}</span>
                       </div>
                       <code>${escapeHtml(server.host)}:${server.port}</code>
-                      ${Array.isArray(server.altHosts) && server.altHosts.length ? `<p>备用线路：${server.altHosts.map((host) => escapeHtml(host)).join(' · ')}</p>` : ''}
                       ${server.note ? `<p>${escapeHtml(server.note)}</p>` : ''}
                       ${server.pack ? `<p>整合包：${escapeHtml(server.pack.name)} · ${server.pack.policy === 'required' ? '必装' : '可选'} · v${server.pack.latestVersion}</p>` : ''}
                       <div class="ld-server-meta">
@@ -337,11 +336,11 @@ export async function mount(root, ctx) {
         </section>
 
         <section class="panel">
-          <div class="panel-head"><div><p class="eyebrow">SERVERS</p><h3>官方服务器</h3></div><button class="btn btn-primary btn-sm" data-ld-add-server>${icon('plus')}添加服务器</button></div>
+          <div class="panel-head"><div><p class="eyebrow">SERVERS</p><h3>官方服务器</h3><small class="field-hint">数据来自 Minecraft 服务器插件；服务器名称、地址、端口、公开状态与排序请到插件页维护，修改后这里会自动同步。</small></div></div>
           ${
             servers.length
               ? `<div class="table-panel"><table class="data-table">
-                  <thead><tr><th>服务器</th><th>地址</th><th>关联统计</th><th>公开</th><th>排序</th><th class="table-actions-col">操作</th></tr></thead>
+                  <thead><tr><th>服务器</th><th>地址</th><th>关联统计</th><th>公开</th><th>排序</th></tr></thead>
                   <tbody>${servers
                     .map(
                       (server) => `<tr>
@@ -357,15 +356,11 @@ export async function mount(root, ctx) {
                         <td data-label="关联统计">${server.minecraft_server_id ? `<code>${escapeHtml(server.minecraft_server_id)}</code>` : '—'}</td>
                         <td data-label="公开">${server.visible ? '<span class="status-pill online">公开</span>' : '<span class="status-pill offline">隐藏</span>'}</td>
                         <td data-label="排序">${server.sort_order || 0}</td>
-                        <td data-label="操作" class="table-actions">
-                          <button class="btn btn-ghost btn-sm" data-ld-edit-server="${escapeHtml(server.id)}">${icon('edit')}编辑</button>
-                          <button class="btn btn-ghost btn-sm danger-text" data-ld-delete-server="${escapeHtml(server.id)}">${icon('trash')}删除</button>
-                        </td>
                       </tr>`
                     )
                     .join('')}</tbody>
                 </table></div>`
-              : '<div class="ld-empty">还没有官方服务器。</div>'
+              : '<div class="ld-empty">还没有官方服务器。请先到 Minecraft 服务器插件添加服务器。</div>'
           }
         </section>
 
@@ -408,32 +403,6 @@ export async function mount(root, ctx) {
       } catch (error) {
         toast(error.message, 'error');
       }
-    });
-
-    root.querySelector('[data-ld-add-server]')?.addEventListener('click', () => openServerEditor(null));
-    root.querySelectorAll('[data-ld-edit-server]').forEach((button) => {
-      button.addEventListener('click', () => {
-        const server = servers.find((item) => item.id === button.dataset.ldEditServer);
-        if (server) openServerEditor(server);
-      });
-    });
-    root.querySelectorAll('[data-ld-delete-server]').forEach((button) => {
-      button.addEventListener('click', async () => {
-        const confirmed = await ui.confirmDialog({
-          title: '删除服务器',
-          message: '删除后启动器将不再显示该服务器，确定继续吗？',
-          confirmText: '删除',
-          danger: true,
-        });
-        if (!confirmed) return;
-        try {
-          const next = await api.post('/plugins/launcher-domain/admin/server/delete', { id: button.dataset.ldDeleteServer });
-          toast('服务器已删除');
-          adminView(next);
-        } catch (error) {
-          toast(error.message, 'error');
-        }
-      });
     });
 
     root.querySelector('[data-ld-add-resource]')?.addEventListener('click', () => openResourceEditor(null));
@@ -724,66 +693,6 @@ export async function mount(root, ctx) {
         }
       });
     });
-
-    function openServerEditor(server) {
-      const content = document.createElement('div');
-      const altHostsText = (() => {
-        try { return (JSON.parse(server?.alt_hosts || '[]') || []).join('\n'); } catch { return ''; }
-      })();
-      content.innerHTML = `
-        <form class="form-stack">
-          <input type="hidden" name="id" value="${escapeHtml(server?.id || '')}" />
-          <label class="field"><span>名称</span><input name="name" maxlength="60" required value="${escapeHtml(server?.name || '')}" /></label>
-          <div class="form-grid two">
-            <label class="field"><span>主 IP / 地址</span><input name="host" maxlength="255" required placeholder="mc.example.com" value="${escapeHtml(server?.host || '')}" /></label>
-            <label class="field"><span>端口</span><input name="port" type="number" min="1" max="65535" required value="${server?.port || 25565}" /></label>
-          </div>
-          <label class="field"><span>次 IP（可选，多个）</span>
-            <textarea name="altHosts" rows="3" maxlength="2000" placeholder="每行一个，可带端口，例如：proxy1.example.com:25565">${escapeHtml(altHostsText)}</textarea>
-            <small class="field-hint">进服只使用主 IP；次 IP 用于代理服务器或备用线路展示。</small>
-          </label>
-          <label class="field"><span>备注</span><input name="note" maxlength="200" value="${escapeHtml(server?.note || '')}" /></label>
-          <div class="form-grid two">
-            <label class="field"><span>图标地址</span><input name="icon" maxlength="500" placeholder="留空则不显示" value="${escapeHtml(server?.icon || '')}" /></label>
-            <label class="field"><span>排序</span><input name="sortOrder" type="number" min="0" max="9999" value="${server?.sort_order || 0}" /></label>
-          </div>
-          <label class="field"><span>关联 minecraft-server 服务器 ID</span><input name="minecraftServerId" maxlength="80" placeholder="可选，用于网页显示心跳在线人数" value="${escapeHtml(server?.minecraft_server_id || '')}" /></label>
-          <label class="switch-field"><span><strong>公开显示</strong><small>关闭后不进入启动器清单</small></span><input type="checkbox" name="visible" ${server?.visible !== false ? 'checked' : ''} /></label>
-        </form>`;
-      ui.openModal({
-        title: server ? '编辑服务器' : '添加服务器',
-        content,
-        size: 'md',
-        actions: [
-          { label: '取消', className: 'btn-ghost' },
-          {
-            label: '保存',
-            className: 'btn-primary',
-            onClick: async ({ close, button }) => {
-              const form = content.querySelector('form');
-              if (!form.reportValidity()) return false;
-              const body = Object.fromEntries(new FormData(form).entries());
-              body.port = Number(body.port);
-              body.sortOrder = Number(body.sortOrder);
-              body.visible = form.elements.visible.checked;
-              ui.setButtonLoading(button, true, '保存中…');
-              try {
-                const next = await api.post('/plugins/launcher-domain/admin/server', body);
-                ui.setButtonLoading(button, false);
-                toast('服务器已保存');
-                close();
-                adminView(next);
-              } catch (error) {
-                ui.setButtonLoading(button, false);
-                toast(error.message, 'error');
-                return false;
-              }
-              return true;
-            },
-          },
-        ],
-      });
-    }
 
     function openResourceEditor(resource) {
       const content = document.createElement('div');
