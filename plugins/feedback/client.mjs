@@ -35,6 +35,102 @@ function dateKeyOf(date) {
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
 }
 
+const MAX_UPLOAD_BYTES = 6 * 1024 * 1024 - 64 * 1024;
+const TARGET_UPLOAD_BYTES = 900 * 1024;
+const MAX_IMAGE_EDGE = 1600;
+
+function canvasToBlob(canvas, type, quality) {
+  return new Promise((resolve) => canvas.toBlob(resolve, type, quality));
+}
+
+/** 上传前在浏览器内压缩到 900KB 以内，避开反向代理常见 1MB 上传限制，并统一转成可预览格式。 */
+async function compressImage(file) {
+  const type = (file.type || '').toLowerCase();
+  if (type === 'image/gif' && file.size <= TARGET_UPLOAD_BYTES) {
+    return { blob: file, name: file.name || 'image.gif', type: 'image/gif' };
+  }
+  try {
+    const bitmap = await createImageBitmap(file);
+    const sourceWidth = bitmap.width || 1;
+    const sourceHeight = bitmap.height || 1;
+    const canvas = document.createElement('canvas');
+    const attempts = [
+      [MAX_IMAGE_EDGE, 0.85],
+      [1400, 0.8],
+      [1200, 0.75],
+      [1024, 0.7],
+      [900, 0.65],
+      [760, 0.6],
+    ];
+    let best = null;
+    try {
+      for (const [edge, quality] of attempts) {
+        const scale = Math.min(1, edge / Math.max(sourceWidth, sourceHeight));
+        const width = Math.max(1, Math.round(sourceWidth * scale));
+        const height = Math.max(1, Math.round(sourceHeight * scale));
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d').drawImage(bitmap, 0, 0, width, height);
+        const blob = (await canvasToBlob(canvas, 'image/webp', quality))
+          || (await canvasToBlob(canvas, 'image/jpeg', quality));
+        if (!blob) continue;
+        best = blob;
+        if (blob.size <= TARGET_UPLOAD_BYTES) break;
+      }
+    } finally {
+      bitmap.close?.();
+    }
+    if (!best) return { blob: file, name: file.name || 'image', type: type || 'application/octet-stream' };
+    if (best.size > MAX_UPLOAD_BYTES) return { error: '图片压缩后仍然过大，请换一张较小的图片' };
+    const base = String(file.name || 'image').replace(/\.[^.]+$/, '') || 'image';
+    const extension = best.type === 'image/webp' ? '.webp' : best.type === 'image/png' ? '.png' : '.jpg';
+    return { blob: best, name: base + extension, type: best.type || 'image/jpeg' };
+  } catch (error) {
+    if (file.size > MAX_UPLOAD_BYTES) return { error: '图片过大且无法压缩，请换一张较小的图片' };
+    return { blob: file, name: file.name || 'image', type: type || 'application/octet-stream' };
+  }
+}
+
+function uploadErrorText(error) {
+  if (!error) return '图片上传失败';
+  if (error.status === 413 || error.code === 'payload_too_large') {
+    return '图片超过服务器允许的上传大小，请换一张较小的图片';
+  }
+  if (error.status === 0) return '网络连接失败，请检查网络后重试';
+  const message = String(error.message || '');
+  if (message && message.length <= 160 && !message.includes('<')) return message;
+  return `图片上传失败（${error.status || '网络错误'}）`;
+}
+
+/** 优先使用宿主 api.upload；旧宿主没有该能力时退回原生 fetch。 */
+async function uploadImage(apiClient, path, blob, type) {
+  const buffer = await blob.arrayBuffer();
+  if (typeof apiClient?.upload === 'function') {
+    return apiClient.upload(path, buffer, type);
+  }
+  const url = path.startsWith('/api/') ? path : `/api${path}`;
+  const session = await fetch('/api/auth/me', { credentials: 'same-origin' })
+    .then((response) => response.json())
+    .catch(() => null);
+  const headers = { 'Content-Type': type || 'application/octet-stream' };
+  const csrf = session?.data?.csrfToken;
+  if (csrf) headers['X-CSRF-Token'] = csrf;
+  const response = await fetch(url, { method: 'POST', credentials: 'same-origin', headers, body: buffer });
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch (error) {
+    payload = null;
+  }
+  if (!response.ok) {
+    const failure = new Error(payload?.error?.message || `请求失败（${response.status}）`);
+    failure.status = response.status;
+    failure.code = payload?.error?.code;
+    throw failure;
+  }
+  return payload && Object.prototype.hasOwnProperty.call(payload, 'data') ? payload.data : payload;
+}
+
 const STYLE = `
 .fb-tabs { display: inline-flex; gap: 6px; padding: 4px; border-radius: 999px; background: var(--paper); border: 1px solid var(--line); }
 .fb-tabs .chip { border: 0; background: transparent; }
@@ -147,6 +243,8 @@ const STYLE = `
 .fb-attachment { position: relative; width: 92px; height: 92px; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); background: var(--paper); }
 .fb-attachment img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .fb-attachment button { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; border-radius: 999px; border: 0; background: rgba(9,21,34,.65); color: #fff; font-size: 12px; line-height: 1; cursor: pointer; }
+.fb-attachment.is-uploading img { opacity: .55; }
+.fb-attachment-loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(9,21,34,.35); color: #fff; font-size: 10px; pointer-events: none; }
 .fb-upload { display: inline-flex; align-items: center; gap: 6px; width: fit-content; cursor: pointer; }
 .fb-meta { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px 18px; font-size: 11.5px; color: var(--muted); }
 .fb-meta strong { color: var(--navy); font-weight: 600; }
@@ -838,13 +936,15 @@ export async function mount(root, ctx) {
       const host = view.querySelector('[data-attachments]');
       if (!host) return;
       host.innerHTML = draft.attachments.map((file, index) => `
-        <div class="fb-attachment">
+        <div class="fb-attachment ${file.uploading ? 'is-uploading' : ''}">
           <img src="${esc(file.url)}" alt="${esc(file.name)}">
+          ${file.uploading ? '<span class="fb-attachment-loading">上传中…</span>' : ''}
           <button type="button" data-remove-attachment="${index}" aria-label="移除">×</button>
         </div>`).join('');
       host.querySelectorAll('[data-remove-attachment]').forEach((button) => {
         button.addEventListener('click', () => {
-          draft.attachments.splice(Number(button.dataset.removeAttachment), 1);
+          const [removed] = draft.attachments.splice(Number(button.dataset.removeAttachment), 1);
+          if (removed?.previewUrl) URL.revokeObjectURL(removed.previewUrl);
           paintAttachments();
         });
       });
@@ -853,21 +953,49 @@ export async function mount(root, ctx) {
 
     const uploadFiles = async (files) => {
       for (const file of files) {
-        if (!file.type.startsWith('image/')) {
-          toast('仅支持图片附件', 'error');
-          continue;
-        }
+        if (!file) continue;
         if (draft.attachments.length >= MAX_ATTACHMENTS) {
           toast(`最多上传 ${MAX_ATTACHMENTS} 张图片`, 'error');
           break;
         }
+        // 先用本地对象 URL 即时预览，压缩与上传在后台进行。
+        const previewUrl = URL.createObjectURL(file);
+        const entry = {
+          url: previewUrl,
+          previewUrl,
+          name: file.name || 'image',
+          uploading: true,
+        };
+        draft.attachments.push(entry);
+        paintAttachments();
+        const dropEntry = () => {
+          const index = draft.attachments.indexOf(entry);
+          if (index >= 0) draft.attachments.splice(index, 1);
+          URL.revokeObjectURL(previewUrl);
+          paintAttachments();
+        };
+        const prepared = await compressImage(file);
+        if (prepared.error) {
+          dropEntry();
+          toast(prepared.error, 'error');
+          continue;
+        }
         try {
-          const buffer = await file.arrayBuffer();
-          const result = await api.upload(`${BASE}/attachment?name=${encodeURIComponent(file.name)}`, buffer, file.type);
-          draft.attachments.push({ url: result.url, name: result.name || file.name });
+          const result = await uploadImage(
+            api,
+            `${BASE}/attachment?name=${encodeURIComponent(prepared.name)}`,
+            prepared.blob,
+            prepared.type,
+          );
+          entry.url = result.url;
+          entry.name = result.name || prepared.name;
+          entry.uploading = false;
+          URL.revokeObjectURL(previewUrl);
+          entry.previewUrl = null;
           paintAttachments();
         } catch (error) {
-          toast(error.message || '图片上传失败', 'error');
+          dropEntry();
+          toast(uploadErrorText(error), 'error');
         }
       }
     };
@@ -910,13 +1038,17 @@ export async function mount(root, ctx) {
         toast(`问题描述不能超过 ${MAX_DESCRIPTION} 个字符`, 'error');
         return;
       }
+      if (draft.attachments.some((file) => file.uploading)) {
+        toast('图片仍在上传，请稍候再提交', 'info');
+        return;
+      }
       const payload = {
         title,
         description: body,
         type: draft.type,
         severity: draft.severity,
         categoryId: draft.categoryId || '',
-        attachments: draft.attachments.map((file) => file.url),
+        attachments: draft.attachments.map((file) => file.url).filter(Boolean),
       };
       event.currentTarget.disabled = true;
       try {

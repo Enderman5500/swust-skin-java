@@ -60,10 +60,9 @@ public final class FeedbackPlugin implements SkinPlugin {
             return service.uploadAttachment(
                     request.body((int) FeedbackService.MAX_ATTACHMENT_BYTES), request.query("name"));
         });
-        ctx.registerRoute("GET", "/attachment", request -> {
-            requireUser(request);
-            return service.attachment(request.query("file"));
-        });
+        // 附件使用不可猜测的随机文件名，允许直接以图片方式访问，避免反向代理或跨端场景下因登录态丢失而无法预览。
+        ctx.registerRoute("GET", "/attachment", request ->
+                service.attachment(request.query("file")));
 
         // ---------------- 管理端 ----------------
         ctx.registerAdminRoute("GET", "/admin/feedbacks", request -> service.adminPage(query(request)));

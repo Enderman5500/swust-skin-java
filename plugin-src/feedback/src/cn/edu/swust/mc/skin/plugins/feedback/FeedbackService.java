@@ -1087,6 +1087,10 @@ final class FeedbackService {
                 && data[8] == 'W' && data[9] == 'E' && data[10] == 'B' && data[11] == 'P') {
             return ".webp";
         }
+        if (data.length >= 12 && data[4] == 'f' && data[5] == 't' && data[6] == 'y' && data[7] == 'p') {
+            String brand = new String(data, 8, 4, StandardCharsets.US_ASCII);
+            if ("avif".equals(brand) || "avis".equals(brand)) return ".avif";
+        }
         return null;
     }
 
@@ -1096,6 +1100,7 @@ final class FeedbackService {
         if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
         if (lower.endsWith(".gif")) return "image/gif";
         if (lower.endsWith(".webp")) return "image/webp";
+        if (lower.endsWith(".avif")) return "image/avif";
         return "application/octet-stream";
     }
 }
