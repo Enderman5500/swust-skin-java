@@ -53,7 +53,7 @@ import java.util.zip.ZipFile;
  * 可通过 {@code --keep email=userId} 或插件页面指定保留账号。</p>
  */
 public final class YudreamMigration {
-    public static final String DEFAULT_INITIAL_PASSWORD = "swustmc123456";
+    public static final String DEFAULT_INITIAL_PASSWORD = Security.INITIAL_PASSWORD;
 
     private static final ObjectMapper MAPPER = new ObjectMapper()
             .enable(SerializationFeature.INDENT_OUTPUT);
@@ -905,6 +905,7 @@ public final class YudreamMigration {
                 boolean committed = false;
                 try {
                     ensureWalletTables(connection);
+                    ensureUserColumns(connection);
                     importDepartments(connection, exists);
                     importRoles(connection, exists);
                     importUsers(connection);
@@ -926,6 +927,25 @@ public final class YudreamMigration {
                 }
             }
             verify(connection);
+        }
+
+        private void ensureUserColumns(Connection connection) throws SQLException {
+            boolean found = false;
+            try (Statement statement = connection.createStatement();
+                 ResultSet result = statement.executeQuery("PRAGMA table_info(users)")) {
+                while (result.next()) {
+                    if ("must_change_password".equalsIgnoreCase(result.getString("name"))) {
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            if (!found) {
+                try (Statement statement = connection.createStatement()) {
+                    statement.executeUpdate(
+                            "ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0");
+                }
+            }
         }
 
         private void ensureWalletTables(Connection connection) throws SQLException {
@@ -1058,9 +1078,9 @@ public final class YudreamMigration {
             try (PreparedStatement statement = connection.prepareStatement("""
                     INSERT OR IGNORE INTO users
                     (id, username, nickname, email, phone, qq, password, avatar_file_id, email_verified,
-                     status, player_limit, tags, fields, version, create_time, update_time,
-                     last_login_time, password_changed_time)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, 0, ?, ?, NULL, NULL)
+                     must_change_password, status, player_limit, tags, fields, version, create_time,
+                     update_time, last_login_time, password_changed_time)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 0, 1, ?, ?, ?, ?, 0, ?, ?, NULL, NULL)
                     """)) {
                 for (PreparedUser user : preparedUsers) {
                     SourceUser source = user.source();
@@ -1071,13 +1091,12 @@ public final class YudreamMigration {
                     statement.setString(5, blankToNull(source.phone()));
                     statement.setString(6, blankToNull(source.qq()));
                     statement.setString(7, user.passwordHash());
-                    statement.setInt(8, user.email() == null ? 0 : 1);
-                    statement.setString(9, "DISABLED".equals(source.status()) ? "DISABLED" : "ACTIVE");
-                    statement.setInt(10, user.playerLimit());
-                    statement.setString(11, user.tagsJson());
-                    statement.setString(12, user.fieldsJson());
+                    statement.setString(8, "DISABLED".equals(source.status()) ? "DISABLED" : "ACTIVE");
+                    statement.setInt(9, user.playerLimit());
+                    statement.setString(10, user.tagsJson());
+                    statement.setString(11, user.fieldsJson());
+                    statement.setString(12, now);
                     statement.setString(13, now);
-                    statement.setString(14, now);
                     imported += statement.executeUpdate();
                 }
             }
@@ -1095,7 +1114,8 @@ public final class YudreamMigration {
                 List<String> chunk = ids.subList(start, Math.min(ids.size(), start + 400));
                 String placeholders = String.join(",", chunk.stream().map(id -> "?").toList());
                 try (PreparedStatement statement = connection.prepareStatement(
-                        "UPDATE users SET password = ?, password_changed_time = NULL, version = version + 1 "
+                        "UPDATE users SET password = ?, password_changed_time = NULL, "
+                                + "must_change_password = 1, email_verified = 0, version = version + 1 "
                                 + "WHERE id IN (" + placeholders + ") "
                                 + "AND (password_changed_time IS NULL OR password_changed_time = '')")) {
                     statement.setString(1, initialPasswordHash);
@@ -1489,6 +1509,7 @@ public final class YudreamMigration {
             for (String issue : issues) issueArray.add(issue);
             ArrayNode noteArray = report.putArray("notes");
             noteArray.add("迁移账号初始密码统一为 " + options.initialPassword + "，请提醒用户首次登录后尽快修改。");
+            noteArray.add("迁移账号首次登录必须完成邮箱验证并修改初始密码；已完成改密的账号不会被再次强制。");
             noteArray.add("导出包不含密码，已改过密码的账号不会被重置；password_changed_time 为空的历史迁移账号会设置为初始密码。");
             noteArray.add("同一邮箱存在多个账号时只保留一个；其余账号及其角色、角色档案、衣柜数据不会导入，钱包记录按原用户 ID 保留。");
             noteArray.add("重复邮箱账号的保留选择在首次导入后应保持一致；迁移不会删除平台上已存在的账号。");

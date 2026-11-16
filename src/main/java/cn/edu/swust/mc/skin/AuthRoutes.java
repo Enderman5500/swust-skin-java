@@ -137,13 +137,21 @@ public final class AuthRoutes {
             app.rateLimiter.reset(limitKey);
             String now = Security.isoNow();
             Map<String, Object> row = credentials.row();
+            String userId = Authz.str(row.get("id"));
+            // 初始密码是重置手段：无论账号来源，只要用它登录就强制邮箱验证 + 改密。
+            if (password.equals(Security.INITIAL_PASSWORD)) {
+                app.db.update("""
+                        UPDATE users SET must_change_password = 1, email_verified = 0, update_time = ?,
+                          version = version + 1 WHERE id = ?
+                        """, now, userId);
+            }
             if (credentials.needsRehash()) {
                 app.db.update("UPDATE users SET password = ?, password_changed_time = ? WHERE id = ?",
-                        Security.hashPassword(password), now, Authz.str(row.get("id")));
+                        Security.hashPassword(password), now, userId);
             }
-            app.db.update("UPDATE users SET last_login_time = ? WHERE id = ?", now, Authz.str(row.get("id")));
+            app.db.update("UPDATE users SET last_login_time = ? WHERE id = ?", now, userId);
             AuthUser user = Authz.authUser(app.db,
-                    app.db.one("SELECT * FROM users WHERE id = ?", Authz.str(row.get("id"))));
+                    app.db.one("SELECT * FROM users WHERE id = ?", userId));
             Map<String, Object> session = Auth.sessionPayload(app.db, app.config, ctx, user);
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("user", user.toMap());
@@ -181,6 +189,7 @@ public final class AuthRoutes {
             }
 
             String email = user.email;
+            boolean emailChanged = false;
             if (hasEmail) {
                 email = Authz.str(body.get("email")).trim().toLowerCase();
                 if (!Security.validEmail(email)) {
@@ -189,6 +198,7 @@ public final class AuthRoutes {
                 Map<String, Object> duplicate = app.db.one(
                         "SELECT id FROM users WHERE email = ? COLLATE NOCASE AND id <> ?", email, user.id);
                 if (duplicate != null) throw Web.conflict("该邮箱已被其他账号使用");
+                emailChanged = !email.equalsIgnoreCase(user.email == null ? "" : user.email);
             }
 
             String nickname = user.nickname;
@@ -198,9 +208,10 @@ public final class AuthRoutes {
             }
 
             app.db.update("""
-                    UPDATE users SET nickname = ?, email = ?, update_time = ?, version = version + 1
-                    WHERE id = ?
-                    """, nickname, email, Security.isoNow(), user.id);
+                    UPDATE users SET nickname = ?, email = ?, email_verified = ?, update_time = ?,
+                      version = version + 1 WHERE id = ?
+                    """, nickname, email, emailChanged ? 0 : (user.emailVerified ? 1 : 0),
+                    Security.isoNow(), user.id);
             AuthUser updated = Authz.authUser(app.db, app.db.one("SELECT * FROM users WHERE id = ?", user.id));
             ctx.ok(Map.of("user", updated.toMap()));
         });
@@ -216,6 +227,81 @@ public final class AuthRoutes {
             ctx.ok(Map.of("user", updated.toMap()));
         });
 
+        router.post("/api/account/email-code", ctx -> {
+            AuthUser user = Auth.requireUser(ctx);
+            if (!app.mail.enabled()) {
+                throw new Web.HttpError(503, "mail_disabled", "邮件服务暂未启用，请联系管理员");
+            }
+            Map<String, Object> body = ctx.json();
+            String email = Authz.str(body.get("email")).trim().toLowerCase();
+            if (!Security.validEmail(email)) {
+                throw new Web.HttpError(400, "invalid_email", "请输入有效的邮箱地址");
+            }
+            Map<String, Object> duplicate = app.db.one(
+                    "SELECT id FROM users WHERE email = ? COLLATE NOCASE AND id <> ?", email, user.id);
+            if (duplicate != null) throw Web.conflict("该邮箱已被其他账号使用");
+
+            String ip = Web.clientIp(ctx.exchange, app.config.trustProxy);
+            app.rateLimiter.hit("email-code-user:" + user.id, 10, 10 * 60 * 1000,
+                    "验证码发送过于频繁，请稍后再试");
+            app.rateLimiter.hit("email-code-ip:" + ip, 20, 10 * 60 * 1000,
+                    "验证码发送过于频繁，请稍后再试");
+            app.rateLimiter.hit("email-code-email:" + email, 5, 10 * 60 * 1000,
+                    "该邮箱验证码发送过于频繁，请稍后再试");
+
+            long retryAfter = EmailCodes.cooldownRemaining(app.db, email);
+            if (retryAfter > 0) {
+                throw new Web.HttpError(429, "too_many_requests",
+                        "请 " + retryAfter + " 秒后再发送验证码", Map.of("retryAfter", retryAfter));
+            }
+
+            LocalDate today = LocalDate.now(ZoneId.systemDefault());
+            long untilMidnight = Math.max(1000L,
+                    today.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                            - Instant.now().toEpochMilli());
+            app.rateLimiter.hit("email-code-ip-day:" + ip + ":" + today, 5, untilMidnight,
+                    "该 IP 今日验证码发送次数已达上限（5 次），请明天再试");
+
+            String code = EmailCodes.generate();
+            EmailCodes.store(app.db, email, code, ip);
+            try {
+                app.mail.sendVerificationCode(email, code, EmailCodes.CODE_MINUTES,
+                        Settings.get(app.db, "site_name"), Settings.get(app.db, "site_short_name"));
+            } catch (Exception e) {
+                EmailCodes.clear(app.db, email);
+                Log.error("发送账号验证码失败：" + e.getMessage());
+                throw new Web.HttpError(502, "mail_send_failed", "验证码发送失败，请稍后再试");
+            }
+            ctx.ok(Map.of(
+                    "ok", true,
+                    "cooldown", EmailCodes.COOLDOWN_SECONDS,
+                    "expiresIn", EmailCodes.CODE_MINUTES * 60
+            ));
+        });
+
+        router.post("/api/account/email-verify", ctx -> {
+            AuthUser user = Auth.requireUser(ctx);
+            Map<String, Object> body = ctx.json();
+            String email = Authz.str(body.get("email")).trim().toLowerCase();
+            String code = Authz.str(body.get("code")).trim();
+            if (!Security.validEmail(email)) {
+                throw new Web.HttpError(400, "invalid_email", "请输入有效的邮箱地址");
+            }
+            Map<String, Object> duplicate = app.db.one(
+                    "SELECT id FROM users WHERE email = ? COLLATE NOCASE AND id <> ?", email, user.id);
+            if (duplicate != null) throw Web.conflict("该邮箱已被其他账号使用");
+            if (!code.matches("\\d{6}") || !EmailCodes.verify(app.db, email, code)) {
+                throw new Web.HttpError(400, "invalid_code", "邮箱验证码错误或已过期");
+            }
+            String now = Security.isoNow();
+            app.db.update("""
+                    UPDATE users SET email = ?, email_verified = 1, update_time = ?, version = version + 1
+                    WHERE id = ?
+                    """, email, now, user.id);
+            AuthUser updated = Authz.authUser(app.db, app.db.one("SELECT * FROM users WHERE id = ?", user.id));
+            ctx.ok(Map.of("user", updated.toMap()));
+        });
+
         router.post("/api/account/password", ctx -> {
             AuthUser user = Auth.requireUser(ctx);
             Map<String, Object> body = ctx.json();
@@ -227,13 +313,16 @@ public final class AuthRoutes {
             }
             String passwordError = Security.validatePassword(next);
             if (passwordError != null) throw new Web.HttpError(400, "invalid_password", passwordError);
+            if (next.equals(Security.INITIAL_PASSWORD)) {
+                throw new Web.HttpError(400, "invalid_password", "新密码不能使用初始密码");
+            }
             if (current.equals(next)) {
                 throw new Web.HttpError(400, "invalid_password", "新密码不能与当前密码相同");
             }
             String now = Security.isoNow();
             app.db.update("""
-                    UPDATE users SET password = ?, password_changed_time = ?, update_time = ?,
-                      version = version + 1 WHERE id = ?
+                    UPDATE users SET password = ?, password_changed_time = ?, must_change_password = 0,
+                      update_time = ?, version = version + 1 WHERE id = ?
                     """, Security.hashPassword(next), now, now, user.id);
             Auth.destroyOtherSessions(app.db, user.id, ctx.session.tokenHash);
             ctx.ok(Map.of("ok", true));

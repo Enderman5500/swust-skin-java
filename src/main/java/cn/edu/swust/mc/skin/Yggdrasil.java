@@ -201,6 +201,15 @@ public final class Yggdrasil {
         if (username.isEmpty() || password.isEmpty()) throw badCredentials();
         Auth.Credentials credentials = Auth.authenticate(db, username, password);
         if (credentials == null) throw badCredentials();
+        boolean initialPassword = password.equals(Security.INITIAL_PASSWORD);
+        AuthUser user = Authz.authUser(db, credentials.row());
+        if (initialPassword || user.onboardingRequired()) {
+            if (initialPassword) {
+                db.update("UPDATE users SET must_change_password = 1, email_verified = 0 WHERE id = ?", user.id);
+            }
+            throw new YggdrasilError(403, "ForbiddenOperationException",
+                    "请先在网页完成邮箱验证并修改初始密码");
+        }
         String userId = Authz.str(credentials.row().get("id"));
         List<Map<String, Object>> players = playersForUser(userId);
         Map<String, Object> player = null;

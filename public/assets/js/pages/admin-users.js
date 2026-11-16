@@ -310,7 +310,13 @@ export async function renderUsers(main, ctx) {
           ${
             isEdit
               ? String(user.id) !== String(ctx.user.id)
-                ? `<label class="field"><span>重置密码（可选）</span><input name="password" type="password" minlength="6" placeholder="留空则不修改，至少 6 位" /></label>`
+                ? `<label class="field"><span>重置密码（可选）</span>
+                    <div class="input-with-button">
+                      <input name="password" type="password" minlength="6" placeholder="留空则不修改，至少 6 位" />
+                      <button type="button" class="btn btn-ghost btn-sm" data-fill-initial-password>填入初始密码</button>
+                    </div>
+                    <small class="field-hint">填入 swustmc123456 后，用户下次使用初始密码登录会被强制验证邮箱并改密。</small>
+                  </label>`
                 : ''
               : `<label class="field"><span>初始密码</span><input name="password" type="password" required minlength="6" placeholder="至少 6 位，字母数字组合" /></label>`
           }
@@ -407,6 +413,13 @@ export async function renderUsers(main, ctx) {
           },
         },
       ],
+    });
+    content.querySelector('[data-fill-initial-password]')?.addEventListener('click', () => {
+      const input = content.querySelector('input[name="password"]');
+      if (!input) return;
+      input.value = 'swustmc123456';
+      input.type = 'text';
+      input.focus();
     });
     setTimeout(() => content.querySelector('input[name="username"]')?.focus(), 40);
     return modal;

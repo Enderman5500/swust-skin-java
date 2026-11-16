@@ -36,6 +36,7 @@ public final class Database implements AutoCloseable {
                 exec(new String(input.readAllBytes(), StandardCharsets.UTF_8));
             }
             ensureColumn("users", "player_limit", "INTEGER NOT NULL DEFAULT 3");
+            ensureColumn("users", "must_change_password", "INTEGER NOT NULL DEFAULT 0");
             exec("PRAGMA user_version = 3");
         } catch (Exception e) {
             throw new IllegalStateException("数据库初始化失败", e);

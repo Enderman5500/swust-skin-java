@@ -116,6 +116,11 @@ public final class Main {
                 Auth.assertCsrf(ctx);
             }
 
+            if (ctx.user != null && ctx.user.onboardingRequired() && path.startsWith("/api/")
+                    && !onboardingAllowed(path)) {
+                throw new Web.HttpError(403, "onboarding_required", "请先完成邮箱验证并修改初始密码");
+            }
+
             Matcher asset = PLUGIN_ASSET.matcher(path);
             if (asset.matches()) {
                 if (app.plugins.serveAsset(ctx, asset.group(1), asset.group(2))) return;
@@ -207,5 +212,17 @@ public final class Main {
         int slash = path.lastIndexOf('/');
         int dot = path.lastIndexOf('.');
         return dot > slash;
+    }
+
+    /** 首次登录引导期间仍允许访问的接口。 */
+    private static boolean onboardingAllowed(String path) {
+        return path.equals("/api/auth/me")
+                || path.equals("/api/auth/logout")
+                || path.equals("/api/auth/login")
+                || path.equals("/api/home")
+                || path.equals("/api/plugins")
+                || path.equals("/api/account/password")
+                || path.equals("/api/account/email-code")
+                || path.equals("/api/account/email-verify");
     }
 }

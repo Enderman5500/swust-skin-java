@@ -71,6 +71,9 @@ async function request(path, { method = 'GET', body, raw = false, headers = {} }
     ) {
       window.dispatchEvent(new CustomEvent('auth:expired'));
     }
+    if (response.status === 403 && error.code === 'onboarding_required') {
+      window.dispatchEvent(new CustomEvent('onboarding:required'));
+    }
     throw error;
   }
 

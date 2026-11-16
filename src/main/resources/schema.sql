@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS users (
   password TEXT NOT NULL,
   avatar_file_id TEXT,
   email_verified INTEGER NOT NULL DEFAULT 0,
+  must_change_password INTEGER NOT NULL DEFAULT 0,
   status TEXT NOT NULL DEFAULT 'ACTIVE',
   player_limit INTEGER NOT NULL DEFAULT 3,
   tags TEXT NOT NULL DEFAULT '[]',

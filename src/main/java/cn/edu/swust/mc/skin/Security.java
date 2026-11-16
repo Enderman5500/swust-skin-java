@@ -13,6 +13,8 @@ import java.util.UUID;
 
 public final class Security {
     public static final String PLAYER_UUID_NAMESPACE = "SWUSTMCSkin:";
+    /** 迁移账号与管理员重置使用的初始密码；使用该密码登录后必须验证邮箱并改密。 */
+    public static final String INITIAL_PASSWORD = "swustmc123456";
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final long EPOCH = 1704067200000L;
     private static long lastTimestamp = -1L;

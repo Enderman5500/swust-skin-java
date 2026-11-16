@@ -5,6 +5,7 @@ import { drawCapePreview, drawSkinCard, placeholderSkinCanvas } from './skin2d.j
 import * as ui from './ui.js';
 import { render as renderHome } from './pages/home.js';
 import { render as renderLogin } from './pages/login.js';
+import { render as renderOnboarding } from './pages/onboarding.js';
 import { render as renderLibrary } from './pages/library.js';
 import { render as renderPlayers } from './pages/players.js';
 import { render as renderCloset } from './pages/closet.js';
@@ -536,7 +537,7 @@ function pageContext({ path, query }) {
 }
 
 function routeRequiresAuth(path) {
-  return ['/players', '/closet', '/upload', '/profile'].includes(path);
+  return ['/players', '/closet', '/upload', '/profile', '/onboarding'].includes(path);
 }
 
 function routeRequiresAdmin(path) {
@@ -555,6 +556,17 @@ async function handleRoute() {
   if (routeRequiresAdmin(path) && !state.user?.isAdmin) {
     navigate('/');
     ui.toast('管理后台仅对管理员开放', 'error');
+    return;
+  }
+  if (state.user?.onboardingRequired && path !== '/onboarding') {
+    const target = path === '/login' ? '/players' : path;
+    navigate(`/onboarding?next=${encodeURIComponent(target)}`);
+    return;
+  }
+  if (path === '/onboarding' && state.user && !state.user.onboardingRequired) {
+    const next = query.next && query.next.startsWith('/') && !query.next.startsWith('//')
+      && query.next !== '/onboarding' ? query.next : '/players';
+    navigate(next);
     return;
   }
 
@@ -606,6 +618,7 @@ async function handleRoute() {
   let render = null;
   if (path === '/') render = renderHome;
   else if (path === '/login') render = renderLogin;
+  else if (path === '/onboarding') render = renderOnboarding;
   else if (path === '/library') render = renderLibrary;
   else if (path === '/players') render = renderPlayers;
   else if (path === '/closet') render = renderCloset;
@@ -708,6 +721,12 @@ async function bootstrap() {
       if (routeRequiresAuth(path) || routeRequiresAdmin(path)) {
         navigate(`/login?next=${encodeURIComponent(path)}`);
       }
+    });
+    window.addEventListener('onboarding:required', () => {
+      const { path } = parseHash();
+      if (path === '/onboarding') return;
+      const target = path === '/login' ? '/players' : path;
+      navigate(`/onboarding?next=${encodeURIComponent(target)}`);
     });
     await handleRoute();
   } catch (error) {

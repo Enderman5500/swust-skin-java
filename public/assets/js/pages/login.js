@@ -66,7 +66,8 @@ export async function render(root, ctx) {
           </div>
           <div class="auth-form" data-auth-form></div>
           <p class="auth-footnote">
-            社团成员使用注册时的用户名或邮箱登录。忘记密码请联系社团管理员重置。
+            社团成员使用注册时的用户名或邮箱登录。无论账号来源，使用初始密码
+            <code>swustmc123456</code> 登录时，必须先验证邮箱并修改密码；忘记密码请联系社团管理员。
           </p>
         </div>
       </div>
@@ -270,7 +271,12 @@ export async function render(root, ctx) {
       const data = await api.post('/auth/login', { identifier, password });
       ctx.setAuth(data.user, data.csrfToken);
       ui.toast(`欢迎回来，${data.user.nickname || data.user.username}`, 'success');
-      ctx.navigate(next);
+      const target = next === '/onboarding' ? '/players' : next;
+      if (data.user.onboardingRequired) {
+        ctx.navigate(`/onboarding?next=${encodeURIComponent(target)}`);
+        return;
+      }
+      ctx.navigate(target);
     } catch (error) {
       showError(error.message);
       ui.setButtonLoading(button, false);
