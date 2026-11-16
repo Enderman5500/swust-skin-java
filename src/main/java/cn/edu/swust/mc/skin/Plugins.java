@@ -728,6 +728,11 @@ public final class Plugins {
         }
 
         @Override
+        public Path hostDataDir() {
+            return app.config.dataDir.toAbsolutePath().normalize();
+        }
+
+        @Override
         public Map<String, Object> findPlayer(String uuid, String name) {
             String normalized = Security.stripUuid(uuid);
             Map<String, Object> row = normalized.matches("^[0-9a-f]{32}$")

@@ -46,6 +46,14 @@ public interface PluginContext {
     Path dataDir();
 
     /**
+     * 宿主数据目录（DATA_DIR），包含 swustmc.db、textures 与 migration。
+     * 仅供需要操作平台数据的可信管理插件使用。
+     */
+    default Path hostDataDir() {
+        return Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize().resolve("data");
+    }
+
+    /**
      * 按游戏 UUID 优先、角色名兜底匹配站点角色；未匹配返回 null。
      */
     Map<String, Object> findPlayer(String uuid, String name);

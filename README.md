@@ -38,12 +38,14 @@
 | 品牌 | 星空社徽章、深海军蓝 / 星金配色、响应式首页、社团文案与联机指引 |
 | 首页 | 管理后台可上传多张首页主图（PNG / JPG / WebP，最多 8 张）并自动循环滚动、支持左右箭头切换；未上传时使用社团徽章占位；登录后展示可拖入 PCL2 / HMCL 的认证卡片 |
 
-内置四个示例插件：
+内置示例插件：
 
 - **服务器状态**：Java 插件，真实 TCP 探测服务器在线状态与延迟，管理员可在页面内维护服务器地址。
 - **随机皮肤**：纯前端插件，从公开皮肤库随机抽 9 件作品。
 - **MC 百科**：Java 插件，从 Mojang 官方客户端 / 服务端 JAR 导入物品、方块、生物与合成配方，支持多版本发布、3D 物品图标与后台导入任务。
 - **社团活动**：Java 插件，活动发布与报名、参与核验、活动身份信息管理，支持 DOCX 证明模板与多活动联动导出。
+- **数据迁移**：Java 插件，导入 YuDream 数据导出包，支持预演、同邮箱账号去重与初始密码统一设置。
+- **体素世界地图**：Java 插件，把 Minecraft 世界存档渲染为可自由浏览的三维地图，支持上传存档、后台渲染、任务进度与标注。
 
 ## 快速开始
 
@@ -162,7 +164,8 @@ sudo systemctl restart swust-skin
 data/
 ├── swustmc.db              SQLite 数据库
 ├── textures/               上传的 PNG 材质
-└── keys/                   Yggdrasil RSA 私钥与公钥
+├── keys/                   Yggdrasil RSA 私钥与公钥
+└── migration/              数据迁移报告
 ```
 
 备份时请整体备份 `data/`，尤其是 `data/keys/`。更换服务器后必须保留同一对密钥，否则启动器缓存的材质签名会失效。
@@ -186,6 +189,43 @@ GET /api/admin/export
 ```
 
 文件包含 `sysUser`、`sysRole`、`sysDept`、`sysPermission` 四个集合；Long 类型 ID 以十进制字符串输出，密码为 BCrypt，可直接映射到使用相同字段结构的外部用户中心。
+
+### 从 YuDream 导出包迁移
+
+迁移功能以内置插件 `data-migration` 的形式提供。管理员在「管理后台 → 系统工具 → 数据迁移」上传 YuDream 导出的 `yudream-data-export-*.zip`，先分析预演，再确认执行。
+
+导入按 `userId`、材质 hash、角色 UUID、钱包主键幂等执行，重复运行不会覆盖已有数据。迁移账号的初始密码统一为 `swustmc123456`；已自行修改过密码的账号（`password_changed_time` 非空）不会被重置。
+
+同一邮箱存在多个账号时只保留一个：页面会列出同邮箱账号及其角色、衣柜、钱包数据量，默认推荐关联数据最多的账号，管理员也可以手动选择。未保留账号的角色、角色档案与衣柜数据不会导入；钱包记录按原用户 ID 保留。重复邮箱的保留选择在首次导入后应保持一致，迁移不会删除平台上已存在的账号。
+
+如果上传导出包时页面返回 Nginx 的 `413 Request Entity Too Large`，请把反向代理的 `client_max_body_size` 调整到 `64m` 或更高（见「部署 → Nginx 反向代理」），并确认外层 CDN / 面板没有更低的限制。无法修改代理时，可以在服务器上使用下面的命令行方式，直接指定本地 ZIP 路径，不经过 HTTP 上传。
+
+也可以在服务器上直接运行迁移服务：
+
+```bash
+mvn -q -o -DskipTests package
+java -cp target/swust-skin.jar cn.edu.swust.mc.skin.migration.YudreamMigration \
+  --source /path/to/yudream-data-export.zip \
+  --data-dir data
+```
+
+常用参数：
+
+- `--password <密码>`：初始密码，默认 `swustmc123456`。
+- `--keep email=userId`：同一邮箱多个账号时指定保留账号，可重复。
+- `--dry-run`：只分析并输出报告，不写数据库和材质文件。
+- `--no-report`：不写入报告文件。
+
+导入内容与限制：
+
+- 用户、角色分配、部门、角色档案、衣柜、皮肤/披风材质与 PNG 文件。
+- 钱包数据写入 `wallet_assets`、`wallet_balances`、`wallet_transactions`；平台目前没有钱包界面，数据仅作保留。
+- 导出包不含密码；迁移不会覆盖已修改过密码的账号。
+- 导出包不含头像文件，源头像地址保存在用户 `fields.legacyAvatar`。
+- 大小写重复的用户名会追加 `_2`、`_3` 后缀，原用户名保存在 `fields.legacyUsername`；不符合平台用户名规则但唯一的名称按原样保留。
+- 私有材质没有单一上传者，`uploaded_by` 取第一个引用用户。
+- 迁移报告写入 `data/migration/yudream-import-report-*.json`，包含源数量、导入数量、校验结果、同邮箱去重与问题列表。
+- 重新构建迁移插件：`bash plugin-src/data-migration/build.sh`（产物在 `plugins/data-migration/` 与 `plugin-src/data-migration/data-migration.jar`）。
 
 ## 联机认证（authlib-injector）
 
@@ -351,7 +391,7 @@ plugin-src/activity/build.sh      # Windows: plugin-src\activity\build.bat
 
 ## 问题反馈
 
-`plugins/feedback/` 移植自 YuDream 问题反馈插件，入口为 `#/plugin/feedback`，管理员入口为 `#/plugin/feedback?tab=admin`。
+`plugins/feedback/` 移植自问题反馈插件，入口为 `#/plugin/feedback`，管理员入口为 `#/plugin/feedback?tab=admin`。
 
 - 社员提交缺陷反馈 / 功能建议 / 使用咨询，可附最多 6 张截图，并可选择一个由管理员维护的自定义分类，在「我的反馈」中跟进进度、追加说明、修改未完结的内容或撤回。
 - 管理员在「反馈管理」中跨用户检索与筛选反馈，回复用户、填写仅管理员可见的内部备注、指派处理人（支持多人协作）、修正严重程度，并流转「待处理 / 处理中 / 已解决 / 不予处理 / 已归档」状态。
@@ -398,6 +438,42 @@ data/plugin-data/launcher-domain/launcher-domain.db
 ```
 
 一个皮肤站只维护一个域；插件首次启用时会导入 `minecraft-server` 中已有的服务器。
+
+## 体素世界地图插件
+
+`voxelith-map` 是「体素世界地图」的移植版，保留了原插件的渲染编排、产物发布、任务进度与标注能力，渲染与二维预览仍由随插件打包的 Voxelith 引擎子进程完成。
+
+- 公开页「世界地图」：浏览已发布地图，支持三维自由飞行 / 环绕 / 第一人称 / 俯视、瓦片层级切换、Y 切片、维度切换与标注显示；
+- 管理后台「地图管理」：上传世界存档 zip 建图、选择维度或按包内目录一次建出全部维度、维护渲染参数与框选范围、归档 / 恢复 / 删除；
+- 管理后台「渲染任务」：任务列表、阶段、百分比、瓦片计数、日志尾部与完整日志、取消任务；
+- 客户端 jar 库：预上传各版本 client jar，建图时直接选用；不选时渲染会尝试按存档版本自动下载；
+- 引擎自检：管理页展示内置引擎资源、运行根、渲染堆、边车与模型缓存状态。
+
+构建插件（先构建宿主）：
+
+```bash
+mvn -DskipTests package
+cd plugin-src/voxelith-map
+sh build.sh          # Windows: build.bat
+```
+
+产物为 `plugins/voxelith-map/`（可直接运行）和 `plugin-src/voxelith-map/voxelith-map.jar`（可在「插件管理」上传安装）。插件目录包含约 25 MB 的 Voxelith 引擎 jar，安装包接近 24 MB，仍在宿主 32 MB 的插件上传上限内。
+
+运行数据保存在：
+
+```text
+data/plugin-data/voxelith-map/documents/   地图与任务文档（JSON）
+data/plugin-data/voxelith-map/files/       上传的存档、client jar、渲染产物与标注
+data/plugin-data/voxelith-map/voxelith-map/ 引擎解出、任务临时目录、日志、边车与模型缓存
+```
+
+渲染相关参数在 `plugin-src/voxelith-map/plugin.json` 的 `config` 中（例如 `swustmc.voxelith-map.heap-mib`、`timeout-minutes`、`sidecar-enabled`、`harvest-models`）。修改后重新构建插件即可生效。
+
+移植差异：
+
+- 原插件依赖外部宿主文件接口上传存档；本移植版由插件自带 `POST /api/plugins/voxelith-map/admin/upload` 接收原始字节并返回 `fileId`，页面上的上传流程无需宿主文件服务；
+- 上游可选集成 mcpanel 实例导入；本平台没有该契约，管理页的「从实例导入」自动降级为不可用，手动上传存档建图完全不受影响；
+- 渲染进度在宿主上以轮询 `GET /api/plugins/voxelith-map/admin/tasks` 获取（宿主插件响应不支持长连接 SSE）。
 
 ## 插件权限
 
@@ -536,7 +612,8 @@ server {
     ssl_certificate     /etc/letsencrypt/live/skin.example.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/skin.example.com/privkey.pem;
 
-    client_max_body_size 40m;
+    # 数据迁移 ZIP 与插件安装包上传上限（应用侧为 32MB）
+    client_max_body_size 64m;
 
     location / {
         proxy_pass http://127.0.0.1:3000;
@@ -547,6 +624,8 @@ server {
     }
 }
 ```
+
+如果前面还有一层代理（CDN、Nginx Proxy Manager、Traefik 等），每一层都要把请求体上限调到 64MB 以上，否则仍会返回 `413 Request Entity Too Large`。修改后执行 `nginx -t && systemctl reload nginx`。
 
 同时设置 `TRUST_PROXY=1`，并把 `BASE_URL` 写成 `https://skin.example.com`。
 
@@ -594,13 +673,14 @@ src/main/java/cn/edu/swust/mc/skin/
 ├── Branding.java            首页主图校验、存储与切换
 ├── ApiKeys.java             API 密钥签发、校验与权限收敛
 ├── routes 相关类            认证、皮肤、管理、插件、首页
+├── migration/               YuDream 导出包迁移工具
 ├── plugins/serverstatus/    服务器状态示例插件
 └── plugin/                  插件 API
 
 public/                      无需构建的前端
 plugins/                     运行中的示例插件
 plugin-src/                  示例插件源码
-data/                        SQLite、材质与密钥
+data/                        SQLite、材质、密钥与迁移记录
 ```
 
 ## 第三方组件

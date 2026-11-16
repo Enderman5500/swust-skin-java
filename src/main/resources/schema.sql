@@ -212,3 +212,43 @@ CREATE TABLE IF NOT EXISTS email_verifications (
 );
 CREATE INDEX IF NOT EXISTS idx_email_verifications_email ON email_verifications(email, id);
 CREATE INDEX IF NOT EXISTS idx_email_verifications_expires ON email_verifications(expires_at);
+
+CREATE TABLE IF NOT EXISTS wallet_assets (
+  code TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  symbol TEXT,
+  scale INTEGER NOT NULL DEFAULT 0,
+  money INTEGER NOT NULL DEFAULT 0,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  transfer_enabled INTEGER NOT NULL DEFAULT 0,
+  min_transfer_amount TEXT NOT NULL DEFAULT '1',
+  create_time TEXT NOT NULL,
+  update_time TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS wallet_balances (
+  user_id TEXT NOT NULL,
+  asset_code TEXT NOT NULL,
+  balance TEXT NOT NULL DEFAULT '0',
+  updated_at TEXT,
+  PRIMARY KEY (user_id, asset_code)
+);
+CREATE INDEX IF NOT EXISTS idx_wallet_balances_asset ON wallet_balances(asset_code);
+
+CREATE TABLE IF NOT EXISTS wallet_transactions (
+  id TEXT PRIMARY KEY,
+  business_no TEXT,
+  type TEXT NOT NULL,
+  source TEXT,
+  asset_code TEXT NOT NULL,
+  from_user_id TEXT,
+  to_user_id TEXT,
+  amount TEXT NOT NULL,
+  from_balance_after TEXT,
+  to_balance_after TEXT,
+  remark TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_wallet_transactions_from ON wallet_transactions(from_user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_wallet_transactions_to ON wallet_transactions(to_user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_wallet_transactions_asset ON wallet_transactions(asset_code, created_at);

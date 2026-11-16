@@ -1,0 +1,19 @@
+{
+  "id": "data-migration",
+  "name": "数据迁移",
+  "version": "1.0.0",
+  "description": "从 YuDream 数据导出包迁移用户、角色、部门、角色档案、材质、衣柜与钱包数据；同一邮箱多个账号时保留一个，迁移账号初始密码统一为 swustmc123456。",
+  "author": "星空社技术组",
+  "mainClass": "cn.edu.swust.mc.skin.plugins.datamigration.DataMigrationPlugin",
+  "client": "client.mjs",
+  "enabledByDefault": true,
+  "adminNav": [
+    {
+      "title": "数据迁移",
+      "category": "系统工具",
+      "icon": "layers",
+      "path": "#/plugin/data-migration",
+      "order": 90
+    }
+  ]
+}
