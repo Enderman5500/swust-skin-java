@@ -66,8 +66,7 @@ export async function render(root, ctx) {
           </div>
           <div class="auth-form" data-auth-form></div>
           <p class="auth-footnote">
-            社团成员使用注册时的用户名或邮箱登录。无论账号来源，使用初始密码
-            <code>swustmc123456</code> 登录时，必须先验证邮箱并修改密码；忘记密码请联系社团管理员。
+            账号迁移后首次登录或忘记密码时，可使用初始密码 <code>swustmc123456</code> 登录，验证邮箱并修改密码。
           </p>
         </div>
       </div>
