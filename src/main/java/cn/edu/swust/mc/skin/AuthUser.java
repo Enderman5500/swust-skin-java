@@ -16,7 +16,6 @@ public final class AuthUser {
     public String qq;
     public String avatarFileId;
     public boolean emailVerified;
-    public boolean mustChangePassword;
     public String status;
     public int playerLimit = 3;
     public String createTime;
@@ -42,11 +41,6 @@ public final class AuthUser {
         return wildcard || permissions.contains("*") || permissions.contains(code);
     }
 
-    /** 迁移账号首次登录时必须先验证邮箱并修改初始密码。 */
-    public boolean onboardingRequired() {
-        return mustChangePassword || !emailVerified;
-    }
-
     public Map<String, Object> toMap() {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("id", id);
@@ -58,8 +52,6 @@ public final class AuthUser {
         map.put("avatar", Avatars.url(avatarFileId));
         map.put("avatarFileId", avatarFileId);
         map.put("emailVerified", emailVerified);
-        map.put("mustChangePassword", mustChangePassword);
-        map.put("onboardingRequired", onboardingRequired());
         map.put("status", status);
         map.put("playerLimit", playerLimit);
         map.put("roleIds", roleIds);

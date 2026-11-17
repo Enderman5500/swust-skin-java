@@ -5,59 +5,37 @@ import cn.edu.swust.mc.skin.Web;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.URLEncoder;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 
 /**
- * 插件二进制响应：普通插件路由返回对象时宿主会自动包成 JSON，需要原样输出二进制内容时返回本类型。
+ * 插件二进制响应：用于下载插件私有目录中的文件（支持 ETag / Range）。
  *
- * <p>支持两种用法：内存中的下载内容（{@link #download} / {@link #inline}），
- * 以及插件私有目录中的文件（{@link #file}，带 ETag / Range 支持）。</p>
+ * 普通插件路由返回对象时宿主会自动包成 JSON；需要原样输出文件时返回本类型。
  */
 public final class PluginResponse {
+    private static final DateTimeFormatter HTTP_DATE = DateTimeFormatter.RFC_1123_DATE_TIME.withZone(ZoneOffset.UTC);
 
-    private final int status;
-    private final String contentType;
-    private final byte[] body;
-    private final Map<String, String> headers;
     private final Path file;
+    private final String contentType;
     private final String etag;
     private final String cacheControl;
 
-    private PluginResponse(int status, String contentType, byte[] body, Map<String, String> headers,
-                           Path file, String etag, String cacheControl) {
-        this.status = status;
-        this.contentType = contentType == null || contentType.isBlank() ? "application/octet-stream" : contentType;
-        this.body = body;
-        this.headers = headers == null ? Map.of() : headers;
+    private PluginResponse(Path file, String contentType, String etag, String cacheControl) {
         this.file = file;
+        this.contentType = contentType == null || contentType.isBlank() ? "application/octet-stream" : contentType;
         this.etag = etag == null ? "" : etag;
         this.cacheControl = cacheControl == null ? "no-store" : cacheControl;
     }
 
-    /** 以附件形式下载内存中的字节内容（证明文件、导出 ZIP 等）。 */
-    public static PluginResponse download(String filename, String contentType, byte[] body) {
-        Map<String, String> values = new LinkedHashMap<>();
-        String display = filename == null || filename.isBlank() ? "download" : filename;
-        String safeDisplay = display.replaceAll("[\\\\/:*?\"<>|\\r\\n]", "_");
-        String asciiFallback = safeDisplay.replaceAll("[^\\x20-\\x7E]", "_");
-        String encoded = URLEncoder.encode(display, StandardCharsets.UTF_8).replace("+", "%20");
-        values.put("Content-Disposition", "attachment; filename=\"" + asciiFallback + "\"; filename*=UTF-8''" + encoded);
-        return new PluginResponse(200, contentType, body, values, null, null, "no-store");
-    }
-
-    /** 直接输出内存中的字节内容（图片等内联资源）。 */
-    public static PluginResponse inline(String contentType, byte[] body) {
-        return new PluginResponse(200, contentType, body, Map.of(), null, null, "no-store");
-    }
-
-    /** 输出插件私有目录中的文件，支持 ETag 与单段 Range。 */
     public static PluginResponse file(Path file, String contentType, String etag, String cacheControl) {
-        return new PluginResponse(200, contentType, null, Map.of(), file, etag, cacheControl);
+        return new PluginResponse(file, contentType, etag, cacheControl);
     }
 
     public static PluginResponse file(Path file, String contentType, String etag) {
@@ -65,11 +43,7 @@ public final class PluginResponse {
     }
 
     public void write(Web.Ctx ctx) throws IOException {
-        if (file == null) {
-            ctx.sendBytes(status, body, contentType, cacheControl, headers);
-            return;
-        }
-        if (!Files.isRegularFile(file)) {
+        if (file == null || !Files.isRegularFile(file)) {
             throw new Web.HttpError(404, "not_found", "文件不存在");
         }
         var exchange = ctx.exchange;

@@ -44,7 +44,6 @@
 - **随机皮肤**：纯前端插件，从公开皮肤库随机抽 9 件作品。
 - **MC 百科**：Java 插件，从 Mojang 官方客户端 / 服务端 JAR 导入物品、方块、生物与合成配方，支持多版本发布、3D 物品图标与后台导入任务。
 - **社团活动**：Java 插件，活动发布与报名、参与核验、活动身份信息管理，支持 DOCX 证明模板与多活动联动导出。
-- **数据迁移**：Java 插件，导入 YuDream 数据导出包，支持预演、同邮箱账号去重与初始密码统一设置。
 - **体素世界地图**：Java 插件，把 Minecraft 世界存档渲染为可自由浏览的三维地图，支持上传存档、后台渲染、任务进度与标注。
 
 ## 快速开始
@@ -164,8 +163,7 @@ sudo systemctl restart swust-skin
 data/
 ├── swustmc.db              SQLite 数据库
 ├── textures/               上传的 PNG 材质
-├── keys/                   Yggdrasil RSA 私钥与公钥
-└── migration/              数据迁移报告
+└── keys/                   Yggdrasil RSA 私钥与公钥
 ```
 
 备份时请整体备份 `data/`，尤其是 `data/keys/`。更换服务器后必须保留同一对密钥，否则启动器缓存的材质签名会失效。
@@ -189,45 +187,6 @@ GET /api/admin/export
 ```
 
 文件包含 `sysUser`、`sysRole`、`sysDept`、`sysPermission` 四个集合；Long 类型 ID 以十进制字符串输出，密码为 BCrypt，可直接映射到使用相同字段结构的外部用户中心。
-
-### 从 YuDream 导出包迁移
-
-迁移功能以内置插件 `data-migration` 的形式提供。管理员在「管理后台 → 系统工具 → 数据迁移」上传 YuDream 导出的 `yudream-data-export-*.zip`，先分析预演，再确认执行。
-
-导入按 `userId`、材质 hash、角色 UUID、钱包主键幂等执行，重复运行不会覆盖已有数据。迁移账号的初始密码统一为 `swustmc123456`；使用该密码登录时必须先验证邮箱并修改密码，未完成前只能访问引导接口，启动器联机认证也会被拒绝。已自行修改过密码的账号（`password_changed_time` 非空）不会被重置。
-
-`swustmc123456` 同时作为通用的密码重置入口：无论账号来源、是否迁移账号，只要用户使用该密码登录，都会被强制进入邮箱验证与改密引导；完成后即可正常使用。管理员在「用户管理 → 编辑用户 → 重置密码」中填入该密码即可让用户走此流程；填入其它密码则按普通重置处理。
-
-同一邮箱存在多个账号时只保留一个：页面会列出同邮箱账号及其角色、衣柜、钱包数据量，默认推荐关联数据最多的账号，管理员也可以手动选择。未保留账号的角色、角色档案与衣柜数据不会导入；钱包记录按原用户 ID 保留。重复邮箱的保留选择在首次导入后应保持一致，迁移不会删除平台上已存在的账号。
-
-如果上传导出包时页面返回 Nginx 的 `413 Request Entity Too Large`，请把反向代理的 `client_max_body_size` 调整到 `64m` 或更高（见「部署 → Nginx 反向代理」），并确认外层 CDN / 面板没有更低的限制。无法修改代理时，可以在服务器上使用下面的命令行方式，直接指定本地 ZIP 路径，不经过 HTTP 上传。
-
-也可以在服务器上直接运行迁移服务：
-
-```bash
-mvn -q -o -DskipTests package
-java -cp target/swust-skin.jar cn.edu.swust.mc.skin.migration.YudreamMigration \
-  --source /path/to/yudream-data-export.zip \
-  --data-dir data
-```
-
-常用参数：
-
-- `--password <密码>`：初始密码，默认 `swustmc123456`。
-- `--keep email=userId`：同一邮箱多个账号时指定保留账号，可重复。
-- `--dry-run`：只分析并输出报告，不写数据库和材质文件。
-- `--no-report`：不写入报告文件。
-
-导入内容与限制：
-
-- 用户、角色分配、部门、角色档案、衣柜、皮肤/披风材质与 PNG 文件。
-- 钱包数据写入 `wallet_assets`、`wallet_balances`、`wallet_transactions`；平台目前没有钱包界面，数据仅作保留。
-- 导出包不含密码；迁移不会覆盖已修改过密码的账号。
-- 导出包不含头像文件，源头像地址保存在用户 `fields.legacyAvatar`。
-- 大小写重复的用户名会追加 `_2`、`_3` 后缀，原用户名保存在 `fields.legacyUsername`；不符合平台用户名规则但唯一的名称按原样保留。
-- 私有材质没有单一上传者，`uploaded_by` 取第一个引用用户。
-- 迁移报告写入 `data/migration/yudream-import-report-*.json`，包含源数量、导入数量、校验结果、同邮箱去重与问题列表。
-- 重新构建迁移插件：`bash plugin-src/data-migration/build.sh`（产物在 `plugins/data-migration/` 与 `plugin-src/data-migration/data-migration.jar`）。
 
 ## 联机认证（authlib-injector）
 
@@ -616,8 +575,7 @@ server {
     ssl_certificate     /etc/letsencrypt/live/skin.example.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/skin.example.com/privkey.pem;
 
-    # 数据迁移 ZIP 与插件安装包上传上限（应用侧为 32MB）
-    client_max_body_size 64m;
+    client_max_body_size 40m;
 
     location / {
         proxy_pass http://127.0.0.1:3000;
@@ -628,8 +586,6 @@ server {
     }
 }
 ```
-
-如果前面还有一层代理（CDN、Nginx Proxy Manager、Traefik 等），每一层都要把请求体上限调到 64MB 以上，否则仍会返回 `413 Request Entity Too Large`。修改后执行 `nginx -t && systemctl reload nginx`。
 
 同时设置 `TRUST_PROXY=1`，并把 `BASE_URL` 写成 `https://skin.example.com`。
 
@@ -677,7 +633,6 @@ src/main/java/cn/edu/swust/mc/skin/
 ├── Branding.java            首页主图校验、存储与切换
 ├── ApiKeys.java             API 密钥签发、校验与权限收敛
 ├── routes 相关类            认证、皮肤、管理、插件、首页
-├── migration/               YuDream 导出包迁移工具
 ├── plugins/serverstatus/    服务器状态示例插件
 └── plugin/                  插件 API
 
