@@ -91,8 +91,41 @@ async function compressImage(file) {
   }
 }
 
-function uploadErrorText(error) {
-  if (!error) return '图片上传失败';
+/** 生成随反馈保存的小缩略图，附件文件不可用时仍可预览。 */
+async function makeThumbnail(blob) {
+  try {
+    const bitmap = await createImageBitmap(blob);
+    const sourceWidth = bitmap.width || 1;
+    const sourceHeight = bitmap.height || 1;
+    const canvas = document.createElement('canvas');
+    const attempts = [
+      [480, 0.75],
+      [400, 0.68],
+      [320, 0.6],
+      [240, 0.55],
+    ];
+    let result = '';
+    try {
+      for (const [edge, quality] of attempts) {
+        const scale = Math.min(1, edge / Math.max(sourceWidth, sourceHeight));
+        canvas.width = Math.max(1, Math.round(sourceWidth * scale));
+        canvas.height = Math.max(1, Math.round(sourceHeight * scale));
+        canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        let data = canvas.toDataURL('image/webp', quality);
+        if (!data.startsWith('data:image/webp')) data = canvas.toDataURL('image/jpeg', quality);
+        result = data;
+        if (data.length <= 120000) break;
+      }
+    } finally {
+      bitmap.close?.();
+    }
+    return result.length <= 120000 ? result : '';
+  } catch (error) {
+    return '';
+  }
+}
+
+function uploadErrorText(error) {  if (!error) return '图片上传失败';
   if (error.status === 413 || error.code === 'payload_too_large') {
     return '图片超过服务器允许的上传大小，请换一张较小的图片';
   }
@@ -513,9 +546,10 @@ export async function mount(root, ctx) {
     return names.length ? esc(names.join('、')) : '<span class="fb-cell-sub">待指派</span>';
   }
 
-  function attachGallery(urls) {
+  function attachGallery(urls, thumbs) {
     if (!urls?.length) return '';
-    return `<div class="fb-gallery">${urls.map((url) => `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer"><img src="${esc(url)}" alt="附件" loading="lazy"></a>`).join('')}</div>`;
+    const map = thumbs || {};
+    return `<div class="fb-gallery">${urls.map((url) => `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer"><img src="${esc(map[url] || url)}" alt="附件" loading="lazy"></a>`).join('')}</div>`;
   }
 
   function timelineHtml(item) {
@@ -777,7 +811,7 @@ export async function mount(root, ctx) {
           ${item.autoArchiveAtLabel ? `<div>自动归档：<strong>${esc(item.autoArchiveAtLabel)}</strong></div>` : ''}
         </div>
         <div class="fb-desc">${esc(item.description)}</div>
-        ${attachGallery(item.attachments)}
+        ${attachGallery(item.attachments, item.attachmentThumbs)}
         ${archiveHint}
       </div>
       <div class="fb-panel">
@@ -806,7 +840,11 @@ export async function mount(root, ctx) {
         type: item.type,
         severity: item.severity,
         categoryId: item.categoryId || '',
-        attachments: (item.attachments || []).map((url) => ({ url, name: '已上传图片' })),
+        attachments: (item.attachments || []).map((url) => ({
+          url,
+          name: '已上传图片',
+          thumb: (item.attachmentThumbs || {})[url] || '',
+        })),
       };
       runViewTransition(() => {
         mine.mode = 'edit';
@@ -945,7 +983,7 @@ export async function mount(root, ctx) {
       if (!host) return;
       host.innerHTML = draft.attachments.map((file, index) => `
         <div class="fb-attachment ${file.uploading ? 'is-uploading' : ''}">
-          <img src="${esc(file.url)}" alt="${esc(file.name)}">
+          <img src="${esc(file.thumb || file.url)}" alt="${esc(file.name)}">
           ${file.uploading ? '<span class="fb-attachment-loading">上传中…</span>' : ''}
           <button type="button" data-remove-attachment="${index}" aria-label="移除">×</button>
         </div>`).join('');
@@ -1001,6 +1039,7 @@ export async function mount(root, ctx) {
           entry.url = result.url;
           entry.name = result.name || prepared.name;
           entry.uploading = false;
+          entry.thumb = await makeThumbnail(prepared.blob);
           URL.revokeObjectURL(previewUrl);
           entry.previewUrl = null;
           paintAttachments();
@@ -1080,6 +1119,11 @@ export async function mount(root, ctx) {
         severity: draft.severity,
         categoryId: draft.categoryId || '',
         attachments: draft.attachments.map((file) => file.url).filter(Boolean),
+        attachmentThumbs: Object.fromEntries(
+          draft.attachments
+            .filter((file) => file.url && file.thumb)
+            .map((file) => [file.url, file.thumb]),
+        ),
       };
       event.currentTarget.disabled = true;
       try {
@@ -1622,7 +1666,7 @@ export async function mount(root, ctx) {
               ${item.autoArchiveAtLabel ? `<div>自动归档：<strong>${esc(item.autoArchiveAtLabel)}</strong></div>` : ''}
             </div>
             <div class="fb-desc">${esc(item.description)}</div>
-            ${attachGallery(item.attachments)}
+            ${attachGallery(item.attachments, item.attachmentThumbs)}
           </div>
           <div class="fb-panel">
             <div class="fb-panel-head"><div><h2>处理记录</h2><p>同一次操作的系统留痕与内容合并展示在同一时间线上。</p></div></div>

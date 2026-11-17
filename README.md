@@ -407,7 +407,7 @@ plugin-src/activity/build.sh      # Windows: plugin-src\activity\build.bat
 data/plugin-data/feedback/     feedbacks.json、categories.json、attachments/*（附件文件缓存）
 ```
 
-附件本体写入宿主插件数据库（`plugin_data`），文件目录仅作读取缓存；因此部署目录不可写或容器重建后，已上传图片仍可读取。
+附件本体写入宿主插件数据库（`plugin_data`），文件目录仅作读取缓存；因此部署目录不可写或容器重建后，已上传图片仍可读取。提交反馈时还会随记录保存一张缩略图，即使附件接口暂时不可用，详情页与编辑页也能正常显示预览。
 
 重新构建插件：
 

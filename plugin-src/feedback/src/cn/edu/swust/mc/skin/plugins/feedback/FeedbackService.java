@@ -37,6 +37,7 @@ final class FeedbackService {
     static final int ARCHIVE_GRACE_DAYS = 7;
     static final String SYSTEM_ACTOR = "system";
     static final long MAX_ATTACHMENT_BYTES = 6L * 1024 * 1024;
+    private static final int MAX_THUMB_CHARS = 200_000;
 
     private static final int MAX_COMMENT_LENGTH = 2000;
     private static final int MAX_COMMENT_COUNT = 200;
@@ -86,7 +87,9 @@ final class FeedbackService {
         doc.put("categoryName", str(category.get("name")));
         doc.put("status", PENDING);
         doc.put("assignees", new ArrayList<Map<String, Object>>());
-        doc.put("attachments", cleanList(body.get("attachments"), MAX_ATTACHMENT_COUNT));
+        List<String> attachments = cleanList(body.get("attachments"), MAX_ATTACHMENT_COUNT);
+        doc.put("attachments", attachments);
+        doc.put("attachmentThumbs", cleanThumbs(body.get("attachmentThumbs"), attachments));
         doc.put("comments", new ArrayList<Map<String, Object>>());
         doc.put("activities", new ArrayList<Map<String, Object>>());
         doc.put("createdAt", now);
@@ -132,6 +135,7 @@ final class FeedbackService {
         doc.put("categoryName", str(category.get("name")));
         List<String> nextAttachments = cleanList(body.get("attachments"), MAX_ATTACHMENT_COUNT);
         doc.put("attachments", nextAttachments);
+        doc.put("attachmentThumbs", cleanThumbs(body.get("attachmentThumbs"), nextAttachments));
         for (String url : previousAttachments) {
             if (!nextAttachments.contains(url)) store.deleteAttachment(url);
         }
@@ -503,7 +507,7 @@ final class FeedbackService {
         List<Map<String, Object>> records = new ArrayList<>();
         if (from < to) {
             for (Map<String, Object> doc : rows.subList(from, to)) {
-                records.add(view(doc, viewerId, admin, names));
+                records.add(view(doc, viewerId, admin, names, false));
             }
         }
         Map<String, Object> result = FeedbackStore.row();
@@ -535,11 +539,11 @@ final class FeedbackService {
     // ------------------------------------------------------------------ 视图
 
     private Map<String, Object> view(Map<String, Object> doc, String viewerId, boolean admin) {
-        return view(doc, viewerId, admin, categoryNames());
+        return view(doc, viewerId, admin, categoryNames(), true);
     }
 
     private Map<String, Object> view(Map<String, Object> doc, String viewerId, boolean admin,
-                                     Map<String, String> categoryNames) {
+                                     Map<String, String> categoryNames, boolean includeThumbs) {
         String status = status(doc);
         String type = typeValue(doc);
         String severity = severity(doc);
@@ -604,6 +608,7 @@ final class FeedbackService {
         view.put("assigneeIds", assigneeIds);
         view.put("assignees", assignees);
         view.put("attachments", stringList(doc.get("attachments")));
+        if (includeThumbs) view.put("attachmentThumbs", attachmentThumbs(doc));
         view.put("comments", comments);
         view.put("activities", activities);
         view.put("commentCount", comments.size());
@@ -1055,8 +1060,28 @@ final class FeedbackService {
         doc.put(key, new ArrayList<>(value));
     }
 
-    private static List<String> stringList(Object raw) {
-        List<String> result = new ArrayList<>();
+    /** 缩略图随反馈保存，附件文件/接口不可用时详情页仍能显示预览。 */
+    private static Map<String, String> cleanThumbs(Object raw, List<String> attachments) {
+        Map<String, String> result = new LinkedHashMap<>();
+        if (raw instanceof Map<?, ?> map) {
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                String url = str(entry.getKey());
+                String thumb = str(entry.getValue());
+                if (attachments.contains(url) && validThumb(thumb)) result.put(url, thumb);
+            }
+        }
+        return result;
+    }
+
+    private static Map<String, String> attachmentThumbs(Map<String, Object> doc) {
+        return cleanThumbs(doc.get("attachmentThumbs"), stringList(doc.get("attachments")));
+    }
+
+    private static boolean validThumb(String value) {
+        return value != null && value.startsWith("data:image/") && value.length() <= MAX_THUMB_CHARS;
+    }
+
+    private static List<String> stringList(Object raw) {        List<String> result = new ArrayList<>();
         if (raw instanceof List<?> items) {
             for (Object item : items) {
                 String value = item == null ? "" : String.valueOf(item).trim();
