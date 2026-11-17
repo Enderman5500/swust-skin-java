@@ -286,8 +286,11 @@ const STYLE = `
 .fb-meta strong { color: var(--navy); font-weight: 600; }
 .fb-desc { font-size: 12.5px; line-height: 1.9; color: var(--text); white-space: pre-wrap; margin-top: 14px; }
 .fb-gallery { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
-.fb-gallery a { width: 120px; height: 120px; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); background: var(--paper); }
+.fb-gallery-item { display: block; width: 120px; height: 120px; padding: 0; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); background: var(--paper); cursor: zoom-in; }
 .fb-gallery img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.fb-lightbox { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(9,21,34,.82); cursor: zoom-out; }
+.fb-lightbox img { max-width: min(1100px, 96vw); max-height: 90vh; border-radius: 8px; box-shadow: var(--shadow-lg); background: #fff; object-fit: contain; }
+.fb-lightbox-close { position: absolute; top: 18px; right: 18px; width: 34px; height: 34px; border-radius: 999px; border: 0; background: rgba(255,255,255,.18); color: #fff; font-size: 20px; line-height: 1; cursor: pointer; }
 .fb-timeline { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
 .fb-event { display: flex; align-items: flex-start; gap: 9px; padding: 3px 2px; font-size: 11.5px; color: var(--muted); }
 .fb-event-dot { width: 7px; height: 7px; margin-top: 5px; border-radius: 999px; background: var(--line-strong); flex: none; }
@@ -546,10 +549,72 @@ export async function mount(root, ctx) {
     return names.length ? esc(names.join('、')) : '<span class="fb-cell-sub">待指派</span>';
   }
 
+  function attachmentNameFromUrl(url) {
+    if (!url) return '';
+    const index = url.indexOf('file=');
+    if (index < 0) return '';
+    let name = url.slice(index + 5);
+    const amp = name.indexOf('&');
+    if (amp >= 0) name = name.slice(0, amp);
+    return name;
+  }
+
+  /** 放大查看：先用缩略图即时显示，再通过 JSON 拉取原图，避开宿主二进制响应。 */
+  function openAttachmentLightbox(url, thumb) {
+    const name = attachmentNameFromUrl(url);
+    const overlay = document.createElement('div');
+    overlay.className = 'fb-lightbox';
+    overlay.innerHTML = `<img alt="附件"><button type="button" class="fb-lightbox-close" aria-label="关闭">×</button>`;
+    document.body.append(overlay);
+    const img = overlay.querySelector('img');
+    if (thumb) img.src = thumb;
+    const close = () => {
+      overlay.remove();
+      document.removeEventListener('keydown', onKey);
+    };
+    const onKey = (event) => {
+      if (event.key === 'Escape') close();
+    };
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay || event.target.closest('.fb-lightbox-close')) close();
+    });
+    document.addEventListener('keydown', onKey);
+    if (!name) {
+      if (!thumb) img.src = url;
+      return;
+    }
+    api.get(`${BASE}/attachment-data`, { file: name })
+      .then((data) => {
+        if (data?.data) img.src = data.data;
+      })
+      .catch(() => {
+        if (!thumb) img.src = url;
+      });
+  }
+
+  /** 为图片墙补上点击放大；旧附件没有缩略图时异步补取。 */
+  function bindAttachmentGallery(scope) {
+    scope.querySelectorAll('[data-attachment-url]').forEach((button) => {
+      button.addEventListener('click', () =>
+        openAttachmentLightbox(button.dataset.attachmentUrl, button.dataset.attachmentThumb));
+      const img = button.querySelector('img');
+      if (!img || button.dataset.attachmentThumb) return;
+      const name = attachmentNameFromUrl(button.dataset.attachmentUrl);
+      if (!name) return;
+      api.get(`${BASE}/attachment-data`, { file: name })
+        .then((data) => {
+          if (!data?.data) return;
+          img.src = data.data;
+          button.dataset.attachmentThumb = data.data;
+        })
+        .catch(() => {});
+    });
+  }
+
   function attachGallery(urls, thumbs) {
     if (!urls?.length) return '';
     const map = thumbs || {};
-    return `<div class="fb-gallery">${urls.map((url) => `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer"><img src="${esc(map[url] || url)}" alt="附件" loading="lazy"></a>`).join('')}</div>`;
+    return `<div class="fb-gallery">${urls.map((url) => `<button type="button" class="fb-gallery-item" data-attachment-url="${esc(url)}" data-attachment-thumb="${esc(map[url] || '')}"><img src="${esc(map[url] || url)}" alt="附件" loading="lazy"></button>`).join('')}</div>`;
   }
 
   function timelineHtml(item) {
@@ -830,6 +895,7 @@ export async function mount(root, ctx) {
 
   function bindMineDetail() {
     const item = mine.detail;
+    bindAttachmentGallery(view);
     view.querySelector('[data-back]')?.addEventListener('click', backToMineList);
     view.querySelector('[data-archive]')?.addEventListener('click', () => archiveMine(item.id));
     view.querySelector('[data-edit]')?.addEventListener('click', () => {
@@ -992,6 +1058,26 @@ export async function mount(root, ctx) {
           const [removed] = draft.attachments.splice(Number(button.dataset.removeAttachment), 1);
           if (removed?.previewUrl) URL.revokeObjectURL(removed.previewUrl);
           paintAttachments();
+        });
+      });
+      host.querySelectorAll('.fb-attachment img').forEach((img, index) => {
+        const file = draft.attachments[index];
+        if (!file) return;
+        img.style.cursor = 'zoom-in';
+        if (!file.thumb && !file.uploading) {
+          const name = attachmentNameFromUrl(file.url);
+          if (name) {
+            api.get(`${BASE}/attachment-data`, { file: name })
+              .then((data) => {
+                if (!data?.data) return;
+                file.thumb = data.data;
+                img.src = data.data;
+              })
+              .catch(() => {});
+          }
+        }
+        img.addEventListener('click', () => {
+          if (!file.uploading) openAttachmentLightbox(file.url, file.thumb);
         });
       });
     };
@@ -1709,6 +1795,7 @@ export async function mount(root, ctx) {
   }
 
   function bindAdminDetail(item) {
+    bindAttachmentGallery(view);
     view.querySelector('[data-back]')?.addEventListener('click', backToAdminList);
     view.querySelector('[data-admin-archive]')?.addEventListener('click', () => archiveAdmin(item.id));
     view.querySelector('[data-admin-delete]')?.addEventListener('click', () => deleteAdmin(item.id));

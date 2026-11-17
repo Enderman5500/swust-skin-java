@@ -73,6 +73,9 @@ public final class FeedbackPlugin implements SkinPlugin {
         // 附件使用不可猜测的随机文件名，允许直接以图片方式访问，避免反向代理或跨端场景下因登录态丢失而无法预览。
         ctx.registerRoute("GET", "/attachment", request ->
                 service.attachment(request.query("file")));
+        // 以 JSON data URL 返回附件，兼容不支持 PluginResponse 二进制的宿主版本。
+        ctx.registerRoute("GET", "/attachment-data", request ->
+                service.attachmentData(request.query("file")));
 
         // ---------------- 管理端 ----------------
         ctx.registerAdminRoute("GET", "/admin/feedbacks", request -> service.adminPage(query(request)));

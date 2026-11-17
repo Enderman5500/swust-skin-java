@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -313,6 +314,17 @@ final class FeedbackService {
         byte[] data = store.attachment(file);
         if (data == null) throw Web.notFound("附件不存在");
         return PluginResponse.inline(contentType(file), data);
+    }
+
+    /** 供前端放大查看：以 JSON data URL 返回，避免依赖宿主的二进制响应能力。 */
+    synchronized Map<String, Object> attachmentData(String file) {
+        byte[] data = store.attachment(file);
+        if (data == null) throw Web.notFound("附件不存在");
+        String type = contentType(file);
+        Map<String, Object> result = FeedbackStore.row();
+        result.put("contentType", type);
+        result.put("data", "data:" + type + ";base64," + Base64.getEncoder().encodeToString(data));
+        return result;
     }
 
     // ------------------------------------------------------------------ 分类
