@@ -102,20 +102,19 @@ function uploadErrorText(error) {
   return `图片上传失败（${error.status || '网络错误'}）`;
 }
 
-/** 优先使用宿主 api.upload；旧宿主没有该能力时退回原生 fetch。 */
-async function uploadImage(apiClient, path, blob, type) {
-  const buffer = await blob.arrayBuffer();
-  if (typeof apiClient?.upload === 'function') {
-    return apiClient.upload(path, buffer, type);
-  }
+/** 优先使用宿主 api.upload；旧宿主没有该能力时退回原生 fetch。路径显式带 /api，和「上传材质」保持一致。 */
+async function uploadImage(apiClient, path, file, type) {
   const url = path.startsWith('/api/') ? path : `/api${path}`;
+  if (typeof apiClient?.upload === 'function') {
+    return apiClient.upload(url, file, type);
+  }
   const session = await fetch('/api/auth/me', { credentials: 'same-origin' })
     .then((response) => response.json())
     .catch(() => null);
   const headers = { 'Content-Type': type || 'application/octet-stream' };
   const csrf = session?.data?.csrfToken;
   if (csrf) headers['X-CSRF-Token'] = csrf;
-  const response = await fetch(url, { method: 'POST', credentials: 'same-origin', headers, body: buffer });
+  const response = await fetch(url, { method: 'POST', credentials: 'same-origin', headers, body: file });
   let payload = null;
   try {
     payload = await response.json();
@@ -240,6 +239,10 @@ const STYLE = `
 .fb-count { text-align: right; font-family: var(--font-mono); }
 .fb-form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
 .fb-attachments { display: flex; gap: 8px; flex-wrap: wrap; }
+.fb-dropzone { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px dashed var(--line-strong); border-radius: 10px; background: rgba(255,255,255,.6); transition: border-color .15s ease, background .15s ease; }
+.fb-dropzone.is-dragover { border-color: var(--navy); background: rgba(156,195,230,.14); }
+.fb-upload-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.fb-upload-row small { font-size: 10.5px; color: var(--muted); }
 .fb-attachment { position: relative; width: 92px; height: 92px; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); background: var(--paper); }
 .fb-attachment img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .fb-attachment button { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; border-radius: 999px; border: 0; background: rgba(9,21,34,.65); color: #fff; font-size: 12px; line-height: 1; cursor: pointer; }
@@ -898,9 +901,14 @@ export async function mount(root, ctx) {
           </label>
           <div class="fb-field is-wide">
             <span>截图或附件</span>
-            <div class="fb-attachments" data-attachments></div>
-            <label class="btn btn-ghost btn-sm fb-upload">${icon('image')} 选择图片<input type="file" accept="image/*" multiple hidden data-file></label>
-            <small>最多 ${MAX_ATTACHMENTS} 张，支持直接粘贴截图</small>
+            <div class="fb-dropzone" data-dropzone>
+              <div class="fb-attachments" data-attachments></div>
+              <div class="fb-upload-row">
+                <button type="button" class="btn btn-ghost btn-sm fb-upload" data-pick-image>${icon('image')} 选择图片</button>
+                <input type="file" accept="image/*" multiple hidden data-file>
+                <small>最多 ${MAX_ATTACHMENTS} 张，支持粘贴或拖入图片</small>
+              </div>
+            </div>
           </div>
         </div>
         <div class="fb-form-actions">
@@ -981,10 +989,13 @@ export async function mount(root, ctx) {
           continue;
         }
         try {
+          const uploadFile = new File([prepared.blob], prepared.name || 'image', {
+            type: prepared.type || 'application/octet-stream',
+          });
           const result = await uploadImage(
             api,
-            `${BASE}/attachment?name=${encodeURIComponent(prepared.name)}`,
-            prepared.blob,
+            `/api/plugins/feedback/attachment?name=${encodeURIComponent(prepared.name)}`,
+            uploadFile,
             prepared.type,
           );
           entry.url = result.url;
@@ -1000,10 +1011,30 @@ export async function mount(root, ctx) {
       }
     };
 
+    // 与「上传材质」一致：由按钮主动触发隐藏的文件选择框，兼容 WebView / 移动端。
+    view.querySelector('[data-pick-image]')?.addEventListener('click', () => {
+      view.querySelector('[data-file]')?.click();
+    });
     view.querySelector('[data-file]')?.addEventListener('change', (event) => {
       uploadFiles([...event.target.files]);
       event.target.value = '';
     });
+
+    const dropzone = view.querySelector('[data-dropzone]');
+    if (dropzone) {
+      dropzone.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        dropzone.classList.add('is-dragover');
+      });
+      dropzone.addEventListener('dragleave', (event) => {
+        if (!dropzone.contains(event.relatedTarget)) dropzone.classList.remove('is-dragover');
+      });
+      dropzone.addEventListener('drop', (event) => {
+        event.preventDefault();
+        dropzone.classList.remove('is-dragover');
+        uploadFiles([...(event.dataTransfer?.files || [])]);
+      });
+    }
 
     description?.addEventListener('paste', (event) => {
       const files = [...(event.clipboardData?.items || [])]
