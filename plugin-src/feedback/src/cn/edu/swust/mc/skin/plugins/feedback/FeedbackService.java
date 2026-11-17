@@ -5,6 +5,7 @@ import cn.edu.swust.mc.skin.Web;
 import cn.edu.swust.mc.skin.plugin.PluginResponse;
 
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -313,7 +314,9 @@ final class FeedbackService {
     synchronized PluginResponse attachment(String file) {
         byte[] data = store.attachment(file);
         if (data == null) throw Web.notFound("附件不存在");
-        return PluginResponse.inline(contentType(file), data);
+        Path path = store.attachmentPath(file);
+        if (path == null) throw Web.notFound("附件不存在");
+        return PluginResponse.file(path, contentType(file), "\"" + file + "\"");
     }
 
     /** 供前端放大查看：以 JSON data URL 返回，避免依赖宿主的二进制响应能力。 */

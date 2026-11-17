@@ -111,8 +111,15 @@ final class FeedbackStore {
         return null;
     }
 
-    synchronized void deleteAttachment(String url) {
-        String name = attachmentName(url);
+    /** 附件缓存文件路径；调用前先用 attachment(name) 确保数据库内容已落盘。 */
+    synchronized Path attachmentPath(String name) {
+        if (!validAttachmentName(name)) return null;
+        Path target = attachmentsDir.resolve(name).normalize();
+        if (!target.startsWith(attachmentsDir) || !Files.isRegularFile(target)) return null;
+        return target;
+    }
+
+    synchronized void deleteAttachment(String url) {        String name = attachmentName(url);
         if (name == null) return;
         try {
             context.deleteData(ATTACHMENT_KEY + name);
