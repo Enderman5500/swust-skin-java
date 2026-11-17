@@ -122,6 +122,7 @@ final class FeedbackService {
         }
         long now = System.currentTimeMillis();
         String previousCategoryId = str(doc.get("categoryId"));
+        List<String> previousAttachments = stringList(doc.get("attachments"));
         doc.put("title", normalizeTitle(text(body.get("title"))));
         doc.put("description", normalizeDescription(text(body.get("description"))));
         doc.put("type", typeOf(text(body.get("type")), true));
@@ -129,7 +130,11 @@ final class FeedbackService {
         Map<String, Object> category = categoryFor(text(body.get("categoryId")));
         doc.put("categoryId", str(category.get("id")));
         doc.put("categoryName", str(category.get("name")));
-        doc.put("attachments", cleanList(body.get("attachments"), MAX_ATTACHMENT_COUNT));
+        List<String> nextAttachments = cleanList(body.get("attachments"), MAX_ATTACHMENT_COUNT);
+        doc.put("attachments", nextAttachments);
+        for (String url : previousAttachments) {
+            if (!nextAttachments.contains(url)) store.deleteAttachment(url);
+        }
         record(doc, user.id, displayName(user), "update", "", now);
         if (!str(category.get("id")).equals(previousCategoryId)) {
             applyCategoryDefaultAssignee(doc, category, now);
@@ -168,6 +173,7 @@ final class FeedbackService {
         if (!isOpen(status(doc))) {
             throw Web.badRequest("反馈已完结，无法撤回；如仍需处理请追加说明");
         }
+        deleteAttachments(doc);
         List<Map<String, Object>> rows = store.feedbacks();
         rows.removeIf(item -> id.equals(str(item.get("id"))));
         store.writeFeedbacks(rows);
@@ -274,7 +280,13 @@ final class FeedbackService {
 
     synchronized void adminDelete(String id) {
         List<Map<String, Object>> rows = store.feedbacks();
-        rows.removeIf(item -> id.equals(str(item.get("id"))));
+        Map<String, Object> target = null;
+        for (Map<String, Object> row : rows) {
+            if (id.equals(str(row.get("id")))) target = row;
+        }
+        if (target == null) throw Web.notFound("反馈不存在或已被删除");
+        deleteAttachments(target);
+        rows.remove(target);
         store.writeFeedbacks(rows);
     }
 
@@ -284,13 +296,9 @@ final class FeedbackService {
         if (data == null || data.length == 0) throw Web.badRequest("请选择要上传的图片");
         if (data.length > MAX_ATTACHMENT_BYTES) throw new Web.HttpError(413, "payload_too_large", "附件不能超过 6MB");
         String extension = imageExtension(data);
-        if (extension == null) throw Web.badRequest("仅支持 PNG、JPG、GIF、WEBP 图片");
+        if (extension == null) throw Web.badRequest("仅支持 PNG、JPG、GIF、WEBP、AVIF 图片");
         String name = nextId() + extension;
-        try {
-            store.saveAttachment(name, data);
-        } catch (Exception e) {
-            throw new IllegalStateException("附件保存失败", e);
-        }
+        store.saveAttachment(name, data);
         Map<String, Object> result = FeedbackStore.row();
         result.put("name", safeName(originalName));
         result.put("url", "/api/plugins/feedback/attachment?file=" + name);
@@ -298,12 +306,7 @@ final class FeedbackService {
     }
 
     synchronized PluginResponse attachment(String file) {
-        byte[] data;
-        try {
-            data = store.attachment(file);
-        } catch (Exception e) {
-            throw new IllegalStateException("附件读取失败", e);
-        }
+        byte[] data = store.attachment(file);
         if (data == null) throw Web.notFound("附件不存在");
         return PluginResponse.inline(contentType(file), data);
     }
@@ -831,6 +834,12 @@ final class FeedbackService {
     }
 
     // ------------------------------------------------------------------ 内部
+
+    private void deleteAttachments(Map<String, Object> doc) {
+        for (String url : stringList(doc.get("attachments"))) {
+            store.deleteAttachment(url);
+        }
+    }
 
     private void persist(Map<String, Object> doc) {
         List<Map<String, Object>> rows = store.feedbacks();

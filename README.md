@@ -404,8 +404,10 @@ plugin-src/activity/build.sh      # Windows: plugin-src\activity\build.bat
 数据位置：
 
 ```text
-data/plugin-data/feedback/     feedbacks.json、categories.json、attachments/*
+data/plugin-data/feedback/     feedbacks.json、categories.json、attachments/*（附件文件缓存）
 ```
+
+附件本体写入宿主插件数据库（`plugin_data`），文件目录仅作读取缓存；因此部署目录不可写或容器重建后，已上传图片仍可读取。
 
 重新构建插件：
 

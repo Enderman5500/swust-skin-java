@@ -24,7 +24,7 @@ public final class FeedbackPlugin implements SkinPlugin {
 
     @Override
     public void activate(PluginContext ctx) throws Exception {
-        FeedbackStore store = new FeedbackStore(ctx.dataDir());
+        FeedbackStore store = new FeedbackStore(ctx);
         service = new FeedbackService(store);
         ctx.info("数据目录：" + ctx.dataDir());
 
@@ -57,8 +57,18 @@ public final class FeedbackPlugin implements SkinPlugin {
         });
         ctx.registerRoute("POST", "/attachment", request -> {
             requireUser(request);
-            return service.uploadAttachment(
-                    request.body((int) FeedbackService.MAX_ATTACHMENT_BYTES), request.query("name"));
+            try {
+                return service.uploadAttachment(
+                        request.body((int) FeedbackService.MAX_ATTACHMENT_BYTES), request.query("name"));
+            } catch (Web.HttpError e) {
+                throw e;
+            } catch (Throwable e) {
+                // 把底层链接/存储异常转成可读错误，避免只剩“服务器内部错误”。
+                String reason = e.getMessage();
+                if (reason == null || reason.isBlank()) reason = e.getClass().getSimpleName();
+                if (reason.length() > 160) reason = reason.substring(0, 160);
+                throw new Web.HttpError(500, "attachment_failed", "附件上传失败：" + reason);
+            }
         });
         // 附件使用不可猜测的随机文件名，允许直接以图片方式访问，避免反向代理或跨端场景下因登录态丢失而无法预览。
         ctx.registerRoute("GET", "/attachment", request ->
